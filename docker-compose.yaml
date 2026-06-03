@@ -1,0 +1,59 @@
+services:
+  postgres-budget-planner:
+    image: postgres/lateast
+    ports:
+      - "${EXTERNAL_POSTGRES_PORT}:5432"
+    environment:
+      POSTGRES_USER : ${POSTGRES_USER}
+      POSTGRES_PASSWORD : ${POSTGRES_PASSWORD}
+      POSTGRES_DB : ${POSTGRES_DB}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      timeout: 5s
+      interval: 5s
+      retries: 5
+    volumes:
+      - ${PATH_VOLUMES}/postgres-data:/var/lib/postgresql/data
+  redis-budghet-planner:
+    image: redis
+    ports:
+      - "${EXTERNAL_REDIS_PORT}:6379"
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+    - ${PATH_VOLUMES}/redis-data:/data
+  migration:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    entrypoint: "[.migrator]"
+    environment:
+      DSN : ${DSN}
+    restart: "no"
+    depends_on:
+      postgres-budget-planner:
+        condition: service_healthy
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+        - "${EXTERNAL_API_PORT}:8080"
+    environment:
+      EXTERNAL_API_PORT : ${EXTERNAL_API_PORT}
+      DSN : ${DSN}
+      REDIS_ADDRESS : ${REDIS_ADDRESS}
+      REDIS_PASSWORD : ${REDIS_PASSWORD}
+    depends_on:
+     migration:
+       condition: service_completed_successfully
+     redis-budghet-planner:
+       condition: service_healthy
+
+volumes:
+  postgres-data:
+  redis-data:
