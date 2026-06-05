@@ -15,3 +15,7 @@ func NewLogger() *Logger {
 			Level: slog.LevelDebug})),
 	}
 }
+func (l *Logger) LoggerHandler(method, msg, userUUID string, status int, errors []string, data map[string]any) {
+	if status >= 200 && status < 300 {
+	}
+}
