@@ -24,24 +24,24 @@ func (r *RepositoryBudget) CreateBudget(budget *model.Budget) error {
 	}
 	return nil
 }
-func (r *RepositoryBudget) UpdateBudget(budget *model.Budget, userUUID, budgetUUID string) (*model.Budget, error) {
+func (r *RepositoryBudget) UpdateBudget(budget *model.Budget, userUUID, budgetUUID string) error {
 	errUpdate := r.Postgres.Clauses(clause.Returning{}).
 		Where("user_uuid = ? AND budget_uuid = ?", userUUID, budgetUUID).
 		Updates(budget).Error
 	if errUpdate != nil {
-		return nil, errUpdate
+		return errUpdate
 	}
-	return budget, nil
+	return nil
 }
 func (r *RepositoryBudget) GetBudget(userUUID, budgetUUID string) (*model.Budget, error) {
-	var budget model.Budget
+	budget := &model.Budget{}
 	errGet := r.Postgres.
 		Where("user_uuid = ? AND  budget_uuid = ?", userUUID, budgetUUID).
-		Take(&budget).Error
+		Take(budget).Error
 	if errGet != nil {
 		return nil, errGet
 	}
-	return &budget, nil
+	return budget, nil
 }
 func (r *RepositoryBudget) RemoveBudget(userUUID, budgetUUID string) error {
 	errRemove := r.Postgres.
@@ -62,7 +62,7 @@ func (r *RepositoryBudget) DeleteBudget(userUUID, budgetUUID string) error {
 	}
 	return nil
 }
-func (r *RepositoryBudget) ISDateOverlap(start, finish time.Time) bool {
+func (r *RepositoryBudget) DateOverlap(start, finish time.Time) bool {
 	var isOverlap bool
 	errQuery := r.Raw(`SELECT FROM budget
 				WHERE (start, finish) OVERLAPS (?, ?)`, start, finish).Scan(&isOverlap).Error
@@ -82,4 +82,15 @@ func (r *RepositoryBudget) ListBudget(userUUID string, limit, offset int) ([]mod
 		return nil, ErrNotFoundBudget
 	}
 	return sliceBudget, nil
+}
+func (r *RepositoryBudget) BudgetExist(userUUID, budgetUUID string) bool {
+	var exist bool
+	errQuery := r.Postgres.
+		Raw(`SELECT EXISTS(
+	SELECT FROM budget
+	WHERE user_uuid = ? AND budget_uuid = ?)`, userUUID, budgetUUID).Scan(&exist).Error
+	if exist && errQuery == nil {
+		return true
+	}
+	return false
 }

@@ -6,6 +6,9 @@ import (
 )
 
 const (
+	TypeSoftDelete = "soft-delete"
+	TypeHardDelete = "hard-delete"
+
 	maxLimit      = 100
 	defaultLimit  = 50
 	defaultOffset = 0

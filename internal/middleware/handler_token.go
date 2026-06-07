@@ -33,6 +33,11 @@ func (m *ManagerMiddleware) HandlerAuthToken(next http.Handler) http.Handler {
 			m.HandlerResponse.ResponseSend(writer, &response.Response{Error: []string{custom_errors.ErrIncorrectToken.Error()}}, http.StatusUnauthorized)
 			return
 		}
+
+		if len(userUUID) != 36 {
+			m.HandlerResponse.ResponseSend(writer, &response.Response{Error: []string{custom_errors.ErrIncorrectFormatUserUUID.Error()}}, http.StatusUnauthorized)
+			return
+		}
 		next.ServeHTTP(writer, request)
 	})
 }

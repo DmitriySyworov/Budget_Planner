@@ -13,23 +13,21 @@ import (
 
 type HandlerBudget struct {
 	*ServiceBudget
-	*HandlerBudgetDep
-}
-type HandlerBudgetDep struct {
 	*loggers.Logger
 	*response.HandlerResponse
-	Mv *middleware.ManagerMiddleware
 }
 
-func NewHandlerBudget(router *http.ServeMux, service *ServiceBudget, dep *HandlerBudgetDep) {
+func NewHandlerBudget(router *http.ServeMux, service *ServiceBudget, logger *loggers.Logger, responseHandler *response.HandlerResponse, mv *middleware.ManagerMiddleware) {
 	budget := &HandlerBudget{
-		ServiceBudget: service,
+		ServiceBudget:   service,
+		Logger:          logger,
+		HandlerResponse: responseHandler,
 	}
-	router.Handle("POST /budget", dep.Mv.HandlerAuthToken(budget.CreateBudget()))
-	router.Handle("PATCH /budget/{uuid}", dep.Mv.HandlerAuthToken(budget.UpdateBudget()))
-	router.Handle("GET /budget/{uuid}", dep.Mv.HandlerAuthToken(budget.GetBudget()))
-	router.Handle("DELETE /budget/{uuid}", dep.Mv.HandlerAuthToken(budget.DeleteBudget()))
-	router.Handle("GET /budget/{period}", dep.Mv.HandlerAuthToken(budget.ListBudget()))
+	router.Handle("POST /budget", mv.HandlerAuthToken(budget.CreateBudget()))
+	router.Handle("PATCH /budget/{uuid}", mv.HandlerAuthToken(budget.UpdateBudget()))
+	router.Handle("GET /budget/{uuid}", mv.HandlerAuthToken(budget.GetBudget()))
+	router.Handle("DELETE /budget/{uuid}", mv.HandlerAuthToken(budget.DeleteBudget()))
+	router.Handle("GET /budget/{period}", mv.HandlerAuthToken(budget.ListBudget()))
 }
 func (h *HandlerBudget) CreateBudget() http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
@@ -45,7 +43,7 @@ func (h *HandlerBudget) CreateBudget() http.HandlerFunc {
 				for _, err := range errValidate {
 					if err.Field() == "Amount" {
 						values.DataLog.MapLog["amount"] = body.Amount
-						h.Response.Error = append(h.Response.Error, ErrIncorrectAmount.Error())
+						h.Response.Error = append(h.Response.Error, "amount"+custom_errors.ErrIncorrectDecimal.Error())
 					} else if err.Field() == "Start" {
 						values.DataLog.MapLog["start"] = body.Start
 						h.Response.Error = append(h.Response.Error, ErrIncorrectStart.Error())
@@ -96,7 +94,7 @@ func (h *HandlerBudget) UpdateBudget() http.HandlerFunc {
 				for _, err := range errValidate {
 					if err.Field() == "Amount" {
 						values.DataLog.MapLog["amount"] = body.Amount
-						h.Response.Error = append(h.Response.Error, ErrIncorrectAmount.Error())
+						h.Response.Error = append(h.Response.Error, "amount"+custom_errors.ErrIncorrectDecimal.Error())
 					} else if err.Field() == "Start" {
 						values.DataLog.MapLog["start"] = body.Start
 						h.Response.Error = append(h.Response.Error, ErrIncorrectStart.Error())
@@ -120,7 +118,7 @@ func (h *HandlerBudget) UpdateBudget() http.HandlerFunc {
 		h.Response.Error = append(h.Response.Error, errUpdate...)
 		if len(h.Response.Error) != 0 {
 			values.DataLog.Errors = append(values.DataLog.Errors, h.Response.Error...)
-			if len(h.Response.Error) == 1 && (h.Response.Error[0] == custom_errors.ErrNotFoundUser.Error() || h.Response.Error[0] == ErrNotFoundBudget.Error()) {
+			if len(h.Response.Error) == 1 && (h.Response.Error[0] == custom_errors.ErrNotFoundUser.Error() || h.Response.Error[0] == custom_errors.ErrNotFoundBudget.Error()) {
 				h.ResponseSend(writer, http.StatusNotFound)
 			} else if len(h.Response.Error) == 1 && h.Response.Error[0] == ErrFailedUpdateBudget.Error() {
 				h.ResponseSend(writer, http.StatusInternalServerError)
@@ -148,7 +146,7 @@ func (h *HandlerBudget) GetBudget() http.HandlerFunc {
 		h.Response.Error = append(h.Response.Error, errGetBudget...)
 		if len(h.Response.Error) != 0 {
 			values.DataLog.Errors = append(values.DataLog.Errors, h.Response.Error...)
-			if len(h.Response.Error) == 1 && (h.Response.Error[0] == custom_errors.ErrNotFoundUser.Error() || h.Response.Error[0] == ErrNotFoundBudget.Error()) {
+			if len(h.Response.Error) == 1 && (h.Response.Error[0] == custom_errors.ErrNotFoundUser.Error() || h.Response.Error[0] == custom_errors.ErrNotFoundBudget.Error()) {
 				h.ResponseSend(writer, http.StatusNotFound)
 			} else {
 				h.ResponseSend(writer, http.StatusBadRequest)
@@ -176,7 +174,7 @@ func (h *HandlerBudget) DeleteBudget() http.HandlerFunc {
 		h.Response.Error = append(h.Response.Error, errRemoveBudget...)
 		if len(h.Response.Error) != 0 {
 			values.DataLog.Errors = append(values.DataLog.Errors, h.Response.Error...)
-			if len(h.Response.Error) == 1 && (h.Response.Error[0] == custom_errors.ErrNotFoundUser.Error() || h.Response.Error[0] == ErrNotFoundBudget.Error()) {
+			if len(h.Response.Error) == 1 && (h.Response.Error[0] == custom_errors.ErrNotFoundUser.Error() || h.Response.Error[0] == custom_errors.ErrNotFoundBudget.Error()) {
 				h.ResponseSend(writer, http.StatusNotFound)
 			} else if len(h.Response.Error) == 1 && h.Response.Error[0] == ErrFailedDeleteBudget.Error() {
 				h.ResponseSend(writer, http.StatusInternalServerError)
@@ -204,7 +202,7 @@ func (h *HandlerBudget) ListBudget() http.HandlerFunc {
 		h.Response.Error = append(h.Response.Error, errList...)
 		if len(h.Response.Error) != 0 {
 			values.DataLog.Errors = append(values.DataLog.Errors, h.Response.Error...)
-			if len(h.Response.Error) == 1 && (h.Response.Error[0] == custom_errors.ErrNotFoundUser.Error() || h.Response.Error[0] == ErrNotFoundBudget.Error()) {
+			if len(h.Response.Error) == 1 && (h.Response.Error[0] == custom_errors.ErrNotFoundUser.Error() || h.Response.Error[0] == custom_errors.ErrNotFoundBudget.Error()) {
 				h.ResponseSend(writer, http.StatusNotFound)
 			} else {
 				h.ResponseSend(writer, http.StatusBadRequest)
