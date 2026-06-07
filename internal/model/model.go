@@ -12,18 +12,20 @@ type BaseModel struct {
 	DeletedAt gorm.DeletedAt `gorm:"index;type:date"`
 }
 type Expense struct {
-	Health      float64 `gorm:"type:numeric(15, 2)"`
-	Sport       float64 `gorm:"type:numeric(15, 2)"`
-	Supermarket float64 `gorm:"type:numeric(15, 2)"`
-	Restaurant  float64 `gorm:"type:numeric(15, 2)"`
-	Leisure     float64 `gorm:"type:numeric(15, 2)"`
-	Investments float64 `gorm:"type:numeric(15, 2)"`
-	BudgetUUID  string  `gorm:"type:char(36)"`
-	UserUUID    string  `gorm:"type:char(36)"`
+	Health      string `json:"health,omitempty" gorm:"type:numeric(15, 2)"`
+	Sport       string `json:"sport,omitempty" gorm:"type:numeric(15, 2)"`
+	Supermarket string `json:"supermarket,omitempty" gorm:"type:numeric(15, 2)"`
+	Restaurant  string `json:"restaurant,omitempty" gorm:"type:numeric(15, 2)"`
+	Leisure     string `json:"leisure,omitempty" gorm:"type:numeric(15, 2)"`
+	Investments string `json:"investments,omitempty" gorm:"type:numeric(15, 2)"`
+	Savings     string `json:"savings,omitempty" gorm:"type:numeric(15, 2)"`
+	Other       string `json:"other,omitempty"  gorm:"type:numeric(15, 2)"`
+	BudgetUUID  string `gorm:"type:char(36)"`
+	UserUUID    string `gorm:"type:char(36)"`
 }
 type Budget struct {
 	*BaseModel
-	Amount      float64   `gorm:"type:numeric(15, 2)"`
+	Amount      string    `gorm:"type:numeric(15, 2)"`
 	Start       time.Time `gorm:"type:date"`
 	Finish      time.Time `gorm:"type:date"`
 	Description string    `gorm:"type:text"`

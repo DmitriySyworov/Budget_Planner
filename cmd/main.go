@@ -3,10 +3,12 @@ package main
 import (
 	"app/budget-planner/config"
 	"app/budget-planner/internal/budget"
+	"app/budget-planner/internal/expense"
 	"app/budget-planner/internal/loggers"
 	"app/budget-planner/internal/middleware"
 	"app/budget-planner/internal/open_db"
 	"app/budget-planner/internal/response"
+	"app/budget-planner/internal/user"
 	"net/http"
 	"os"
 )
@@ -24,11 +26,17 @@ func main() {
 	//
 	router := http.NewServeMux()
 	//
+	repoUser := user.NewRepositoryUser(openDb.Postgres)
 	repoBudget := budget.NewRepositoryBudget(openDb.Postgres)
+	repoExpense := expense.NewRepositoryExpense(openDb.Postgres)
 	//
-	serviceBudget := budget.NewServiceBudget(repoBudget)
+	serviceUser := user.NewServiceUser(repoUser)
+	serviceBudget := budget.NewServiceBudget(repoBudget, repoUser)
+	serviceExpense := expense.NewServiceExpense(repoExpense)
 	//
-	budget.NewHandlerBudget(router, serviceBudget, &budget.HandlerBudgetDep{HandlerResponse: handlerResponse, Mv: mv, Logger: logger})
+	user.NewHandlerUser(router, serviceUser)
+	budget.NewHandlerBudget(router, serviceBudget, logger, handlerResponse, mv)
+	expense.NewHandlerExpense(router, serviceExpense, logger, handlerResponse)
 	server := http.Server{
 		Addr:    ":" + conf.ApiPort,
 		Handler: router,
