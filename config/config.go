@@ -25,27 +25,27 @@ func NewConfig(logger *loggers.Logger) *Config {
 	if errEnvFile != nil {
 		logger.Warn(".env file not found.  This is normal if running inside a container")
 	}
-	apiPort := os.Getenv("API_PORT")
+	apiPort := os.Getenv("EXTERNAL_API_PORT")
 	dsn := os.Getenv("DSN")
-	redisHost := os.Getenv("REDIS_ADDRESS")
+	redisAddress := os.Getenv("REDIS_ADDRESS")
 	redisPassword := os.Getenv("REDIS_PASSWORD")
 	counterEmptyVariables := 0
-	if apiPort == "" {
-		counterEmptyVariables++
-		logger.Error("environment variable 'API_PORT' not found")
-	}
-	if dsn == "" {
-		counterEmptyVariables++
-		logger.Error("environment variable 'DSN' not found")
-	}
-	if redisHost == "" {
-		counterEmptyVariables++
-		logger.Error("environment variable 'REDIS_HOST' not found")
-	}
-	if redisPassword == "" {
-		counterEmptyVariables++
-		logger.Error("environment variable 'REDIS_PASSWORD' not found")
-	}
+	//if apiPort == "" {
+	//	counterEmptyVariables++
+	//	logger.Error("environment variable 'EXTERNAL_API_PORT' not found")
+	//}
+	//if dsn == "" {
+	//	counterEmptyVariables++
+	//	logger.Error("environment variable 'DSN' not found")
+	//}
+	//if redisAddress == "" {
+	//	counterEmptyVariables++
+	//	logger.Error("environment variable 'REDIS_ADDRESS' not found")
+	//}
+	//if redisPassword == "" {
+	//	counterEmptyVariables++
+	//	logger.Error("environment variable 'REDIS_PASSWORD' not found")
+	//}
 	if counterEmptyVariables != 0 {
 		os.Exit(1)
 	}
@@ -55,7 +55,7 @@ func NewConfig(logger *loggers.Logger) *Config {
 		},
 		DB: &DB{
 			DSN:           dsn,
-			RedisAddress:  redisHost,
+			RedisAddress:  redisAddress,
 			RedisPassword: redisPassword,
 		},
 	}

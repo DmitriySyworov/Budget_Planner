@@ -1,6 +1,7 @@
 package budget
 
 import (
+	"app/budget-planner/internal/custom_errors"
 	"app/budget-planner/internal/model"
 	"app/budget-planner/internal/open_db"
 	"time"
@@ -79,7 +80,7 @@ func (r *RepositoryBudget) ListBudget(userUUID string, limit, offset int) ([]mod
 		Limit(limit).
 		Scan(&sliceBudget).Error
 	if erList != nil || len(sliceBudget) == 0 {
-		return nil, ErrNotFoundBudget
+		return nil, custom_errors.ErrNotFoundBudget
 	}
 	return sliceBudget, nil
 }
