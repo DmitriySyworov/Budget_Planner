@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"app/budget-planner/internal/custom_errors"
-	"app/budget-planner/internal/response"
 	"net/http"
 	"strings"
 )
@@ -27,17 +26,17 @@ func helperHandleHeader(header string) (string, error) {
 }
 func (m *ManagerMiddleware) HandlerAuthToken(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		header := request.Header.Get("Authorization")
-		token, errToken := helperHandleHeader(header)
-		if errToken != nil {
-			m.HandlerResponse.ResponseSend(writer, &response.Response{Error: []string{custom_errors.ErrIncorrectToken.Error()}}, http.StatusUnauthorized)
-			return
-		}
-
-		if len(userUUID) != 36 {
-			m.HandlerResponse.ResponseSend(writer, &response.Response{Error: []string{custom_errors.ErrIncorrectFormatUserUUID.Error()}}, http.StatusUnauthorized)
-			return
-		}
+		//	header := request.Header.Get("Authorization")
+		//token, errToken := helperHandleHeader(header)
+		//if errToken != nil {
+		//	m.HandlerResponse.ResponseSend(writer, &response.Response{Error: []string{custom_errors.ErrIncorrectToken.Error()}}, http.StatusUnauthorized)
+		//	return
+		//}
+		//
+		//if len(userUUID) != 36 {
+		//	m.HandlerResponse.ResponseSend(writer, &response.Response{Error: []string{custom_errors.ErrIncorrectFormatUserUUID.Error()}}, http.StatusUnauthorized)
+		//	return
+		//}
 		next.ServeHTTP(writer, request)
 	})
 }

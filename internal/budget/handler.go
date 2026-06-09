@@ -27,7 +27,7 @@ func NewHandlerBudget(router *http.ServeMux, service *ServiceBudget, logger *log
 	router.Handle("PATCH /budget/{uuid}", mv.HandlerAuthToken(budget.UpdateBudget()))
 	router.Handle("GET /budget/{uuid}", mv.HandlerAuthToken(budget.GetBudget()))
 	router.Handle("DELETE /budget/{uuid}", mv.HandlerAuthToken(budget.DeleteBudget()))
-	router.Handle("GET /budget/{period}", mv.HandlerAuthToken(budget.ListBudget()))
+	router.Handle("GET /budget", mv.HandlerAuthToken(budget.ListBudget()))
 }
 func (h *HandlerBudget) CreateBudget() http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {

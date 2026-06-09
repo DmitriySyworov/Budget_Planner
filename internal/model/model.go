@@ -35,9 +35,8 @@ type Budget struct {
 }
 type User struct {
 	*BaseModel
-	Name     string   `gorm:"type:varchar(64)"`
-	Email    string   `gorm:"type:varchar(256)"`
-	Password string   `gorm:"type:char(36)"`
-	UserUUID string   `gorm:"type:char(36)"`
-	Budgets  []Budget `gorm:"foreignKey:UserUUID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	Name     string `gorm:"column:name"`
+	Email    string `gorm:"column:email"`
+	Password string `gorm:"column:password"`
+	UserUUID string `gorm:"column:user_uuid,primaryKey"`
 }

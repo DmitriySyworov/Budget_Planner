@@ -32,11 +32,11 @@ func main() {
 	//
 	serviceUser := user.NewServiceUser(repoUser)
 	serviceBudget := budget.NewServiceBudget(repoBudget, repoUser)
-	serviceExpense := expense.NewServiceExpense(repoExpense)
+	serviceExpense := expense.NewServiceExpense(repoExpense, repoUser, repoBudget)
 	//
 	user.NewHandlerUser(router, serviceUser)
 	budget.NewHandlerBudget(router, serviceBudget, logger, handlerResponse, mv)
-	expense.NewHandlerExpense(router, serviceExpense, logger, handlerResponse)
+	expense.NewHandlerExpense(router, serviceExpense, logger, handlerResponse, mv)
 	server := http.Server{
 		Addr:    ":" + conf.ApiPort,
 		Handler: router,

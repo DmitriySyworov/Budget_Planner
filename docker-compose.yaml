@@ -1,6 +1,7 @@
 services:
-  postgres-budget-planner:
-    image: postgres/lateast
+  postgres:
+    container_name: postgres-budget-planner
+    image: postgres:latest
     ports:
       - "${EXTERNAL_POSTGRES_PORT}:5432"
     environment:
@@ -13,9 +14,10 @@ services:
       interval: 5s
       retries: 5
     volumes:
-      - ${PATH_VOLUMES}/postgres-data:/var/lib/postgresql/data
-  redis-budghet-planner:
-    image: redis
+      - ${PATH_VOLUMES}/postgres-data:/var/lib/postgresql
+  redis:
+    container_name: redis-budghet-planner
+    image: redis:latest
     ports:
       - "${EXTERNAL_REDIS_PORT}:6379"
     command: redis-server --requirepass ${REDIS_PASSWORD}
@@ -25,19 +27,21 @@ services:
       timeout: 5s
       retries: 5
     volumes:
-    - ${PATH_VOLUMES}/redis-data:/data
+    - ${PATH_VOLUMES}/redis-data:/var/lib/postgresql/18/data
   migration:
+    container_name: migration-budget-planner
     build:
       context: .
       dockerfile: Dockerfile
-    entrypoint: "[.migrator]"
+    entrypoint: ["./migrator"]
     environment:
       DSN : ${DSN}
     restart: "no"
     depends_on:
-      postgres-budget-planner:
+      postgres:
         condition: service_healthy
   app:
+    container_name: app-budget-planner
     build:
       context: .
       dockerfile: Dockerfile
@@ -51,7 +55,7 @@ services:
     depends_on:
      migration:
        condition: service_completed_successfully
-     redis-budghet-planner:
+     redis:
        condition: service_healthy
 
 volumes:
