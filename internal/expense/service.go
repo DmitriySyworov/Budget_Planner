@@ -56,7 +56,7 @@ func (s *ServiceExpense) UpdateExpense(body *CreateAndUpdateExpense, userUUID, b
 	}
 	expenseUUID, errGetExpense := s.Repo.GetExpenseUUID(budgetUUID)
 	if errGetExpense != nil {
-		return nil, []string{ErrNotFoundExpense.Error()}
+		return nil, []string{custom_errors.ErrNotFoundExpense.Error()}
 	}
 	descriptionExpense, errGetDescriptionExpense := s.Repo.GetDescriptionExpense(expenseUUID, descriptionExpenseUUID)
 	var oldExpense string
@@ -90,7 +90,7 @@ func (s *ServiceExpense) GetExpense(userUUID, budgetUUID, descriptionExpenseUUID
 	}
 	expenseUUID, errGetExpense := s.Repo.GetExpenseUUID(budgetUUID)
 	if errGetExpense != nil {
-		return nil, []string{ErrNotFoundExpense.Error()}
+		return nil, []string{custom_errors.ErrNotFoundExpense.Error()}
 	}
 	descriptionExpense, errGetDescExpense := s.Repo.GetDescriptionExpense(expenseUUID, descriptionExpenseUUID)
 	if errGetDescExpense != nil {
@@ -106,7 +106,7 @@ func (s *ServiceExpense) DeleteExpense(userUUID, budgetUUID, descriptionExpenseU
 	}
 	expenseUUID, errGetExpense := s.Repo.GetExpenseUUID(budgetUUID)
 	if errGetExpense != nil {
-		sliceError = append(sliceError, ErrNotFoundExpense.Error())
+		sliceError = append(sliceError, custom_errors.ErrNotFoundExpense.Error())
 	}
 	descriptionExpense, errDescExpense := s.Repo.GetDescriptionExpense(expenseUUID, descriptionExpenseUUID)
 	if errDescExpense != nil {
@@ -138,7 +138,7 @@ func (s *ServiceExpense) ListExpense(userUUID, budgetUUID, limitStr, offsetStr s
 
 	expenseUUID, errGetExpense := s.Repo.GetExpenseUUID(budgetUUID)
 	if errGetExpense != nil {
-		sliceError = append(sliceError, ErrNotFoundExpense.Error())
+		sliceError = append(sliceError, custom_errors.ErrNotFoundExpense.Error())
 	}
 	if len(sliceError) != 0 {
 		return nil, sliceError
@@ -153,8 +153,8 @@ func (s *ServiceExpense) helperValidateExpense(userUUID, budgetUUID string) erro
 	if !s.IUser.IsUserExistsByUUID(userUUID) {
 		return custom_errors.ErrNotFoundUser
 	}
-	if len(budgetUUID) != 36 {
-		return ErrIncorrectFormatBudgetUUID
+	if _, errBudgetUUID := uuid.Parse(budgetUUID); errBudgetUUID != nil {
+		return custom_errors.ErrIncorrectFormatBudgetUUID
 	}
 	if !s.IBudget.BudgetExist(userUUID, budgetUUID) {
 		return custom_errors.ErrNotFoundBudget

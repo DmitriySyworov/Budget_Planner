@@ -176,3 +176,13 @@ func (r *RepositoryExpense) ListExpense(expenseUUID string, limit, offset int) (
 	}
 	return nil, errList
 }
+func (r *RepositoryExpense) ExpenseExist(budgetUUID, expenseUUID string) bool {
+	var exist bool
+	if errExist := r.Postgres.Raw(`SELECT EXISTS(
+SELECT FROM expense
+WHERE budget_uuid = ? AND expense_uuid = ?)`, budgetUUID, expenseUUID).Scan(&exist).
+		Error; errExist != nil || !exist {
+		return false
+	}
+	return true
+}
