@@ -7,31 +7,37 @@ import (
 )
 
 type BaseModel struct {
-	CreatedAt time.Time      `gorm:"type:date"`
-	UpdatedAt time.Time      `gorm:"type:date"`
-	DeletedAt gorm.DeletedAt `gorm:"index;type:date"`
+	CreatedAt time.Time      `gorm:"column:created_at"`
+	UpdatedAt time.Time      `gorm:"column:updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"column:deleted_at"`
+}
+type DescriptionExpense struct {
+	Category               string `gorm:"column:category"`
+	Expense                string `gorm:"column:expense"`
+	Description            string `gorm:"column:description"`
+	DescriptionExpenseUUID string `gorm:"column:description_expense_uuid,primaryKey"`
+	ExpenseUUID            string `gorm:"column:expense_uuid"`
 }
 type Expense struct {
-	Health      string `json:"health,omitempty" gorm:"type:numeric(15, 2)"`
-	Sport       string `json:"sport,omitempty" gorm:"type:numeric(15, 2)"`
-	Supermarket string `json:"supermarket,omitempty" gorm:"type:numeric(15, 2)"`
-	Restaurant  string `json:"restaurant,omitempty" gorm:"type:numeric(15, 2)"`
-	Leisure     string `json:"leisure,omitempty" gorm:"type:numeric(15, 2)"`
-	Investments string `json:"investments,omitempty" gorm:"type:numeric(15, 2)"`
-	Savings     string `json:"savings,omitempty" gorm:"type:numeric(15, 2)"`
-	Other       string `json:"other,omitempty"  gorm:"type:numeric(15, 2)"`
-	BudgetUUID  string `gorm:"type:char(36)"`
-	UserUUID    string `gorm:"type:char(36)"`
+	Health      string `json:"health,omitempty" gorm:"column:health"`
+	Sport       string `json:"sport,omitempty"  gorm:"column:sport"`
+	Supermarket string `json:"supermarket,omitempty"  gorm:"column:supermarket"`
+	Restaurant  string `json:"restaurant,omitempty"  gorm:"column:restaurant"`
+	Leisure     string `json:"leisure,omitempty"  gorm:"column:leisure"`
+	Investments string `json:"investments,omitempty"  gorm:"column:investments"`
+	Savings     string `json:"savings,omitempty"  gorm:"column:savings"`
+	Other       string `json:"other,omitempty"   gorm:"column:other"`
+	BudgetUUID  string `gorm:"column:budget_uuid"`
+	ExpenseUUID string `gorm:"column:expense_uuid,primaryKey"`
 }
 type Budget struct {
 	*BaseModel
-	Amount      string    `gorm:"type:numeric(15, 2)"`
-	Start       time.Time `gorm:"type:date"`
-	Finish      time.Time `gorm:"type:date"`
-	Description string    `gorm:"type:text"`
-	BudgetUUID  string    `gorm:"type:char(36)"`
-	UserUUID    string    `gorm:"type:char(36),primaryKey"`
-	Expenses    []Expense `gorm:"foreignKey:UserUUID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	Amount      string    `gorm:"column:amount"`
+	Start       time.Time `gorm:"column:start"`
+	Finish      time.Time `gorm:"column:finish"`
+	Description string    `gorm:"column:description"`
+	BudgetUUID  string    `gorm:"column:budget_uuid"`
+	UserUUID    string    `gorm:"column:user_uuid,primaryKey"`
 }
 type User struct {
 	*BaseModel
