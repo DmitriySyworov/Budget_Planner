@@ -14,7 +14,7 @@ services:
       interval: 5s
       retries: 5
     volumes:
-      - ${PATH_VOLUMES}/postgres-data:/var/lib/postgresql
+      - ${PATH_VOLUMES}/postgres-data:/var/lib/postgresql/18/data
   redis:
     container_name: redis-budghet-planner
     image: redis:latest
@@ -27,7 +27,7 @@ services:
       timeout: 5s
       retries: 5
     volumes:
-    - ${PATH_VOLUMES}/redis-data:/var/lib/postgresql/18/data
+    - ${PATH_VOLUMES}/redis-data:/data
   migration:
     container_name: migration-budget-planner
     build:
