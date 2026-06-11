@@ -55,9 +55,11 @@ func (s *ServiceBudget) CreateBudget(body *CreateAndUpdateBudget, userUUID strin
 	return budget, nil
 }
 func (s *ServiceBudget) UpdateBudget(body *CreateAndUpdateBudget, userUUID, budgetUUID string) (*model.Budget, []string) {
-	sliceError := make([]string, 0, 5)
+	sliceError := make([]string, 0, 3)
 	budget, errValidate := s.helperValidateBudget(userUUID, budgetUUID)
-	sliceError = append(sliceError, errValidate...)
+	if errValidate != nil {
+		sliceError = append(sliceError, errValidate.Error())
+	}
 	var start, finish time.Time
 	var errStart, errFinish error
 	if body.Start != "" {
@@ -76,16 +78,16 @@ func (s *ServiceBudget) UpdateBudget(body *CreateAndUpdateBudget, userUUID, budg
 		if s.Repo.DateOverlap(start, finish) {
 			sliceError = append(sliceError, ErrOverlapStartFinish.Error())
 		}
-	} else if body.Start != "" && body.Finish == "" && errStart == nil {
+	} else if body.Start != "" && body.Finish == "" && errStart == nil && errValidate == nil {
 		if s.Repo.DateOverlap(start, budget.Finish) {
 			sliceError = append(sliceError, ErrOverlapStartFinish.Error())
 		}
-	} else if body.Start == "" && body.Finish != "" && errFinish == nil {
+	} else if body.Start == "" && body.Finish != "" && errFinish == nil && errValidate == nil {
 		if s.Repo.DateOverlap(budget.Start, finish) {
 			sliceError = append(sliceError, ErrOverlapStartFinish.Error())
 		}
 	}
-	if len(sliceError) != 0 {
+	if len(sliceError) != 0 || errValidate != nil {
 		return nil, sliceError
 	}
 	budget.Amount = body.Amount
@@ -100,16 +102,16 @@ func (s *ServiceBudget) UpdateBudget(body *CreateAndUpdateBudget, userUUID, budg
 }
 func (s *ServiceBudget) GetBudget(userUUID, budgetUUID string) (*model.Budget, []string) {
 	budget, errValidate := s.helperValidateBudget(userUUID, budgetUUID)
-	if len(errValidate) != 0 {
-		return nil, errValidate
+	if errValidate != nil {
+		return nil, []string{errValidate.Error()}
 	}
 	return budget, nil
 }
 
 func (s *ServiceBudget) RemoveBudget(userUUID, budgetUUID, typeRemove string) []string {
-	sliceError := make([]string, 0, 4)
+	sliceError := make([]string, 0, 2)
 	_, errValidate := s.helperValidateBudget(userUUID, budgetUUID)
-	sliceError = append(sliceError, errValidate...)
+	sliceError = append(sliceError, errValidate.Error())
 	if typeRemove != common.TypeSoftDelete && typeRemove != common.TypeHardDelete && typeRemove != "" {
 		sliceError = append(sliceError, custom_errors.ErrIncorrectTypeRemove.Error())
 	}
@@ -129,16 +131,18 @@ func (s *ServiceBudget) RemoveBudget(userUUID, budgetUUID, typeRemove string) []
 	}
 	return []string{custom_errors.ErrIncorrectTypeRemove.Error()}
 }
-func (s *ServiceBudget) helperValidateBudget(userUUID, budgetUUID string) (*model.Budget, []string) {
-	sliceError := make([]string, 0, 3)
+func (s *ServiceBudget) helperValidateBudget(userUUID, budgetUUID string) (*model.Budget, error) {
 	if !s.IRepoUser.IsUserExistsByUUID(userUUID) {
-		sliceError = append(sliceError, custom_errors.ErrNotFoundUser.Error())
+		return nil, custom_errors.ErrNotFoundUser
+	}
+	if _, errBudgetUUID := uuid.Parse(budgetUUID); errBudgetUUID != nil {
+		return nil, custom_errors.ErrIncorrectFormatBudgetUUID
 	}
 	budget, errGetBudget := s.Repo.GetBudget(userUUID, budgetUUID)
 	if errGetBudget != nil {
-		sliceError = append(sliceError, custom_errors.ErrNotFoundBudget.Error())
+		return nil, custom_errors.ErrNotFoundBudget
 	}
-	return budget, sliceError
+	return budget, nil
 }
 
 func (s *ServiceBudget) ListBudget(userUUID, limitStr, offsetStr string) ([]model.Budget, []string) {

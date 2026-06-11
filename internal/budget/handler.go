@@ -35,6 +35,9 @@ func (h *HandlerBudget) CreateBudget() http.HandlerFunc {
 		values, ok := ctxValues.(*middleware.ContextValues)
 		if !ok {
 			h.Logger.Error(custom_errors.ErrFailedAssertionContextValues.Error() + request.Pattern)
+			h.Response.Error = append(h.Response.Error, custom_errors.ErrCriticalServer.Error())
+			h.ResponseSend(writer, http.StatusInternalServerError)
+			return
 		}
 		values.DataLog.UserUUID = values.DataAuth.UserUUID
 		body, errBody := handler_request.HandlerRequest[CreateAndUpdateBudget](request.Body)
@@ -86,6 +89,9 @@ func (h *HandlerBudget) UpdateBudget() http.HandlerFunc {
 		values, ok := ctxValues.(*middleware.ContextValues)
 		if !ok {
 			h.Logger.Error(custom_errors.ErrFailedAssertionContextValues.Error() + request.Pattern)
+			h.Response.Error = append(h.Response.Error, custom_errors.ErrCriticalServer.Error())
+			h.ResponseSend(writer, http.StatusInternalServerError)
+			return
 		}
 		values.DataLog.UserUUID = values.DataAuth.UserUUID
 		body, errBody := handler_request.HandlerRequest[CreateAndUpdateBudget](request.Body)
@@ -138,6 +144,9 @@ func (h *HandlerBudget) GetBudget() http.HandlerFunc {
 		values, ok := ctxValues.(*middleware.ContextValues)
 		if !ok {
 			h.Logger.Error(custom_errors.ErrFailedAssertionContextValues.Error() + request.Pattern)
+			h.Response.Error = append(h.Response.Error, custom_errors.ErrCriticalServer.Error())
+			h.ResponseSend(writer, http.StatusInternalServerError)
+			return
 		}
 		values.DataLog.UserUUID = values.DataAuth.UserUUID
 		budgetUUID := request.PathValue("uuid")
@@ -164,6 +173,9 @@ func (h *HandlerBudget) DeleteBudget() http.HandlerFunc {
 		values, ok := ctxValues.(*middleware.ContextValues)
 		if !ok {
 			h.Logger.Error(custom_errors.ErrFailedAssertionContextValues.Error() + request.Pattern)
+			h.Response.Error = append(h.Response.Error, custom_errors.ErrCriticalServer.Error())
+			h.ResponseSend(writer, http.StatusInternalServerError)
+			return
 		}
 		values.DataLog.UserUUID = values.DataAuth.UserUUID
 		budgetUUID := request.PathValue("uuid")
@@ -192,6 +204,9 @@ func (h *HandlerBudget) ListBudget() http.HandlerFunc {
 		values, ok := ctxValues.(*middleware.ContextValues)
 		if !ok {
 			h.Logger.Error(custom_errors.ErrFailedAssertionContextValues.Error() + request.Pattern)
+			h.Response.Error = append(h.Response.Error, custom_errors.ErrCriticalServer.Error())
+			h.ResponseSend(writer, http.StatusInternalServerError)
+			return
 		}
 		values.DataLog.UserUUID = values.DataAuth.UserUUID
 		limit := request.URL.Query().Get("limit")
