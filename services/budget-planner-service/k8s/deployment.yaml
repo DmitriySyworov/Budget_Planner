@@ -1,0 +1,37 @@
+apiVersion : apps/v1
+kind: Deployment
+metadata:
+  name: app-budget-planner
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: app-budget-planner
+  template:
+    metadata:
+      labels:
+        app:  app-budget-planner
+    spec:
+      containers:
+        - name: app-budget-planner
+          image: app-budget-planner:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            timeoutSeconds: 1
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+
