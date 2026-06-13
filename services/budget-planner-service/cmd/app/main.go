@@ -5,22 +5,21 @@ import (
 	"app/budget-planner/internal/budget"
 	"app/budget-planner/internal/expense"
 	"app/budget-planner/internal/middleware"
-	"app/budget-planner/internal/open_db"
-	"app/budget-planner/internal/response"
-	"app/budget-planner/internal/user"
 	"context"
 	"net/http"
 	"os"
 	"shared/loggers"
+	"shared/open_db"
+	"shared/response"
 	"time"
 )
 
 func main() {
 	logger := loggers.NewLogger()
 	//
-	conf := config.NewConfig(logger)
+	conf := budgetconfig.NewConfig(logger)
 	//
-	openDb := open_db.NewOpenDB(logger, conf.DB)
+	postgres := open_db.OpenPostgres(conf.DSN, logger)
 	//
 	handlerResponse := response.NewHandlerResponse(logger)
 	//
@@ -28,34 +27,29 @@ func main() {
 	//
 	router := http.NewServeMux()
 	//
-	repoBudget := budget.NewRepositoryBudget(openDb.Postgres)
-	repoExpense := expense.NewRepositoryExpense(openDb.Postgres)
+	repoBudget := budget.NewRepositoryBudget(postgres)
+	repoExpense := expense.NewRepositoryExpense(postgres)
 	//
-	serviceBudget := budget.NewServiceBudget(repoBudget, repoUser)
-	serviceExpense := expense.NewServiceExpense(repoExpense, repoUser, repoBudget)
+	serviceBudget := budget.NewServiceBudget(repoBudget)
+	serviceExpense := expense.NewServiceExpense(repoExpense, repoBudget)
 	//
 	router.HandleFunc("GET /health", func(writer http.ResponseWriter, request *http.Request) {
 		writer.WriteHeader(http.StatusOK)
 		if _, errWrite := writer.Write([]byte("OK")); errWrite != nil {
-			logger.Error("failed to write health check: " + errWrite.Error())
+			logger.Error("failed to write health check: ", errWrite)
 		}
 	})
 	router.HandleFunc("GET /ready", func(writer http.ResponseWriter, request *http.Request) {
 		ctxTimeout, cancel := context.WithTimeout(context.Background(), time.Second*3)
 		defer cancel()
-		sqlDb, errDb := openDb.Postgres.DB.DB()
+		sqlDb, errDb := postgres.DB.DB()
 		if errDb != nil {
-			logger.Error("ready check failed (Postgres init): " + errDb.Error())
+			logger.Error("ready check failed (Postgres init): ", errDb)
 			writer.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		if errPing := sqlDb.PingContext(ctxTimeout); errPing != nil {
-			logger.Error("ready check failed (Postgres ping): " + errPing.Error())
-			writer.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		if status := openDb.Redis.Ping(ctxTimeout); status.Err() != nil {
-			logger.Error("ready check failed (Redis ping): " + status.Err().Error())
+			logger.Error("ready check failed (Postgres ping): ", errPing)
 			writer.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -64,7 +58,6 @@ func main() {
 			logger.Error("failed to write ready check: " + errWrite.Error())
 		}
 	})
-	user.NewHandlerUser(router, serviceUser)
 	budget.NewHandlerBudget(router, serviceBudget, logger, handlerResponse, mv)
 	expense.NewHandlerExpense(router, serviceExpense, logger, handlerResponse, mv)
 	server := http.Server{
@@ -73,7 +66,7 @@ func main() {
 	}
 	errApi := server.ListenAndServe()
 	if errApi != nil {
-		logger.Error("critical error on the server")
+		logger.Error("critical error on the server: " + errApi.Error())
 		os.Exit(1)
 	}
 }

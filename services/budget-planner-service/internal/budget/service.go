@@ -3,7 +3,6 @@ package budget
 import (
 	"app/budget-planner/internal/common"
 	"app/budget-planner/internal/custom_errors"
-	"app/budget-planner/internal/di"
 	"app/budget-planner/internal/model"
 	"time"
 
@@ -12,20 +11,15 @@ import (
 
 type ServiceBudget struct {
 	Repo *RepositoryBudget
-	di.IRepoUser
 }
 
-func NewServiceBudget(repo *RepositoryBudget, repoUser di.IRepoUser) *ServiceBudget {
+func NewServiceBudget(repo *RepositoryBudget) *ServiceBudget {
 	return &ServiceBudget{
-		Repo:      repo,
-		IRepoUser: repoUser,
+		Repo: repo,
 	}
 }
 func (s *ServiceBudget) CreateBudget(body *CreateAndUpdateBudget, userUUID string) (*model.Budget, []string) {
-	sliceError := make([]string, 0, 4)
-	if !s.IRepoUser.IsUserExistsByUUID(userUUID) {
-		sliceError = append(sliceError, custom_errors.ErrNotFoundUser.Error())
-	}
+	sliceError := make([]string, 0, 3)
 	start, errStart := time.Parse(time.DateOnly, body.Start)
 	if errStart != nil {
 		sliceError = append(sliceError, ErrIncorrectStart.Error())
@@ -132,9 +126,6 @@ func (s *ServiceBudget) RemoveBudget(userUUID, budgetUUID, typeRemove string) []
 	return []string{custom_errors.ErrIncorrectTypeRemove.Error()}
 }
 func (s *ServiceBudget) helperValidateBudget(userUUID, budgetUUID string) (*model.Budget, error) {
-	if !s.IRepoUser.IsUserExistsByUUID(userUUID) {
-		return nil, custom_errors.ErrNotFoundUser
-	}
 	if _, errBudgetUUID := uuid.Parse(budgetUUID); errBudgetUUID != nil {
 		return nil, custom_errors.ErrIncorrectFormatBudgetUUID
 	}
@@ -147,9 +138,6 @@ func (s *ServiceBudget) helperValidateBudget(userUUID, budgetUUID string) (*mode
 
 func (s *ServiceBudget) ListBudget(userUUID, limitStr, offsetStr string) ([]model.Budget, []string) {
 	sliceError := make([]string, 0, 3)
-	if !s.IRepoUser.IsUserExistsByUUID(userUUID) {
-		sliceError = append(sliceError, custom_errors.ErrNotFoundUser.Error())
-	}
 	limit, offset, errPagination := common.PaginationHelper(limitStr, offsetStr)
 	sliceError = append(sliceError, errPagination...)
 	if len(sliceError) != 0 {
