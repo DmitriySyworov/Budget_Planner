@@ -1,4 +1,4 @@
-package config
+package authconfig
 
 import (
 	"os"
@@ -14,14 +14,14 @@ type Config struct {
 }
 
 type API struct {
-	ApiPort   string
-	Signature string
+	ApiPort string
 }
 type VerifyEmail struct {
 	ApiEmail        string
 	ApiPassword     string
 	SmtpAddress     string
 	SmtpAddressHost string
+	Signature       string
 }
 type Db struct {
 	DSN           string
@@ -89,14 +89,14 @@ func NewConfig(logger *loggers.Logger) *Config {
 			RedisAddress:  redisAddress,
 		},
 		API: &API{
-			ApiPort:   apiPort,
-			Signature: signature,
+			ApiPort: apiPort,
 		},
 		VerifyEmail: &VerifyEmail{
 			ApiEmail:        apiEmail,
 			ApiPassword:     apiPassword,
 			SmtpAddress:     smtpAddress,
 			SmtpAddressHost: smtpAddressHost,
+			Signature:       signature,
 		},
 	}
 }

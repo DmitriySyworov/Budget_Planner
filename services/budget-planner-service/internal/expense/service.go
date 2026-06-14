@@ -11,14 +11,12 @@ import (
 
 type ServiceExpense struct {
 	Repo    *RepositoryExpense
-	IUser   di.IRepoUser
 	IBudget di.IRepoBudget
 }
 
-func NewServiceExpense(repo *RepositoryExpense, repoUser di.IRepoUser, repoBudget di.IRepoBudget) *ServiceExpense {
+func NewServiceExpense(repo *RepositoryExpense, repoBudget di.IRepoBudget) *ServiceExpense {
 	return &ServiceExpense{
 		Repo:    repo,
-		IUser:   repoUser,
 		IBudget: repoBudget,
 	}
 }
@@ -126,10 +124,7 @@ func (s *ServiceExpense) DeleteExpense(userUUID, budgetUUID, descriptionExpenseU
 	}
 	return nil
 }
-func (s *ServiceExpense) ListExpense(userUUID, budgetUUID, limitStr, offsetStr string) ([]model.DescriptionExpense, []string) {
-	if !s.IUser.IsUserExistsByUUID(userUUID) {
-		return nil, []string{custom_errors.ErrNotFoundUser.Error()}
-	}
+func (s *ServiceExpense) ListExpense(budgetUUID, limitStr, offsetStr string) ([]model.DescriptionExpense, []string) {
 	sliceError := make([]string, 0, 3)
 	limit, offset, errPag := common.PaginationHelper(limitStr, offsetStr)
 	if len(errPag) != 0 {
@@ -150,9 +145,6 @@ func (s *ServiceExpense) ListExpense(userUUID, budgetUUID, limitStr, offsetStr s
 	return descriptionExpenseList, nil
 }
 func (s *ServiceExpense) helperValidateExpense(userUUID, budgetUUID string) error {
-	if !s.IUser.IsUserExistsByUUID(userUUID) {
-		return custom_errors.ErrNotFoundUser
-	}
 	if _, errBudgetUUID := uuid.Parse(budgetUUID); errBudgetUUID != nil {
 		return custom_errors.ErrIncorrectFormatBudgetUUID
 	}
