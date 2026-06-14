@@ -33,13 +33,31 @@ func main() {
 	serviceBudget := budget.NewServiceBudget(repoBudget)
 	serviceExpense := expense.NewServiceExpense(repoExpense, repoBudget)
 	//
-	router.HandleFunc("GET /health", func(writer http.ResponseWriter, request *http.Request) {
+	router.HandleFunc("GET /health", health(logger))
+	router.HandleFunc("GET /ready", ready(postgres, logger))
+	budget.NewHandlerBudget(router, serviceBudget, logger, handlerResponse, mv)
+	expense.NewHandlerExpense(router, serviceExpense, logger, handlerResponse, mv)
+	server := http.Server{
+		Addr:    ":" + conf.ApiPort,
+		Handler: router,
+	}
+	errApi := server.ListenAndServe()
+	if errApi != nil {
+		logger.Error("critical error on the server: " + errApi.Error())
+		os.Exit(1)
+	}
+}
+
+func health(logger *loggers.Logger) http.HandlerFunc {
+	return func(writer http.ResponseWriter, request *http.Request) {
 		writer.WriteHeader(http.StatusOK)
 		if _, errWrite := writer.Write([]byte("OK")); errWrite != nil {
 			logger.Error("failed to write health check: ", errWrite)
 		}
-	})
-	router.HandleFunc("GET /ready", func(writer http.ResponseWriter, request *http.Request) {
+	}
+}
+func ready(postgres *open_db.Postgres, logger *loggers.Logger) http.HandlerFunc {
+	return func(writer http.ResponseWriter, request *http.Request) {
 		ctxTimeout, cancel := context.WithTimeout(context.Background(), time.Second*3)
 		defer cancel()
 		sqlDb, errDb := postgres.DB.DB()
@@ -57,16 +75,5 @@ func main() {
 		if _, errWrite := writer.Write([]byte("READY")); errWrite != nil {
 			logger.Error("failed to write ready check: " + errWrite.Error())
 		}
-	})
-	budget.NewHandlerBudget(router, serviceBudget, logger, handlerResponse, mv)
-	expense.NewHandlerExpense(router, serviceExpense, logger, handlerResponse, mv)
-	server := http.Server{
-		Addr:    ":" + conf.ApiPort,
-		Handler: router,
-	}
-	errApi := server.ListenAndServe()
-	if errApi != nil {
-		logger.Error("critical error on the server: " + errApi.Error())
-		os.Exit(1)
 	}
 }
