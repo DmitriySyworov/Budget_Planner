@@ -12,7 +12,8 @@ type Config struct {
 	*DB
 }
 type Api struct {
-	ApiPort string
+	ApiPort   string
+	Signature string
 }
 type DB struct {
 	DSN string
@@ -25,10 +26,15 @@ func NewConfig(logger *loggers.Logger) *Config {
 	}
 	apiPort := os.Getenv("EXTERNAL_API_PORT")
 	dsn := os.Getenv("DSN")
+	signature := os.Getenv("JWT_SIGNATURE")
 	counterEmptyVariables := 0
 	if apiPort == "" {
 		counterEmptyVariables++
 		logger.Error("environment variable 'EXTERNAL_API_PORT' not found")
+	}
+	if signature == "" {
+		counterEmptyVariables++
+		logger.Error("environment variable 'JWT_SIGNATURE' not found")
 	}
 	if dsn == "" {
 		counterEmptyVariables++
@@ -39,7 +45,8 @@ func NewConfig(logger *loggers.Logger) *Config {
 	}
 	return &Config{
 		Api: &Api{
-			ApiPort: apiPort,
+			ApiPort:   apiPort,
+			Signature: signature,
 		},
 		DB: &DB{
 			DSN: dsn,

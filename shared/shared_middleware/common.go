@@ -1,13 +1,13 @@
-package middleware
+package shared_middleware
 
 import (
-	"app/budget-planner/internal/response"
 	"shared/loggers"
+	"shared/response"
 )
 
 type ManagerMiddleware struct {
-	Logger *loggers.Logger
-	response.Response
+	Logger    *loggers.Logger
+	Signature string
 	*response.HandlerResponse
 	*ContextValues
 }
@@ -21,9 +21,11 @@ var (
 	KeyContextValue = "keyCtxValue"
 )
 
-func NewManagerMiddleware(logger *loggers.Logger, handlerResponse *response.HandlerResponse) *ManagerMiddleware {
+func NewManagerMiddleware(signature string, logger *loggers.Logger, handlerResponse *response.HandlerResponse) *ManagerMiddleware {
 	return &ManagerMiddleware{
-		Logger: logger,
+		Signature:       signature,
+		Logger:          logger,
+		HandlerResponse: handlerResponse,
 		ContextValues: &ContextValues{
 			DataAuth: &DataAuth{},
 			DataLog: &DataLog{

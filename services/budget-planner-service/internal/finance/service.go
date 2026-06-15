@@ -12,13 +12,11 @@ type ServiceFinance struct {
 	Repo *RepositoryFinance
 	di.IRepoExpense
 	di.IRepoBudget
-	di.IRepoUser
 }
 
-func NewServiceFinance(repoFinance *RepositoryFinance, repoUser di.IRepoUser, repoBudget di.IRepoBudget, repoExpense di.IRepoExpense) *ServiceFinance {
+func NewServiceFinance(repoFinance *RepositoryFinance, repoBudget di.IRepoBudget, repoExpense di.IRepoExpense) *ServiceFinance {
 	return &ServiceFinance{
 		Repo:         repoFinance,
-		IRepoUser:    repoUser,
 		IRepoBudget:  repoBudget,
 		IRepoExpense: repoExpense,
 	}
@@ -36,9 +34,6 @@ func (s *ServiceFinance) Finance(userUUID, budgetUUID, expenseUUID string) (*Fin
 	}
 	if len(sliceError) != 0 {
 		return nil, sliceError
-	}
-	if !s.IRepoUser.IsUserExistsByUUID(userUUID) {
-		return nil, []string{custom_errors.ErrNotFoundUser.Error()}
 	}
 	if !s.IRepoBudget.BudgetExist(userUUID, budgetUUID) {
 		return nil, []string{custom_errors.ErrNotFoundBudget.Error()}

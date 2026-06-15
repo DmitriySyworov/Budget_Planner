@@ -4,6 +4,7 @@ go 1.25.7
 
 require (
 	github.com/go-playground/validator/v10 v10.30.3
+	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/redis/go-redis/v9 v9.20.1
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.31.1

@@ -1,6 +1,6 @@
 package finance
 
-import "app/budget-planner/internal/open_db"
+import "shared/open_db"
 
 type RepositoryFinance struct {
 	*open_db.Postgres
