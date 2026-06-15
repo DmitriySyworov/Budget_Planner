@@ -1,4 +1,4 @@
-package middleware
+package shared_middleware
 
 import "net/http"
 

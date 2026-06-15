@@ -4,13 +4,14 @@ import (
 	"app/budget-planner/config"
 	"app/budget-planner/internal/budget"
 	"app/budget-planner/internal/expense"
-	"app/budget-planner/internal/middleware"
+	"app/budget-planner/internal/finance"
 	"context"
 	"net/http"
 	"os"
 	"shared/loggers"
 	"shared/open_db"
 	"shared/response"
+	"shared/shared_middleware"
 	"time"
 )
 
@@ -23,20 +24,23 @@ func main() {
 	//
 	handlerResponse := response.NewHandlerResponse(logger)
 	//
-	mv := middleware.NewManagerMiddleware(logger, handlerResponse)
+	mv := shared_middleware.NewManagerMiddleware(conf.Signature, logger, handlerResponse)
 	//
 	router := http.NewServeMux()
 	//
 	repoBudget := budget.NewRepositoryBudget(postgres)
 	repoExpense := expense.NewRepositoryExpense(postgres)
+	repoFinance := finance.NewRepositoryFinance(postgres)
 	//
 	serviceBudget := budget.NewServiceBudget(repoBudget)
 	serviceExpense := expense.NewServiceExpense(repoExpense, repoBudget)
+	serviceFinance := finance.NewServiceFinance(repoFinance, repoBudget, repoExpense)
 	//
 	router.HandleFunc("GET /health", health(logger))
 	router.HandleFunc("GET /ready", ready(postgres, logger))
 	budget.NewHandlerBudget(router, serviceBudget, logger, handlerResponse, mv)
 	expense.NewHandlerExpense(router, serviceExpense, logger, handlerResponse, mv)
+	finance.NewHandlerFinance(router, serviceFinance, handlerResponse, logger, mv)
 	server := http.Server{
 		Addr:    ":" + conf.ApiPort,
 		Handler: router,

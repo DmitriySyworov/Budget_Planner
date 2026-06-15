@@ -1,13 +1,16 @@
 package auth
 
 type RequestRegister struct {
-	Name     string `validate:"required"`
+	Name     string `validate:"required,min=2,max=64"`
 	Email    string `validate:"required,email"`
 	Password string `validate:"required,min=8,max=24"`
 }
 type RequestLogin struct {
 	Email    string `validate:"required,email"`
 	Password string `validate:"required,min=8,max=24"`
+}
+type RequestConfirm struct {
+	Code int `validate:"required,min=100000,max=999999"`
 }
 type ResponseAuth struct {
 	Message    string

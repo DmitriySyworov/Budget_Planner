@@ -2,8 +2,9 @@ package finance
 
 import (
 	"app/budget-planner/internal/custom_errors"
-	"app/budget-planner/internal/middleware"
-	"app/budget-planner/internal/response"
+	"shared/response"
+	"shared/shared_middleware"
+
 	"net/http"
 	"shared/loggers"
 )
@@ -14,7 +15,7 @@ type HandlerFinance struct {
 	Logger *loggers.Logger
 }
 
-func NewHandlerFinance(router *http.ServeMux, service *ServiceFinance, response *response.HandlerResponse, logger *loggers.Logger, mv *middleware.ManagerMiddleware) {
+func NewHandlerFinance(router *http.ServeMux, service *ServiceFinance, response *response.HandlerResponse, logger *loggers.Logger, mv *shared_middleware.ManagerMiddleware) {
 	finance := &HandlerFinance{
 		ServiceFinance:  service,
 		HandlerResponse: response,
@@ -24,8 +25,8 @@ func NewHandlerFinance(router *http.ServeMux, service *ServiceFinance, response 
 }
 func (h HandlerFinance) Finance() http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
-		ctxValues := request.Context().Value(middleware.KeyContextValue)
-		values, ok := ctxValues.(*middleware.ContextValues)
+		ctxValues := request.Context().Value(shared_middleware.KeyContextValue)
+		values, ok := ctxValues.(*shared_middleware.ContextValues)
 		if !ok {
 			h.Logger.Error(custom_errors.ErrFailedAssertionContextValues.Error() + request.Pattern)
 			h.Response.Error = append(h.Response.Error, custom_errors.ErrCriticalServer.Error())

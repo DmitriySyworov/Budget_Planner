@@ -2,11 +2,11 @@ package budget
 
 import (
 	"app/budget-planner/internal/custom_errors"
-	"app/budget-planner/internal/handler_request"
-	"app/budget-planner/internal/middleware"
-	"app/budget-planner/internal/response"
 	"net/http"
+	"shared/handler_request"
 	"shared/loggers"
+	"shared/response"
+	"shared/shared_middleware"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -17,7 +17,7 @@ type HandlerBudget struct {
 	*response.HandlerResponse
 }
 
-func NewHandlerBudget(router *http.ServeMux, service *ServiceBudget, logger *loggers.Logger, responseHandler *response.HandlerResponse, mv *middleware.ManagerMiddleware) {
+func NewHandlerBudget(router *http.ServeMux, service *ServiceBudget, logger *loggers.Logger, responseHandler *response.HandlerResponse, mv *shared_middleware.ManagerMiddleware) {
 	budget := &HandlerBudget{
 		ServiceBudget:   service,
 		Logger:          logger,
@@ -31,8 +31,8 @@ func NewHandlerBudget(router *http.ServeMux, service *ServiceBudget, logger *log
 }
 func (h *HandlerBudget) CreateBudget() http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
-		ctxValues := request.Context().Value(middleware.KeyContextValue)
-		values, ok := ctxValues.(*middleware.ContextValues)
+		ctxValues := request.Context().Value(shared_middleware.KeyContextValue)
+		values, ok := ctxValues.(*shared_middleware.ContextValues)
 		if !ok {
 			h.Logger.Error(custom_errors.ErrFailedAssertionContextValues.Error() + request.Pattern)
 			h.Response.Error = append(h.Response.Error, custom_errors.ErrCriticalServer.Error())
@@ -85,8 +85,8 @@ func (h *HandlerBudget) CreateBudget() http.HandlerFunc {
 
 func (h *HandlerBudget) UpdateBudget() http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
-		ctxValues := request.Context().Value(middleware.KeyContextValue)
-		values, ok := ctxValues.(*middleware.ContextValues)
+		ctxValues := request.Context().Value(shared_middleware.KeyContextValue)
+		values, ok := ctxValues.(*shared_middleware.ContextValues)
 		if !ok {
 			h.Logger.Error(custom_errors.ErrFailedAssertionContextValues.Error() + request.Pattern)
 			h.Response.Error = append(h.Response.Error, custom_errors.ErrCriticalServer.Error())
@@ -140,8 +140,8 @@ func (h *HandlerBudget) UpdateBudget() http.HandlerFunc {
 }
 func (h *HandlerBudget) GetBudget() http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
-		ctxValues := request.Context().Value(middleware.KeyContextValue)
-		values, ok := ctxValues.(*middleware.ContextValues)
+		ctxValues := request.Context().Value(shared_middleware.KeyContextValue)
+		values, ok := ctxValues.(*shared_middleware.ContextValues)
 		if !ok {
 			h.Logger.Error(custom_errors.ErrFailedAssertionContextValues.Error() + request.Pattern)
 			h.Response.Error = append(h.Response.Error, custom_errors.ErrCriticalServer.Error())
@@ -169,8 +169,8 @@ func (h *HandlerBudget) GetBudget() http.HandlerFunc {
 }
 func (h *HandlerBudget) DeleteBudget() http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
-		ctxValues := request.Context().Value(middleware.KeyContextValue)
-		values, ok := ctxValues.(*middleware.ContextValues)
+		ctxValues := request.Context().Value(shared_middleware.KeyContextValue)
+		values, ok := ctxValues.(*shared_middleware.ContextValues)
 		if !ok {
 			h.Logger.Error(custom_errors.ErrFailedAssertionContextValues.Error() + request.Pattern)
 			h.Response.Error = append(h.Response.Error, custom_errors.ErrCriticalServer.Error())
@@ -200,8 +200,8 @@ func (h *HandlerBudget) DeleteBudget() http.HandlerFunc {
 }
 func (h *HandlerBudget) ListBudget() http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
-		ctxValues := request.Context().Value(middleware.KeyContextValue)
-		values, ok := ctxValues.(*middleware.ContextValues)
+		ctxValues := request.Context().Value(shared_middleware.KeyContextValue)
+		values, ok := ctxValues.(*shared_middleware.ContextValues)
 		if !ok {
 			h.Logger.Error(custom_errors.ErrFailedAssertionContextValues.Error() + request.Pattern)
 			h.Response.Error = append(h.Response.Error, custom_errors.ErrCriticalServer.Error())
