@@ -6,6 +6,7 @@ import (
 	"shared/handler_request"
 	"shared/loggers"
 	"shared/response"
+	"shared/shared_errors"
 	"shared/shared_middleware"
 
 	"github.com/go-playground/validator/v10"
@@ -36,12 +37,11 @@ func (h *HandlerExpense) CreateExpense() http.HandlerFunc {
 		ctxValues := request.Context().Value(shared_middleware.KeyContextValue)
 		values, ok := ctxValues.(*shared_middleware.ContextValues)
 		if !ok {
-			h.Logger.Error(custom_errors.ErrFailedAssertionContextValues.Error() + request.Pattern)
-			h.Resp.Error = append(h.Resp.Error, custom_errors.ErrCriticalServer.Error())
+			h.Logger.Error(shared_errors.ErrFailedAssertionContextValues.Error() + request.Pattern)
+			h.Resp.Error = append(h.Resp.Error, shared_errors.ErrCriticalServer.Error())
 			h.Resp.ResponseSend(writer, http.StatusInternalServerError)
 			return
 		}
-		values.DataLog.UserUUID = values.DataAuth.UserUUID
 		body, errBody := handler_request.HandlerRequest[CreateAndUpdateExpense](request.Body)
 		if errBody != nil {
 			if errValidate, isErrValid := errBody.(validator.ValidationErrors); isErrValid {
@@ -60,6 +60,7 @@ func (h *HandlerExpense) CreateExpense() http.HandlerFunc {
 			} else {
 				h.Resp.Error = append(h.Resp.Error, errBody.Error())
 			}
+			values.DataLog.Errors = append(values.DataLog.Errors, h.Response.Error...)
 			h.Resp.ResponseSend(writer, http.StatusBadRequest)
 			return
 		}
@@ -89,12 +90,11 @@ func (h *HandlerExpense) UpdateExpense() http.HandlerFunc {
 		ctxValues := request.Context().Value(shared_middleware.KeyContextValue)
 		values, ok := ctxValues.(*shared_middleware.ContextValues)
 		if !ok {
-			h.Logger.Error(custom_errors.ErrFailedAssertionContextValues.Error() + request.Pattern)
-			h.Resp.Error = append(h.Resp.Error, custom_errors.ErrCriticalServer.Error())
+			h.Logger.Error(shared_errors.ErrFailedAssertionContextValues.Error() + request.Pattern)
+			h.Resp.Error = append(h.Resp.Error, shared_errors.ErrCriticalServer.Error())
 			h.Resp.ResponseSend(writer, http.StatusInternalServerError)
 			return
 		}
-		values.DataLog.UserUUID = values.DataAuth.UserUUID
 		body, errBody := handler_request.HandlerRequest[CreateAndUpdateExpense](request.Body)
 		if errBody != nil {
 			if errValidate, isErrValid := errBody.(validator.ValidationErrors); isErrValid {
@@ -113,6 +113,7 @@ func (h *HandlerExpense) UpdateExpense() http.HandlerFunc {
 			} else {
 				h.Resp.Error = append(h.Resp.Error, errBody.Error())
 			}
+			values.DataLog.Errors = append(values.DataLog.Errors, h.Response.Error...)
 			h.Resp.ResponseSend(writer, http.StatusBadRequest)
 			return
 		}
@@ -143,12 +144,11 @@ func (h *HandlerExpense) GetExpense() http.HandlerFunc {
 		ctxValues := request.Context().Value(shared_middleware.KeyContextValue)
 		values, ok := ctxValues.(*shared_middleware.ContextValues)
 		if !ok {
-			h.Logger.Error(custom_errors.ErrFailedAssertionContextValues.Error() + request.Pattern)
-			h.Resp.Error = append(h.Resp.Error, custom_errors.ErrCriticalServer.Error())
+			h.Logger.Error(shared_errors.ErrFailedAssertionContextValues.Error() + request.Pattern)
+			h.Resp.Error = append(h.Resp.Error, shared_errors.ErrCriticalServer.Error())
 			h.Resp.ResponseSend(writer, http.StatusInternalServerError)
 			return
 		}
-		values.DataLog.UserUUID = values.DataAuth.UserUUID
 		budgetUUID := request.PathValue("budget_uid")
 		values.DataLog.MapLog["budget_uuid"] = budgetUUID
 		descriptionExpenseUUID := request.PathValue("description_expense_uuid")
@@ -174,12 +174,11 @@ func (h *HandlerExpense) RemoveExpense() http.HandlerFunc {
 		ctxValues := request.Context().Value(shared_middleware.KeyContextValue)
 		values, ok := ctxValues.(*shared_middleware.ContextValues)
 		if !ok {
-			h.Logger.Error(custom_errors.ErrFailedAssertionContextValues.Error() + request.Pattern)
-			h.Resp.Error = append(h.Resp.Error, custom_errors.ErrCriticalServer.Error())
+			h.Logger.Error(shared_errors.ErrFailedAssertionContextValues.Error() + request.Pattern)
+			h.Resp.Error = append(h.Resp.Error, shared_errors.ErrCriticalServer.Error())
 			h.Resp.ResponseSend(writer, http.StatusInternalServerError)
 			return
 		}
-		values.DataLog.UserUUID = values.DataAuth.UserUUID
 		budgetUUID := request.PathValue("budget_uid")
 		values.DataLog.MapLog["budget_uuid"] = budgetUUID
 		descriptionExpenseUUID := request.PathValue("description_expense_uuid")
@@ -205,12 +204,11 @@ func (h *HandlerExpense) ListExpense() http.HandlerFunc {
 		ctxValues := request.Context().Value(shared_middleware.KeyContextValue)
 		values, ok := ctxValues.(*shared_middleware.ContextValues)
 		if !ok {
-			h.Logger.Error(custom_errors.ErrFailedAssertionContextValues.Error() + request.Pattern)
-			h.Resp.Error = append(h.Resp.Error, custom_errors.ErrCriticalServer.Error())
+			h.Logger.Error(shared_errors.ErrFailedAssertionContextValues.Error() + request.Pattern)
+			h.Resp.Error = append(h.Resp.Error, shared_errors.ErrCriticalServer.Error())
 			h.Resp.ResponseSend(writer, http.StatusInternalServerError)
 			return
 		}
-		values.DataLog.UserUUID = values.DataAuth.UserUUID
 		limit := request.URL.Query().Get("limit")
 		values.DataLog.MapLog["limit"] = limit
 		offset := request.URL.Query().Get("offset")

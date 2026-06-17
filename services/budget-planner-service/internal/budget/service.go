@@ -4,6 +4,8 @@ import (
 	"app/budget-planner/internal/common"
 	"app/budget-planner/internal/custom_errors"
 	"app/budget-planner/internal/model"
+	"shared/shared_common"
+	"shared/shared_errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -106,24 +108,24 @@ func (s *ServiceBudget) RemoveBudget(userUUID, budgetUUID, typeRemove string) []
 	sliceError := make([]string, 0, 2)
 	_, errValidate := s.helperValidateBudget(userUUID, budgetUUID)
 	sliceError = append(sliceError, errValidate.Error())
-	if typeRemove != common.TypeSoftDelete && typeRemove != common.TypeHardDelete && typeRemove != "" {
-		sliceError = append(sliceError, custom_errors.ErrIncorrectTypeRemove.Error())
+	if typeRemove != shared_common.TypeSoftDelete && typeRemove != shared_common.TypeHardDelete && typeRemove != "" {
+		sliceError = append(sliceError, shared_errors.ErrIncorrectTypeRemove.Error())
 	}
 	if len(sliceError) != 0 {
 		return sliceError
 	}
-	if typeRemove == common.TypeSoftDelete || typeRemove == "" {
+	if typeRemove == shared_common.TypeSoftDelete || typeRemove == "" {
 		errRemove := s.Repo.RemoveBudget(userUUID, budgetUUID)
 		if errRemove != nil {
 			return []string{ErrFailedRemoveBudget.Error()}
 		}
-	} else if typeRemove == common.TypeHardDelete {
+	} else if typeRemove == shared_common.TypeHardDelete {
 		errDelete := s.Repo.DeleteBudget(userUUID, budgetUUID)
 		if errDelete != nil {
 			return []string{ErrFailedDeleteBudget.Error()}
 		}
 	}
-	return []string{custom_errors.ErrIncorrectTypeRemove.Error()}
+	return []string{shared_errors.ErrIncorrectTypeRemove.Error()}
 }
 func (s *ServiceBudget) helperValidateBudget(userUUID, budgetUUID string) (*model.Budget, error) {
 	if _, errBudgetUUID := uuid.Parse(budgetUUID); errBudgetUUID != nil {

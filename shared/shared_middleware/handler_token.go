@@ -1,6 +1,7 @@
 package shared_middleware
 
 import (
+	"context"
 	"net/http"
 	"shared/shared_errors"
 	"shared/shared_jwt"
@@ -27,6 +28,14 @@ func helperHandleHeader(header string) (string, error) {
 }
 func (m *ManagerMiddleware) HandlerAuthToken(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		ctxValues := request.Context().Value(KeyContextValue)
+		values, ok := ctxValues.(*ContextValues)
+		if !ok {
+			m.Logger.Error(shared_errors.ErrFailedAssertionContextValues.Error() + "middleware HandlerAuthToken")
+			m.Response.Error = append(m.Response.Error, shared_errors.ErrCriticalServer.Error())
+			m.ResponseSend(writer, http.StatusInternalServerError)
+			return
+		}
 		header := request.Header.Get("Authorization")
 		token, errToken := helperHandleHeader(header)
 		if errToken != nil {
@@ -46,6 +55,46 @@ func (m *ManagerMiddleware) HandlerAuthToken(next http.Handler) http.Handler {
 			m.HandlerResponse.ResponseSend(writer, http.StatusUnauthorized)
 			return
 		}
-		next.ServeHTTP(writer, request)
+		values.DataLog.UserUUID = userUUID
+		values.DataAuth.UserUUID = userUUID
+		newCtxValue := context.WithValue(context.Background(), KeyContextValue, values)
+		ctxRequest := request.WithContext(newCtxValue)
+		next.ServeHTTP(writer, ctxRequest)
+	})
+}
+func (m *ManagerMiddleware) HandlerSessionToken(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		ctxValues := request.Context().Value(KeyContextValue)
+		values, ok := ctxValues.(*ContextValues)
+		if !ok {
+			m.Logger.Error(shared_errors.ErrFailedAssertionContextValues.Error() + "middleware HandlerSessionToken")
+			m.Response.Error = append(m.Response.Error, shared_errors.ErrCriticalServer.Error())
+			m.ResponseSend(writer, http.StatusInternalServerError)
+			return
+		}
+		header := request.Header.Get("X-Session-Token")
+		token, errToken := helperHandleHeader(header)
+		if errToken != nil {
+			m.Response.Error = append(m.Response.Error, shared_errors.ErrInvalidSessionToken.Error())
+			m.HandlerResponse.ResponseSend(writer, http.StatusUnauthorized)
+			return
+		}
+		j := shared_jwt.NewSharedJWT(m.Signature)
+		sessionID, errParse := j.ParseSessionToken(token)
+		if errParse != nil {
+			m.Response.Error = append(m.Response.Error, shared_errors.ErrInvalidSessionToken.Error())
+			m.HandlerResponse.ResponseSend(writer, http.StatusUnauthorized)
+			return
+		}
+		if len(sessionID) != 36 {
+			m.Response.Error = append(m.Response.Error, shared_errors.ErrInvalidSessionToken.Error())
+			m.HandlerResponse.ResponseSend(writer, http.StatusUnauthorized)
+			return
+		}
+		values.DataLog.MapLog["session_id"] = sessionID
+		values.DataAuth.SessionID = sessionID
+		newCtxValue := context.WithValue(context.Background(), KeyContextValue, values)
+		ctxRequest := request.WithContext(newCtxValue)
+		next.ServeHTTP(writer, ctxRequest)
 	})
 }
