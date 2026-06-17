@@ -40,3 +40,16 @@ func (j *SharedJWT) ParseAccessToken(accessToken string) (string, error) {
 		return userUUID, nil
 	}
 }
+func (j *SharedJWT) ParseSessionToken(accessToken string) (string, error) {
+	token, errToken := jwt.Parse(accessToken, func(token *jwt.Token) (any, error) {
+		return j.Signature, nil
+	})
+	if errToken != nil {
+		return "", shared_errors.ErrInvalidSessionToken
+	}
+	if sessionID, okSessionID := token.Claims.(jwt.MapClaims)["session_id"].(string); !okSessionID {
+		return "", shared_errors.ErrInvalidAccessToken
+	} else {
+		return sessionID, nil
+	}
+}

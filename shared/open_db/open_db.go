@@ -7,6 +7,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 type Redis struct {
@@ -16,10 +17,12 @@ type Postgres struct {
 	*gorm.DB
 }
 
-func OpenPostgres(DSN string, logger *loggers.Logger) *Postgres {
-	db, errOpen := gorm.Open(postgres.Open(DSN))
+func OpenPostgres(DSN string, loggers *loggers.Logger) *Postgres {
+	db, errOpen := gorm.Open(postgres.Open(DSN), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
 	if errOpen != nil {
-		logger.Error("failed to connect PostgreSQL")
+		loggers.Error("failed to connect PostgreSQL")
 		os.Exit(1)
 	}
 	return &Postgres{

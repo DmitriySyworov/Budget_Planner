@@ -3,6 +3,7 @@ package finance
 import (
 	"app/budget-planner/internal/custom_errors"
 	"shared/response"
+	"shared/shared_errors"
 	"shared/shared_middleware"
 
 	"net/http"
@@ -28,12 +29,11 @@ func (h HandlerFinance) Finance() http.HandlerFunc {
 		ctxValues := request.Context().Value(shared_middleware.KeyContextValue)
 		values, ok := ctxValues.(*shared_middleware.ContextValues)
 		if !ok {
-			h.Logger.Error(custom_errors.ErrFailedAssertionContextValues.Error() + request.Pattern)
-			h.Response.Error = append(h.Response.Error, custom_errors.ErrCriticalServer.Error())
+			h.Logger.Error(shared_errors.ErrFailedAssertionContextValues.Error() + request.Pattern)
+			h.Response.Error = append(h.Response.Error, shared_errors.ErrCriticalServer.Error())
 			h.ResponseSend(writer, http.StatusInternalServerError)
 			return
 		}
-		values.DataLog.UserUUID = values.DataAuth.UserUUID
 		budgetUUID := request.PathValue("budget_uuid")
 		expenseUUID := request.PathValue("expense_uuid")
 		values.DataLog.MapLog["budget_uuid"] = budgetUUID

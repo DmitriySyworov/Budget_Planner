@@ -2,7 +2,8 @@ package response
 
 import (
 	"encoding/json"
-	"loggers"
+	"shared/loggers"
+
 	"net/http"
 )
 

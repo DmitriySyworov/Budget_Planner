@@ -9,6 +9,8 @@ import (
 	"os"
 	"shared/loggers"
 	"shared/open_db"
+	"shared/response"
+	"shared/shared_middleware"
 	"time"
 )
 
@@ -17,25 +19,33 @@ func main() {
 	//
 	conf := authconfig.NewConfig(logger)
 	//
+	responseHandler := response.NewHandlerResponse(logger)
+	//
+	sharedMv := shared_middleware.NewManagerSharedMiddleware(conf.Signature, logger, responseHandler)
+	//
 	postgres := open_db.OpenPostgres(conf.DSN, logger)
 	redis := open_db.OpenRedis(conf.RedisAddress, conf.RedisPassword)
 	//
 	router := http.NewServeMux()
 	//
-	repoAuth := auth.NewRepository(postgres, redis)
-	repoUser := user.NewRepositoryUser(postgres)
+	repoAuth := auth.NewRepository(redis, logger)
+	repoUser := user.NewRepositoryUser(postgres, redis, logger)
 	//
-	serviceAuth := auth.NewServiceAuth(repoAuth)
-	serviceUser := user.NewServiceUser(repoUser)
+	serviceAuth := auth.NewServiceAuth(repoAuth, repoUser, conf.VerifyEmail, logger)
+	serviceUser := user.NewServiceUser(repoUser, serviceAuth, repoAuth)
 	//
 	router.HandleFunc("GET /health", health(logger))
 	router.HandleFunc("GET /ready", ready(postgres, redis, logger))
-	auth.NewHandlerAuth(router, serviceAuth)
-	user.NewHandlerUser(router, serviceUser)
+	auth.NewHandlerAuth(router, serviceAuth, responseHandler, logger, sharedMv)
+	user.NewHandlerUser(router, serviceUser, responseHandler, logger, sharedMv)
 	//
+	chainMv := shared_middleware.Chain(
+		sharedMv.Recovery,
+		sharedMv.Logging,
+	)
 	service := http.Server{
 		Addr:    ":" + conf.ApiPort,
-		Handler: router,
+		Handler: chainMv(router),
 	}
 	if errApi := service.ListenAndServe(); errApi != nil {
 		logger.Error("critical error on the server: ", errApi)

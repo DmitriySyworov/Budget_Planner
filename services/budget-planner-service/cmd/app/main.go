@@ -24,7 +24,7 @@ func main() {
 	//
 	handlerResponse := response.NewHandlerResponse(logger)
 	//
-	mv := shared_middleware.NewManagerMiddleware(conf.Signature, logger, handlerResponse)
+	sharedMv := shared_middleware.NewManagerSharedMiddleware(conf.Signature, logger, handlerResponse)
 	//
 	router := http.NewServeMux()
 	//
@@ -38,12 +38,16 @@ func main() {
 	//
 	router.HandleFunc("GET /health", health(logger))
 	router.HandleFunc("GET /ready", ready(postgres, logger))
-	budget.NewHandlerBudget(router, serviceBudget, logger, handlerResponse, mv)
-	expense.NewHandlerExpense(router, serviceExpense, logger, handlerResponse, mv)
-	finance.NewHandlerFinance(router, serviceFinance, handlerResponse, logger, mv)
+	budget.NewHandlerBudget(router, serviceBudget, logger, handlerResponse, sharedMv)
+	expense.NewHandlerExpense(router, serviceExpense, logger, handlerResponse, sharedMv)
+	finance.NewHandlerFinance(router, serviceFinance, handlerResponse, logger, sharedMv)
+	chainMv := shared_middleware.Chain(
+		sharedMv.Recovery,
+		sharedMv.Logging,
+	)
 	server := http.Server{
 		Addr:    ":" + conf.ApiPort,
-		Handler: router,
+		Handler: chainMv(router),
 	}
 	errApi := server.ListenAndServe()
 	if errApi != nil {

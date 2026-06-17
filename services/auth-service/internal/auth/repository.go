@@ -18,14 +18,14 @@ type RepositoryAuth struct {
 }
 
 const (
-	sessionKey         = "session:"
-	dataUserSessionKey = "data_user:"
-	refreshKey         = "refresh:"
-	nameKey            = "name"
-	emailKey           = "email"
-	passwordKey        = "password"
-	userUUIDKey        = "user_uuid"
-	userAgentKey       = "user_agent"
+	sessionKey      = "session:"
+	dataUserAuthKey = "data_user_auth:"
+	refreshKey      = "refresh:"
+	nameKey         = "name"
+	emailKey        = "email"
+	passwordKey     = "password"
+	userUUIDKey     = "user_uuid"
+	userAgentKey    = "user_agent"
 )
 
 func NewRepository(redis *open_db.Redis, logger *loggers.Logger) *RepositoryAuth {
@@ -46,7 +46,7 @@ func (r *RepositoryAuth) CreateSession(sessionID string, code int) error {
 func (r *RepositoryAuth) CreateDataUserSession(name, email, hashPassword, sessionID string) error {
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), common.CtxTimeout)
 	defer cancel()
-	key := dataUserSessionKey + sessionID
+	key := dataUserAuthKey + sessionID
 	if _, errTx := r.Redis.TxPipelined(ctxTimeout, func(pipeliner redis.Pipeliner) error {
 		if errHSet := pipeliner.HSet(ctxTimeout, key, nameKey, name, emailKey, email, passwordKey, hashPassword).
 			Err(); errHSet != nil {
@@ -73,7 +73,7 @@ type DataUserSession struct {
 func (r *RepositoryAuth) GetDataUserSession(sessionID string) (*DataUserSession, error) {
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), common.CtxTimeout)
 	defer cancel()
-	key := dataUserSessionKey + sessionID
+	key := dataUserAuthKey + sessionID
 	sessionValue, errHGetAll := r.Redis.HGetAll(ctxTimeout, key).Result()
 	if errHGetAll != nil {
 		return nil, errHGetAll

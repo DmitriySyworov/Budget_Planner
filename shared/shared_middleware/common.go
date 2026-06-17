@@ -13,15 +13,15 @@ type ManagerMiddleware struct {
 }
 
 type ContextValues struct {
-	*DataAuth
-	*DataLog
+	DataAuth *DataAuth
+	DataLog  *DataLog
 }
 
 var (
 	KeyContextValue = "keyCtxValue"
 )
 
-func NewManagerMiddleware(signature string, logger *loggers.Logger, handlerResponse *response.HandlerResponse) *ManagerMiddleware {
+func NewManagerSharedMiddleware(signature string, logger *loggers.Logger, handlerResponse *response.HandlerResponse) *ManagerMiddleware {
 	return &ManagerMiddleware{
 		Signature:       signature,
 		Logger:          logger,
@@ -29,7 +29,8 @@ func NewManagerMiddleware(signature string, logger *loggers.Logger, handlerRespo
 		ContextValues: &ContextValues{
 			DataAuth: &DataAuth{},
 			DataLog: &DataLog{
-				MapLog: make(map[string]any, 1),
+				Errors: make([]string, 10),
+				MapLog: make(map[string]any, 8),
 			},
 		},
 	}
