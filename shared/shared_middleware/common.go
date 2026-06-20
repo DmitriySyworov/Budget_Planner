@@ -17,8 +17,9 @@ type ContextValues struct {
 	DataLog  *DataLog
 }
 
-var (
+const (
 	KeyContextValue = "keyCtxValue"
+	sizeMap         = 8
 )
 
 func NewManagerSharedMiddleware(signature string, logger *loggers.Logger, handlerResponse *response.HandlerResponse) *ManagerMiddleware {
@@ -30,7 +31,7 @@ func NewManagerSharedMiddleware(signature string, logger *loggers.Logger, handle
 			DataAuth: &DataAuth{},
 			DataLog: &DataLog{
 				Errors: make([]string, 10),
-				MapLog: make(map[string]any, 8),
+				MapLog: make(map[string]any, sizeMap),
 			},
 		},
 	}

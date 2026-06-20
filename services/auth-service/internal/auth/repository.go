@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"shared/loggers"
 	"shared/open_db"
-	"strconv"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -18,14 +17,10 @@ type RepositoryAuth struct {
 }
 
 const (
-	sessionKey      = "session:"
-	dataUserAuthKey = "data_user_auth:"
-	refreshKey      = "refresh:"
-	nameKey         = "name"
-	emailKey        = "email"
-	passwordKey     = "password"
-	userUUIDKey     = "user_uuid"
-	userAgentKey    = "user_agent"
+	sessionKey   = "session_"
+	refreshKey   = "refresh:"
+	userUUIDKey  = "user_uuid"
+	userAgentKey = "user_agent"
 )
 
 func NewRepository(redis *open_db.Redis, logger *loggers.Logger) *RepositoryAuth {
@@ -34,21 +29,13 @@ func NewRepository(redis *open_db.Redis, logger *loggers.Logger) *RepositoryAuth
 		Logger: logger,
 	}
 }
-func (r *RepositoryAuth) CreateSession(sessionID string, code int) error {
+
+func (r *RepositoryAuth) CreateUserSession(sessionID, action string, dataUser map[string]string) error {
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), common.CtxTimeout)
 	defer cancel()
-	if errSet := r.Redis.Set(ctxTimeout, sessionKey+sessionID, code, time.Minute*5).Err(); errSet != nil {
-		r.Logger.Error("failed to create session: ", errSet)
-		return errSet
-	}
-	return nil
-}
-func (r *RepositoryAuth) CreateDataUserSession(name, email, hashPassword, sessionID string) error {
-	ctxTimeout, cancel := context.WithTimeout(context.Background(), common.CtxTimeout)
-	defer cancel()
-	key := dataUserAuthKey + sessionID
+	key := sessionKey + action + ":" + sessionID
 	if _, errTx := r.Redis.TxPipelined(ctxTimeout, func(pipeliner redis.Pipeliner) error {
-		if errHSet := pipeliner.HSet(ctxTimeout, key, nameKey, name, emailKey, email, passwordKey, hashPassword).
+		if errHSet := pipeliner.HSet(ctxTimeout, key, dataUser).
 			Err(); errHSet != nil {
 			r.Logger.Error("failed to create data user session: ", errHSet)
 			return errHSet
@@ -64,39 +51,15 @@ func (r *RepositoryAuth) CreateDataUserSession(name, email, hashPassword, sessio
 	return nil
 }
 
-type DataUserSession struct {
-	Name     string
-	Email    string
-	Password string
-}
-
-func (r *RepositoryAuth) GetDataUserSession(sessionID string) (*DataUserSession, error) {
+func (r *RepositoryAuth) GetUserSession(sessionID, action string) (map[string]string, error) {
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), common.CtxTimeout)
 	defer cancel()
-	key := dataUserAuthKey + sessionID
+	key := sessionKey + action + ":" + sessionID
 	sessionValue, errHGetAll := r.Redis.HGetAll(ctxTimeout, key).Result()
 	if errHGetAll != nil {
 		return nil, errHGetAll
 	}
-	return &DataUserSession{
-		Name:     sessionValue[nameKey],
-		Email:    sessionValue[emailKey],
-		Password: sessionValue[passwordKey],
-	}, nil
-}
-func (r *RepositoryAuth) GetSession(sessionID string) (int, error) {
-	ctxTimeout, cancel := context.WithTimeout(context.Background(), common.CtxTimeout)
-	defer cancel()
-	codeStr, errGetSession := r.Redis.Get(ctxTimeout, sessionKey+sessionID).Result()
-	if errGetSession != nil {
-		return 0, errGetSession
-	}
-	code, errParse := strconv.Atoi(codeStr)
-	if errParse != nil {
-		r.Logger.Error("failed to parse code: ", errParse)
-		return 0, errParse
-	}
-	return code, nil
+	return sessionValue, nil
 }
 func (r *RepositoryAuth) CreateRefresh(refreshID, userUUID, userAgent string) error {
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), common.CtxTimeout)

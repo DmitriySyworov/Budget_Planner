@@ -8,6 +8,7 @@ import (
 	"app/auth-service/internal/di"
 	"app/auth-service/internal/model"
 	"app/auth-service/internal/send_letter"
+	"fmt"
 	"shared/loggers"
 
 	"github.com/google/uuid"
@@ -38,11 +39,13 @@ func (s *ServiceAuth) Register(body *RequestRegister) (*common.ResponseAuth, []s
 		s.Logger.Error("failed to hash the password")
 		return nil, []string{custom_errors.ErrFailedSecurity.Error()}
 	}
-	respAuth, sessionID, errAuth := s.HelperAuth(body.Email, s.Conf)
+	const sizeRegisterMap = 4
+	dataMap := make(map[string]string, sizeRegisterMap)
+	dataMap[nameKey] = body.Name
+	dataMap[passwordKey] = string(hashPassword)
+	dataMap[emailKey] = body.Email
+	respAuth, errAuth := s.HelperAuth(actionRecovery, dataMap, s.Conf)
 	if errAuth != nil {
-		return nil, []string{custom_errors.ErrFailedSecurity.Error()}
-	}
-	if s.Repo.CreateDataUserSession(body.Name, body.Email, string(hashPassword), sessionID) != nil {
 		return nil, []string{custom_errors.ErrFailedSecurity.Error()}
 	}
 	return respAuth, nil
@@ -55,41 +58,62 @@ func (s *ServiceAuth) Login(body *RequestLogin) (*common.ResponseAuth, []string)
 	if bcrypt.CompareHashAndPassword([]byte(hashPassword), []byte(body.Password)) != nil {
 		return nil, []string{custom_errors.ErrIncorrectPasswordOrEmail.Error()}
 	}
-	respAuth, _, errAuth := s.HelperAuth(body.Email, s.Conf)
+	const sizeLoginMap = 2
+	dataMap := make(map[string]string, sizeLoginMap)
+	dataMap[emailKey] = body.Email
+	respAuth, errAuth := s.HelperAuth(actionRecovery, dataMap, s.Conf)
 	if errAuth != nil {
 		return nil, []string{custom_errors.ErrFailedSecurity.Error()}
 	}
 	return respAuth, nil
 }
-func (s *ServiceAuth) HelperAuth(userEmail string, conf *authconfig.VerifyEmail) (*common.ResponseAuth, string, error) {
+func (s *ServiceAuth) Recovery(email string) (*common.ResponseAuth, []string) {
+	if !s.IRepoUser.UserExistsByEmail(email) {
+		return nil, []string{custom_errors.ErrNotFoundUser.Error()}
+	}
+	const sizeRecoveryMap = 2
+	dataMap := make(map[string]string, sizeRecoveryMap)
+	dataMap[emailKey] = email
+	respAuth, errAuth := s.HelperAuth(actionRecovery, dataMap, s.Conf)
+	if errAuth != nil {
+		return nil, []string{custom_errors.ErrFailedSecurity.Error()}
+	}
+	return respAuth, nil
+}
+func (s *ServiceAuth) HelperAuth(action string, dataUser map[string]string, conf *authconfig.VerifyEmail) (*common.ResponseAuth, error) {
 	sender := send_letter.NewSendLetter(s.Conf, s.Logger)
 	sessionID := uuid.New().String()
 	code, errCode := send_letter.GenerateCode()
 	if errCode != nil {
 		s.Logger.Error("failed rand: ", errCode)
-		return nil, "", custom_errors.ErrFailedSecurity
+		return nil, custom_errors.ErrFailedSecurity
 	}
-	if sender.SendEmailLetter(userEmail, code) != nil {
-		return nil, "", custom_errors.ErrFailedSecurity
+	if sender.SendEmailLetter(dataUser[emailKey], code) != nil {
+		return nil, custom_errors.ErrFailedSecurity
 	}
-	if s.Repo.CreateSession(sessionID, code) != nil {
-		return nil, "", custom_errors.ErrFailedSecurity
+	dataUser[common.CodeKey] = fmt.Sprint(code)
+	if s.Repo.CreateUserSession(sessionID, action, dataUser) != nil {
+		return nil, custom_errors.ErrFailedSecurity
 	}
 	j := JWT.NewJWT(conf.Signature, s.Logger)
 	token, errJwtSession := j.CreateSessionJWT(sessionID)
 	if errJwtSession != nil {
-		return nil, "", custom_errors.ErrFailedSecurity
+		return nil, custom_errors.ErrFailedSecurity
 	}
 	return &common.ResponseAuth{
-		Message:    "we have sent a confirmation code to the following email address: " + userEmail,
+		Message:    "we have sent a confirmation code to the following email address: " + dataUser[emailKey],
 		JwtSession: token,
-	}, sessionID, nil
+	}, nil
 }
 
 const (
 	actionRegister = "register"
 	actionLogin    = "login"
 	actionRecovery = "recovery"
+
+	nameKey     = "name"
+	emailKey    = "email"
+	passwordKey = "password"
 )
 
 func (s *ServiceAuth) Confirm(codeUser int, sessionID, action, userAgent string) (*ResponseConfirm, []string) {
@@ -103,35 +127,44 @@ func (s *ServiceAuth) Confirm(codeUser int, sessionID, action, userAgent string)
 	if len(sliceError) != 0 {
 		return nil, sliceError
 	}
-	code, errGetCode := s.Repo.GetSession(sessionID)
+	dataUser, errGetCode := s.Repo.GetUserSession(sessionID, action)
 	if errGetCode != nil {
 		return nil, []string{custom_errors.ErrSessionExpired.Error()}
 	}
-	if codeUser != code {
+
+	if fmt.Sprint(codeUser) != dataUser[common.CodeKey] {
 		return nil, []string{custom_errors.ErrIncorrectCode.Error()}
 	}
 	var userUUID string
 	switch action {
 	case actionRegister:
-		dataUser, errGetDataUser := s.Repo.GetDataUserSession(sessionID)
-		if errGetDataUser != nil {
-			return nil, []string{custom_errors.ErrSessionExpired.Error()}
-		}
-		if s.IRepoUser.UserExistsByEmail(dataUser.Email) {
+		if s.IRepoUser.UserExistsByEmail(dataUser[emailKey]) {
 			return nil, []string{ErrUserAlreadyExist.Error()}
 		}
 		userUUID = uuid.New().String()
 		if s.IRepoUser.CreateUser(&model.User{
-			Name:     dataUser.Name,
-			Email:    dataUser.Email,
-			Password: dataUser.Password,
+			Name:     dataUser[nameKey],
+			Email:    dataUser[emailKey],
+			Password: dataUser[passwordKey],
 			UserUUID: userUUID,
 		}) != nil {
 			return nil, []string{ErrCreateUser.Error()}
 		}
 	case actionLogin:
-		userUUID = uuid.New().String()
+		if uUUID, errGetUserUUID := s.IRepoUser.GetUserUUIDByEmail(dataUser[emailKey]); errGetUserUUID != nil {
+			return nil, []string{custom_errors.ErrNotFoundUser.Error()}
+		} else {
+			userUUID = uUUID
+		}
 	case actionRecovery:
+		if uUUID, errGetUserUUID := s.IRepoUser.GetUserUUIDByEmail(dataUser[emailKey]); errGetUserUUID != nil {
+			return nil, []string{custom_errors.ErrNotFoundUser.Error()}
+		} else {
+			userUUID = uUUID
+			if s.IRepoUser.RecoveryUser(uUUID) != nil {
+				return nil, []string{ErrFailedRecoveryUser.Error()}
+			}
+		}
 	}
 	refreshID := uuid.New().String()
 	respConfirm, errConfirm := s.helperConfirm(userUUID, refreshID)

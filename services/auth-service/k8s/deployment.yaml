@@ -1,0 +1,78 @@
+apiVersion : apps/v1
+kind: Deployment
+metadata:
+  name: app-auth-user
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: app-auth-user
+  template:
+    metadata:
+      labels:
+        app:  app-auth-user
+    spec:
+      containers:
+        - name: app-auth-user
+          image: dmitriysyworov/auth-user-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          env:
+            - name: DSN
+              valueFrom:
+                secretKeyRef:
+                  name: auth-user-all-secrets
+                  key: dsn
+            - name: JWT_SIGNATURE
+              valueFrom:
+                secretKeyRef:
+                  name: auth-user-all-secrets
+                  key: signature
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: auth-user-all-secrets
+                  key: redis-password
+            - name: REDIS_ADDRESS
+              valueFrom:
+                secretKeyRef:
+                  name: auth-user-all-secrets
+                  key: redis-address
+            - name: API_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: auth-user-all-secrets
+                  key: api-email
+            - name: API_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: auth-user-all-secrets
+                  key: api-password
+            - name: SMTP_ADDRESS
+              valueFrom:
+                secretKeyRef:
+                  name: auth-user-all-secrets
+                  key: smtp-address
+            - name: SMTP_ADDRESS_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: auth-user-all-secrets
+                  key: smtp-address-host
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            timeoutSeconds: 1
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+

@@ -10,6 +10,6 @@ var (
 	ErrIncorrectEnterPassword   = errors.New("password must be between 8 and 24 characters")
 	ErrIncorrectFormatCode      = errors.New("the code must be 6 characters")
 	ErrIncorrectSessionID       = errors.New("incorrect session id")
-	ErrSessionExpired           = errors.New("authorization session has expired")
+	ErrSessionExpired           = errors.New("authorization session has expired or does not exist")
 	ErrIncorrectCode            = errors.New("incorrect code")
 )

@@ -29,7 +29,7 @@ func main() {
 	router := http.NewServeMux()
 	//
 	repoAuth := auth.NewRepository(redis, logger)
-	repoUser := user.NewRepositoryUser(postgres, redis, logger)
+	repoUser := user.NewRepositoryUser(postgres, logger)
 	//
 	serviceAuth := auth.NewServiceAuth(repoAuth, repoUser, conf.VerifyEmail, logger)
 	serviceUser := user.NewServiceUser(repoUser, serviceAuth, repoAuth)

@@ -44,16 +44,16 @@ func NewConfig(logger *loggers.Logger) *Config {
 	smtpAddressHost := os.Getenv("SMTP_ADDRESS_HOST")
 	var counterEmptyVariables int
 	if apiPort == "" {
-		counterEmptyVariables++
-		logger.Error("environment variable 'EXTERNAL_API_PORT' not found")
+		apiPort = "8080"
+		logger.Warn("environment variable 'EXTERNAL_API_PORT' not found. Default value = 8080")
 	}
 	if dsn == "" {
 		counterEmptyVariables++
 		logger.Error("environment variable 'DSN' not found")
 	}
 	if redisAddress == "" {
-		counterEmptyVariables++
-		logger.Error("environment variable 'REDIS_ADDRESS' not found")
+		redisAddress = "localhost:6379"
+		logger.Error("environment variable 'REDIS_ADDRESS' not found. Default value = localhost:6379")
 	}
 	if redisPassword == "" {
 		counterEmptyVariables++

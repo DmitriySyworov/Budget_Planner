@@ -29,8 +29,8 @@ func NewConfig(logger *loggers.Logger) *Config {
 	signature := os.Getenv("JWT_SIGNATURE")
 	counterEmptyVariables := 0
 	if apiPort == "" {
-		counterEmptyVariables++
-		logger.Error("environment variable 'EXTERNAL_API_PORT' not found")
+		apiPort = "8080"
+		logger.Warn("environment variable 'EXTERNAL_API_PORT' not found. Default value = 8080")
 	}
 	if signature == "" {
 		counterEmptyVariables++

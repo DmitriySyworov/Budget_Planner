@@ -14,10 +14,21 @@ spec:
     spec:
       containers:
         - name: app-budget-planner
-          image: app-budget-planner:latest
-          imagePullPolicy: Never
+          image: dmitriysyworov/budget-planner-service:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
+          env:
+            - name: DSN
+              valueFrom:
+                secretKeyRef:
+                  name: budget-planner-all-secrets
+                  key: dsn
+            - name: JWT_SIGNATURE
+              valueFrom:
+                secretKeyRef:
+                  name: budget-planner-all-secrets
+                  key: signature
           livenessProbe:
             httpGet:
               path: /health

@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: postgres-budget
+  name: postgres-user
 spec:
-  serviceName: postgres-budget-headless
+  serviceName:  postgres-user-headless
   replicas: 1
   selector:
     matchLabels:
-      app: postgres-budget
+      app:  postgres-user
   template:
     metadata:
       labels:
-        app: postgres-budget
+        app:  postgres-user
     spec:
       containers:
-        - name: postgres-budget-service
+        - name: postgres-user-service
           image: postgres:latest
           ports:
             - containerPort: 5432
@@ -22,17 +22,17 @@ spec:
             - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
-                  name: budget-planner-all-secrets
+                  name: auth-user-all-secrets
                   key: postgres-user
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: budget-planner-all-secrets
+                  name: auth-user-all-secrets
                   key: postgres-password
             - name: POSTGRES_DB
               valueFrom:
                 secretKeyRef:
-                  name: budget-planner-all-secrets
+                  name: auth-user-all-secrets
                   key: postgres-db
           volumeMounts:
             - name: data-volume

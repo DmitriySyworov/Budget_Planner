@@ -1,30 +1,23 @@
 package user
 
 import (
-	"app/auth-service/internal/common"
 	"app/auth-service/internal/custom_errors"
 	"app/auth-service/internal/model"
-	"context"
-	"fmt"
 	"shared/loggers"
 	"shared/open_db"
-	"time"
 
-	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm/clause"
 )
 
 type RepositoryUser struct {
 	*open_db.Postgres
-	*open_db.Redis
 	*loggers.Logger
 }
 
-func NewRepositoryUser(postgres *open_db.Postgres, redis *open_db.Redis, logger *loggers.Logger) *RepositoryUser {
+func NewRepositoryUser(postgres *open_db.Postgres, logger *loggers.Logger) *RepositoryUser {
 	return &RepositoryUser{
 		Postgres: postgres,
 		Logger:   logger,
-		Redis:    redis,
 	}
 }
 func (r *RepositoryUser) CreateUser(user *model.User) error {
@@ -95,7 +88,6 @@ func (r *RepositoryUser) GetPasswordByEmail(email string) (string, error) {
 	var password string
 	if errGetPassword := r.Postgres.Raw(`SELECT password FROM users
 						WHERE email = ?`, email).Scan(&password).Error; errGetPassword != nil {
-		r.Logger.Error("failed to get password: ", errGetPassword)
 		r.Logger.Error("failed to get user password: ", errGetPassword)
 		return "", ErrFailedGetUser
 	}
@@ -103,6 +95,18 @@ func (r *RepositoryUser) GetPasswordByEmail(email string) (string, error) {
 		return "", custom_errors.ErrNotFoundUser
 	}
 	return password, nil
+}
+func (r *RepositoryUser) GetUserUUIDByEmail(email string) (string, error) {
+	var userUUID string
+	if errGetUserUUID := r.Postgres.Raw(`SELECT user_uuid FROM users
+						WHERE email = ?`, email).Scan(&userUUID).Error; errGetUserUUID != nil {
+		r.Logger.Error("failed to get userUUID: ", errGetUserUUID)
+		return "", ErrFailedGetUser
+	}
+	if userUUID == "" {
+		return "", custom_errors.ErrNotFoundUser
+	}
+	return userUUID, nil
 }
 func (r *RepositoryUser) RemoveUser(userUUID string) error {
 	if errRemove := r.Postgres.Where("user_uuid = ?", userUUID).Delete(&model.User{}).Error; errRemove != nil {
@@ -121,71 +125,13 @@ func (r *RepositoryUser) DeleteUser(userUUID string) error {
 	}
 	return nil
 }
-
-const (
-	dataUpdateKey      = "data_user_update:"
-	dataRemoveKey      = "data_user_remove:"
-	newNameKey         = "new_name"
-	newEmailKey        = "new_email"
-	newHashPasswordKey = "new_hash_password"
-)
-
-func (r *RepositoryUser) CreateRemoveDataUserSession(typeRemove, sessionID string) error {
-	ctxTimeout, cancel := context.WithTimeout(context.Background(), common.CtxTimeout)
-	defer cancel()
-	if errSet := r.Redis.Set(ctxTimeout, dataRemoveKey+sessionID, typeRemove, time.Minute*5).Err(); errSet != nil {
-		r.Logger.Error("failed to set session remove user: ", errSet)
-		return errSet
+func (r *RepositoryUser) RecoveryUser(userUUID string) error {
+	if errRecovery := r.Postgres.
+		Unscoped().
+		Where("user_uuid = ?", userUUID).
+		Update("deleted_at", nil).Error; errRecovery != nil {
+		r.Logger.Error("failed to recovery user: ", errRecovery)
+		return errRecovery
 	}
 	return nil
-}
-func (r *RepositoryUser) GetRemoveDataUserSession(sessionID string) (string, error) {
-	ctxTimeout, cancel := context.WithTimeout(context.Background(), common.CtxTimeout)
-	defer cancel()
-	typeRemove, errGet := r.Redis.Get(ctxTimeout, dataRemoveKey+sessionID).Result()
-	if errGet != nil {
-		return "", errGet
-	}
-	return typeRemove, nil
-}
-func (r *RepositoryUser) CreateUpdateDataUserSession(newName, newEmail, newHashPassword, sessionID string) error {
-	ctxTimeout, cancel := context.WithTimeout(context.Background(), common.CtxTimeout)
-	defer cancel()
-	key := dataUpdateKey + sessionID
-	if _, errTx := r.Redis.TxPipelined(ctxTimeout, func(pipeliner redis.Pipeliner) error {
-		if errHSet := pipeliner.HSet(ctxTimeout, key, newNameKey, newName, newEmailKey, newEmail, newHashPasswordKey, newHashPassword).
-			Err(); errHSet != nil {
-			r.Logger.Error("failed to create data update  user session: ", errHSet)
-			return errHSet
-		}
-		if errExpire := pipeliner.Expire(ctxTimeout, key, time.Minute*5).Err(); errExpire != nil {
-			r.Logger.Error(fmt.Sprintf("failed to add expiration time to key %s: ", key), errExpire)
-			return errExpire
-		}
-		return nil
-	}); errTx != nil {
-		return errTx
-	}
-	return nil
-}
-
-type DataUserUpdateSession struct {
-	NewName     string
-	NewEmail    string
-	NewPassword string
-}
-
-func (r *RepositoryUser) GetUpdateDataUserSession(sessionID string) (*DataUserUpdateSession, error) {
-	ctxTimeout, cancel := context.WithTimeout(context.Background(), common.CtxTimeout)
-	defer cancel()
-	key := dataUpdateKey + sessionID
-	sessionValue, errHGetAll := r.Redis.HGetAll(ctxTimeout, key).Result()
-	if errHGetAll != nil {
-		return nil, errHGetAll
-	}
-	return &DataUserUpdateSession{
-		NewName:     sessionValue[newNameKey],
-		NewEmail:    sessionValue[newEmailKey],
-		NewPassword: sessionValue[newHashPasswordKey],
-	}, nil
 }
