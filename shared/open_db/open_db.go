@@ -22,9 +22,10 @@ func OpenPostgres(DSN string, loggers *loggers.Logger) *Postgres {
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	if errOpen != nil {
-		loggers.Error("failed to connect PostgreSQL: ", errOpen)
+		loggers.Error("failed to connect PostgreSQL: " + errOpen.Error())
 		os.Exit(1)
 	}
+	loggers.Info("connect PostgreSQL successful")
 	return &Postgres{
 		DB: db,
 	}

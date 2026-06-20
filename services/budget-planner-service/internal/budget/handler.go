@@ -18,26 +18,29 @@ type HandlerBudget struct {
 	*response.HandlerResponse
 }
 
-func NewHandlerBudget(router *http.ServeMux, service *ServiceBudget, logger *loggers.Logger, responseHandler *response.HandlerResponse, mv *shared_middleware.ManagerMiddleware) {
+func NewHandlerBudget(router *http.ServeMux, service *ServiceBudget, logger *loggers.Logger, responseHandler *response.HandlerResponse, mv *shared_middleware.ManagerSharedMiddleware) {
 	budget := &HandlerBudget{
 		ServiceBudget:   service,
 		Logger:          logger,
 		HandlerResponse: responseHandler,
 	}
-	router.Handle("POST /budget", mv.HandlerAuthToken(budget.CreateBudget()))
-	router.Handle("PATCH /budget/{uuid}", mv.HandlerAuthToken(budget.UpdateBudget()))
-	router.Handle("GET /budget/{uuid}", mv.HandlerAuthToken(budget.GetBudget()))
-	router.Handle("DELETE /budget/{uuid}", mv.HandlerAuthToken(budget.DeleteBudget()))
-	router.Handle("GET /budget", mv.HandlerAuthToken(budget.ListBudget()))
+	router.Handle("POST /budget", mv.HandlerAccessToken(budget.CreateBudget()))
+	router.Handle("PATCH /budget/{uuid}", mv.HandlerAccessToken(budget.UpdateBudget()))
+	router.Handle("GET /budget/{uuid}", mv.HandlerAccessToken(budget.GetBudget()))
+	router.Handle("DELETE /budget/{uuid}", mv.HandlerAccessToken(budget.DeleteBudget()))
+	router.Handle("GET /budget", mv.HandlerAccessToken(budget.ListBudget()))
 }
 func (h *HandlerBudget) CreateBudget() http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
+		resp := &response.Response{
+			Error: make([]string, 0, 5),
+		}
 		ctxValues := request.Context().Value(shared_middleware.KeyContextValue)
 		values, ok := ctxValues.(*shared_middleware.ContextValues)
 		if !ok {
 			h.Logger.Error(shared_errors.ErrFailedAssertionContextValues.Error() + request.Pattern)
-			h.Response.Error = append(h.Response.Error, shared_errors.ErrCriticalServer.Error())
-			h.ResponseSend(writer, http.StatusInternalServerError)
+			resp.Error = append(resp.Error, shared_errors.ErrCriticalServer.Error())
+			h.ResponseSend(writer, resp, http.StatusInternalServerError)
 			return
 		}
 		body, errBody := handler_request.HandlerRequest[CreateAndUpdateBudget](request.Body)
@@ -46,49 +49,52 @@ func (h *HandlerBudget) CreateBudget() http.HandlerFunc {
 				for _, err := range errValidate {
 					if err.Field() == "Amount" {
 						values.DataLog.MapLog["amount"] = body.Amount
-						h.Response.Error = append(h.Response.Error, "amount"+custom_errors.ErrIncorrectDecimal.Error())
+						resp.Error = append(resp.Error, "amount"+custom_errors.ErrIncorrectDecimal.Error())
 					} else if err.Field() == "Start" {
 						values.DataLog.MapLog["start"] = body.Start
-						h.Response.Error = append(h.Response.Error, ErrIncorrectStart.Error())
+						resp.Error = append(resp.Error, ErrIncorrectStart.Error())
 					} else if err.Field() == "Finish" {
 						values.DataLog.MapLog["finish"] = body.Finish
-						h.Response.Error = append(h.Response.Error, ErrIncorrectFinish.Error())
+						resp.Error = append(resp.Error, ErrIncorrectFinish.Error())
 					}
 				}
 			} else {
-				h.Response.Error = append(h.Response.Error, errBody.Error())
+				resp.Error = append(resp.Error, errBody.Error())
 			}
-			values.DataLog.Errors = append(values.DataLog.Errors, h.Response.Error...)
-			h.HandlerResponse.ResponseSend(writer, http.StatusBadRequest)
+			values.DataLog.Errors = append(values.DataLog.Errors, resp.Error...)
+			h.HandlerResponse.ResponseSend(writer, resp, http.StatusBadRequest)
 			return
 		}
 		budgetCreate, errCreate := h.ServiceBudget.CreateBudget(body, values.DataAuth.UserUUID)
-		h.Response.Error = append(h.Response.Error, errCreate...)
-		if len(h.Response.Error) != 0 {
-			values.DataLog.Errors = append(values.DataLog.Errors, h.Response.Error...)
-			if len(h.Response.Error) == 1 && h.Response.Error[0] == custom_errors.ErrNotFoundUser.Error() {
-				h.ResponseSend(writer, http.StatusNotFound)
-			} else if len(h.Response.Error) == 1 && h.Response.Error[0] == ErrFailedCreateBudget.Error() {
-				h.ResponseSend(writer, http.StatusInternalServerError)
+		resp.Error = append(resp.Error, errCreate...)
+		if len(resp.Error) != 0 {
+			values.DataLog.Errors = append(values.DataLog.Errors, resp.Error...)
+			if len(resp.Error) == 1 && resp.Error[0] == custom_errors.ErrNotFoundUser.Error() {
+				h.ResponseSend(writer, resp, http.StatusNotFound)
+			} else if len(resp.Error) == 1 && resp.Error[0] == ErrFailedCreateBudget.Error() {
+				h.ResponseSend(writer, resp, http.StatusInternalServerError)
 			} else {
-				h.ResponseSend(writer, http.StatusBadRequest)
+				h.ResponseSend(writer, resp, http.StatusBadRequest)
 			}
 			return
 		}
-		h.Response.Success = true
-		h.Response.Data = budgetCreate
-		h.ResponseSend(writer, http.StatusCreated)
+		resp.Success = true
+		resp.Data = budgetCreate
+		h.ResponseSend(writer, resp, http.StatusCreated)
 	}
 }
 
 func (h *HandlerBudget) UpdateBudget() http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
+		resp := &response.Response{
+			Error: make([]string, 0, 5),
+		}
 		ctxValues := request.Context().Value(shared_middleware.KeyContextValue)
 		values, ok := ctxValues.(*shared_middleware.ContextValues)
 		if !ok {
 			h.Logger.Error(shared_errors.ErrFailedAssertionContextValues.Error() + request.Pattern)
-			h.Response.Error = append(h.Response.Error, shared_errors.ErrCriticalServer.Error())
-			h.ResponseSend(writer, http.StatusInternalServerError)
+			resp.Error = append(resp.Error, shared_errors.ErrCriticalServer.Error())
+			h.ResponseSend(writer, resp, http.StatusInternalServerError)
 			return
 		}
 		body, errBody := handler_request.HandlerRequest[CreateAndUpdateBudget](request.Body)
@@ -97,78 +103,84 @@ func (h *HandlerBudget) UpdateBudget() http.HandlerFunc {
 				for _, err := range errValidate {
 					if err.Field() == "Amount" {
 						values.DataLog.MapLog["amount"] = body.Amount
-						h.Response.Error = append(h.Response.Error, "amount"+custom_errors.ErrIncorrectDecimal.Error())
+						resp.Error = append(resp.Error, "amount"+custom_errors.ErrIncorrectDecimal.Error())
 					} else if err.Field() == "Start" {
 						values.DataLog.MapLog["start"] = body.Start
-						h.Response.Error = append(h.Response.Error, ErrIncorrectStart.Error())
+						resp.Error = append(resp.Error, ErrIncorrectStart.Error())
 					} else if err.Field() == "Finish" {
 						values.DataLog.MapLog["finish"] = body.Finish
-						h.Response.Error = append(h.Response.Error, ErrIncorrectFinish.Error())
+						resp.Error = append(resp.Error, ErrIncorrectFinish.Error())
 					}
 				}
 			} else {
-				h.Response.Error = append(h.Response.Error, errBody.Error())
+				resp.Error = append(resp.Error, errBody.Error())
 			}
-			values.DataLog.Errors = append(values.DataLog.Errors, h.Response.Error...)
-			h.HandlerResponse.ResponseSend(writer, http.StatusBadRequest)
+			values.DataLog.Errors = append(values.DataLog.Errors, resp.Error...)
+			h.HandlerResponse.ResponseSend(writer, resp, http.StatusBadRequest)
 			return
 		}
 		budgetUUID := request.PathValue("uuid")
 		values.DataLog.MapLog["budget_uuid"] = budgetUUID
 		budgetUpdate, errUpdate := h.ServiceBudget.UpdateBudget(body, values.DataAuth.UserUUID, budgetUUID)
-		h.Response.Error = append(h.Response.Error, errUpdate...)
-		if len(h.Response.Error) != 0 {
-			values.DataLog.Errors = append(values.DataLog.Errors, h.Response.Error...)
-			if len(h.Response.Error) == 1 && (h.Response.Error[0] == custom_errors.ErrNotFoundUser.Error() || h.Response.Error[0] == custom_errors.ErrNotFoundBudget.Error()) {
-				h.ResponseSend(writer, http.StatusNotFound)
-			} else if len(h.Response.Error) == 1 && h.Response.Error[0] == ErrFailedUpdateBudget.Error() {
-				h.ResponseSend(writer, http.StatusInternalServerError)
+		resp.Error = append(resp.Error, errUpdate...)
+		if len(resp.Error) != 0 {
+			values.DataLog.Errors = append(values.DataLog.Errors, resp.Error...)
+			if len(resp.Error) == 1 && (resp.Error[0] == custom_errors.ErrNotFoundUser.Error() || resp.Error[0] == custom_errors.ErrNotFoundBudget.Error()) {
+				h.ResponseSend(writer, resp, http.StatusNotFound)
+			} else if len(resp.Error) == 1 && resp.Error[0] == ErrFailedUpdateBudget.Error() {
+				h.ResponseSend(writer, resp, http.StatusInternalServerError)
 			} else {
-				h.ResponseSend(writer, http.StatusBadRequest)
+				h.ResponseSend(writer, resp, http.StatusBadRequest)
 			}
 			return
 		}
-		h.Response.Success = true
-		h.Response.Data = budgetUpdate
-		h.ResponseSend(writer, http.StatusOK)
+		resp.Success = true
+		resp.Data = budgetUpdate
+		h.ResponseSend(writer, resp, http.StatusOK)
 	}
 }
 func (h *HandlerBudget) GetBudget() http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
+		resp := &response.Response{
+			Error: make([]string, 0, 5),
+		}
 		ctxValues := request.Context().Value(shared_middleware.KeyContextValue)
 		values, ok := ctxValues.(*shared_middleware.ContextValues)
 		if !ok {
 			h.Logger.Error(shared_errors.ErrFailedAssertionContextValues.Error() + request.Pattern)
-			h.Response.Error = append(h.Response.Error, shared_errors.ErrCriticalServer.Error())
-			h.ResponseSend(writer, http.StatusInternalServerError)
+			resp.Error = append(resp.Error, shared_errors.ErrCriticalServer.Error())
+			h.ResponseSend(writer, resp, http.StatusInternalServerError)
 			return
 		}
 		budgetUUID := request.PathValue("uuid")
 		values.DataLog.MapLog["budget_uuid"] = budgetUUID
 		budget, errGetBudget := h.ServiceBudget.GetBudget(values.DataAuth.UserUUID, budgetUUID)
-		h.Response.Error = append(h.Response.Error, errGetBudget...)
-		if len(h.Response.Error) != 0 {
-			values.DataLog.Errors = append(values.DataLog.Errors, h.Response.Error...)
-			if len(h.Response.Error) == 1 && (h.Response.Error[0] == custom_errors.ErrNotFoundUser.Error() || h.Response.Error[0] == custom_errors.ErrNotFoundBudget.Error()) {
-				h.ResponseSend(writer, http.StatusNotFound)
+		resp.Error = append(resp.Error, errGetBudget...)
+		if len(resp.Error) != 0 {
+			values.DataLog.Errors = append(values.DataLog.Errors, resp.Error...)
+			if len(resp.Error) == 1 && (resp.Error[0] == custom_errors.ErrNotFoundUser.Error() || resp.Error[0] == custom_errors.ErrNotFoundBudget.Error()) {
+				h.ResponseSend(writer, resp, http.StatusNotFound)
 			} else {
-				h.ResponseSend(writer, http.StatusBadRequest)
+				h.ResponseSend(writer, resp, http.StatusBadRequest)
 			}
 			return
 		}
-		h.Response.Success = true
-		h.Response.Data = budget
-		h.ResponseSend(writer, http.StatusOK)
+		resp.Success = true
+		resp.Data = budget
+		h.ResponseSend(writer, resp, http.StatusOK)
 	}
 }
 func (h *HandlerBudget) DeleteBudget() http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
+		resp := &response.Response{
+			Error: make([]string, 0, 5),
+		}
 		ctxValues := request.Context().Value(shared_middleware.KeyContextValue)
 		values, ok := ctxValues.(*shared_middleware.ContextValues)
 		if !ok {
 			h.Logger.Error(shared_errors.ErrFailedAssertionContextValues.Error() + request.Pattern)
-			h.Response.Error = append(h.Response.Error, shared_errors.ErrCriticalServer.Error())
-			h.ResponseSend(writer, http.StatusInternalServerError)
+			resp.Error = append(resp.Error, shared_errors.ErrCriticalServer.Error())
+			h.ResponseSend(writer, resp, http.StatusInternalServerError)
 			return
 		}
 		budgetUUID := request.PathValue("uuid")
@@ -176,15 +188,15 @@ func (h *HandlerBudget) DeleteBudget() http.HandlerFunc {
 		typeRemove := request.URL.Query().Get("type")
 		values.DataLog.MapLog["type"] = typeRemove
 		errRemoveBudget := h.ServiceBudget.RemoveBudget(values.DataAuth.UserUUID, budgetUUID, typeRemove)
-		h.Response.Error = append(h.Response.Error, errRemoveBudget...)
-		if len(h.Response.Error) != 0 {
-			values.DataLog.Errors = append(values.DataLog.Errors, h.Response.Error...)
-			if len(h.Response.Error) == 1 && (h.Response.Error[0] == custom_errors.ErrNotFoundUser.Error() || h.Response.Error[0] == custom_errors.ErrNotFoundBudget.Error()) {
-				h.ResponseSend(writer, http.StatusNotFound)
-			} else if len(h.Response.Error) == 1 && h.Response.Error[0] == ErrFailedDeleteBudget.Error() {
-				h.ResponseSend(writer, http.StatusInternalServerError)
+		resp.Error = append(resp.Error, errRemoveBudget...)
+		if len(resp.Error) != 0 {
+			values.DataLog.Errors = append(values.DataLog.Errors, resp.Error...)
+			if len(resp.Error) == 1 && (resp.Error[0] == custom_errors.ErrNotFoundUser.Error() || resp.Error[0] == custom_errors.ErrNotFoundBudget.Error()) {
+				h.ResponseSend(writer, resp, http.StatusNotFound)
+			} else if len(resp.Error) == 1 && resp.Error[0] == ErrFailedDeleteBudget.Error() {
+				h.ResponseSend(writer, resp, http.StatusInternalServerError)
 			} else {
-				h.ResponseSend(writer, http.StatusBadRequest)
+				h.ResponseSend(writer, resp, http.StatusBadRequest)
 			}
 			return
 		}
@@ -193,12 +205,15 @@ func (h *HandlerBudget) DeleteBudget() http.HandlerFunc {
 }
 func (h *HandlerBudget) ListBudget() http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
+		resp := &response.Response{
+			Error: make([]string, 0, 5),
+		}
 		ctxValues := request.Context().Value(shared_middleware.KeyContextValue)
 		values, ok := ctxValues.(*shared_middleware.ContextValues)
 		if !ok {
 			h.Logger.Error(shared_errors.ErrFailedAssertionContextValues.Error() + request.Pattern)
-			h.Response.Error = append(h.Response.Error, shared_errors.ErrCriticalServer.Error())
-			h.ResponseSend(writer, http.StatusInternalServerError)
+			resp.Error = append(resp.Error, shared_errors.ErrCriticalServer.Error())
+			h.ResponseSend(writer, resp, http.StatusInternalServerError)
 			return
 		}
 		limit := request.URL.Query().Get("limit")
@@ -206,18 +221,18 @@ func (h *HandlerBudget) ListBudget() http.HandlerFunc {
 		values.DataLog.MapLog["limit"] = limit
 		values.DataLog.MapLog["offset"] = offset
 		budgetList, errList := h.ServiceBudget.ListBudget(values.DataAuth.UserUUID, limit, offset)
-		h.Response.Error = append(h.Response.Error, errList...)
-		if len(h.Response.Error) != 0 {
-			values.DataLog.Errors = append(values.DataLog.Errors, h.Response.Error...)
-			if len(h.Response.Error) == 1 && (h.Response.Error[0] == custom_errors.ErrNotFoundUser.Error() || h.Response.Error[0] == custom_errors.ErrNotFoundBudget.Error()) {
-				h.ResponseSend(writer, http.StatusNotFound)
+		resp.Error = append(resp.Error, errList...)
+		if len(resp.Error) != 0 {
+			values.DataLog.Errors = append(values.DataLog.Errors, resp.Error...)
+			if len(resp.Error) == 1 && (resp.Error[0] == custom_errors.ErrNotFoundUser.Error() || resp.Error[0] == custom_errors.ErrNotFoundBudget.Error()) {
+				h.ResponseSend(writer, resp, http.StatusNotFound)
 			} else {
-				h.ResponseSend(writer, http.StatusBadRequest)
+				h.ResponseSend(writer, resp, http.StatusBadRequest)
 			}
 			return
 		}
-		h.Response.Success = true
-		h.Response.Data = budgetList
-		h.ResponseSend(writer, http.StatusOK)
+		resp.Success = true
+		resp.Data = budgetList
+		h.ResponseSend(writer, resp, http.StatusOK)
 	}
 }

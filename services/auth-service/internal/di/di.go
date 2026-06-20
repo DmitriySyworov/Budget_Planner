@@ -1,7 +1,6 @@
 package di
 
 import (
-	authconfig "app/auth-service/config"
 	"app/auth-service/internal/common"
 	"app/auth-service/internal/model"
 )
@@ -14,7 +13,7 @@ type IRepoUser interface {
 	RecoveryUser(userUUID string) error
 }
 type IServiceAuth interface {
-	HelperAuth(action string, dataUser map[string]string, conf *authconfig.VerifyEmail) (*common.ResponseAuth, error)
+	HelperAuth(action string, dataUser map[string]string) (*common.ResponseAuth, error)
 }
 type IRepoAuth interface {
 	GetUserSession(sessionID, action string) (map[string]string, error)

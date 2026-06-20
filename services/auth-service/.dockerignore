@@ -4,3 +4,4 @@
 *.env
 **/*.yaml
 **/*.yml
+*.env.example

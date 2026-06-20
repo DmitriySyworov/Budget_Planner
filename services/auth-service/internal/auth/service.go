@@ -44,7 +44,7 @@ func (s *ServiceAuth) Register(body *RequestRegister) (*common.ResponseAuth, []s
 	dataMap[nameKey] = body.Name
 	dataMap[passwordKey] = string(hashPassword)
 	dataMap[emailKey] = body.Email
-	respAuth, errAuth := s.HelperAuth(actionRecovery, dataMap, s.Conf)
+	respAuth, errAuth := s.HelperAuth(actionRegister, dataMap)
 	if errAuth != nil {
 		return nil, []string{custom_errors.ErrFailedSecurity.Error()}
 	}
@@ -61,7 +61,7 @@ func (s *ServiceAuth) Login(body *RequestLogin) (*common.ResponseAuth, []string)
 	const sizeLoginMap = 2
 	dataMap := make(map[string]string, sizeLoginMap)
 	dataMap[emailKey] = body.Email
-	respAuth, errAuth := s.HelperAuth(actionRecovery, dataMap, s.Conf)
+	respAuth, errAuth := s.HelperAuth(actionLogin, dataMap)
 	if errAuth != nil {
 		return nil, []string{custom_errors.ErrFailedSecurity.Error()}
 	}
@@ -74,13 +74,13 @@ func (s *ServiceAuth) Recovery(email string) (*common.ResponseAuth, []string) {
 	const sizeRecoveryMap = 2
 	dataMap := make(map[string]string, sizeRecoveryMap)
 	dataMap[emailKey] = email
-	respAuth, errAuth := s.HelperAuth(actionRecovery, dataMap, s.Conf)
+	respAuth, errAuth := s.HelperAuth(actionRecovery, dataMap)
 	if errAuth != nil {
 		return nil, []string{custom_errors.ErrFailedSecurity.Error()}
 	}
 	return respAuth, nil
 }
-func (s *ServiceAuth) HelperAuth(action string, dataUser map[string]string, conf *authconfig.VerifyEmail) (*common.ResponseAuth, error) {
+func (s *ServiceAuth) HelperAuth(action string, dataUser map[string]string) (*common.ResponseAuth, error) {
 	sender := send_letter.NewSendLetter(s.Conf, s.Logger)
 	sessionID := uuid.New().String()
 	code, errCode := send_letter.GenerateCode()
@@ -95,7 +95,10 @@ func (s *ServiceAuth) HelperAuth(action string, dataUser map[string]string, conf
 	if s.Repo.CreateUserSession(sessionID, action, dataUser) != nil {
 		return nil, custom_errors.ErrFailedSecurity
 	}
-	j := JWT.NewJWT(conf.Signature, s.Logger)
+	fmt.Println("OK")
+	fmt.Println(s.Conf.Signature)
+	fmt.Println("Ok2")
+	j := JWT.NewJWT(s.Conf.Signature, s.Logger)
 	token, errJwtSession := j.CreateSessionJWT(sessionID)
 	if errJwtSession != nil {
 		return nil, custom_errors.ErrFailedSecurity
@@ -117,7 +120,7 @@ const (
 )
 
 func (s *ServiceAuth) Confirm(codeUser int, sessionID, action, userAgent string) (*ResponseConfirm, []string) {
-	sliceError := make([]string, 2)
+	sliceError := make([]string, 0, 2)
 	if len(sessionID) != 36 {
 		sliceError = append(sliceError, custom_errors.ErrIncorrectSessionID.Error())
 	}
@@ -171,12 +174,22 @@ func (s *ServiceAuth) Confirm(codeUser int, sessionID, action, userAgent string)
 	if errConfirm != nil {
 		return nil, []string{custom_errors.ErrFailedSecurity.Error()}
 	}
+	if errDeleteOldRefresh := s.Repo.DeleteOldRefresh(userUUID); errDeleteOldRefresh != nil {
+		if action != actionRegister {
+			s.Logger.Warn(fmt.Sprintf("failed to delete old refreshID in action %s:", action) + errDeleteOldRefresh.Error())
+		}
+	}
 	if s.Repo.CreateRefresh(refreshID, userUUID, userAgent) != nil {
 		return nil, []string{custom_errors.ErrFailedSecurity.Error()}
 	}
 	return respConfirm, nil
 }
-func (s *ServiceAuth) Refresh(oldRefreshID, userAgent string) (*ResponseConfirm, []string) {
+func (s *ServiceAuth) Refresh(oldRefreshToken, userAgent string) (*ResponseConfirm, []string) {
+	j := JWT.NewJWT(s.Conf.Signature, s.Logger)
+	oldRefreshID, errParseRefresh := j.ParseRefreshToken(oldRefreshToken)
+	if errParseRefresh != nil {
+		return nil, []string{errParseRefresh.Error()}
+	}
 	dtoRefresh, errGetRefresh := s.Repo.GetRefresh(oldRefreshID)
 	if errGetRefresh != nil {
 		return nil, []string{ErrRenewalRefresh.Error()}
