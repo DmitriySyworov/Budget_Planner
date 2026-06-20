@@ -68,8 +68,8 @@ func (r *RepositoryUser) UserExistsByUserUUID(userUUID string) bool {
 func (r *RepositoryUser) GetResponseUserByUUID(userUUID string) (*ResponseUser, error) {
 	var user ResponseUser
 	if errGet := r.Postgres.Raw(`SELECT created_at, updated_at, name, email, user_uuid FROM users
-WHERE user_uuid = ?`, userUUID).Error; errGet != nil || user.UserUUID == "" {
-		r.Logger.Error("failed to get user: ", errGet)
+WHERE user_uuid = ? AND deleted_at IS NULL`, userUUID).Scan(&user).Error; errGet != nil {
+		r.Logger.Error("failed to get user: " + errGet.Error())
 		return nil, errGet
 	}
 	if user.UserUUID == "" {
@@ -79,7 +79,7 @@ WHERE user_uuid = ?`, userUUID).Error; errGet != nil || user.UserUUID == "" {
 }
 func (r *RepositoryUser) GetUserByUUID(userUUID string) (*model.User, error) {
 	var user model.User
-	if errGet := r.Postgres.Where("user_uuid = ", userUUID).Take(&user).Error; errGet != nil {
+	if errGet := r.Postgres.Where("user_uuid = ?", userUUID).Take(&user).Error; errGet != nil {
 		return nil, errGet
 	}
 	return &user, nil

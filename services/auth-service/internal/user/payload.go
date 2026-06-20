@@ -11,9 +11,9 @@ type RequestRemoveUser struct {
 	Email string `validate:"required,email"`
 }
 type RequestUpdateUser struct {
-	NewName     string `validate:"omitempty,min=2,max=64"`
-	NewEmail    string `validate:"omitempty,email"`
-	NewPassword string `validate:"omitempty,min=8,max=24"`
+	NewName     string `json:"new_name" validate:"omitempty,min=2,max=64"`
+	NewEmail    string `json:"new_email" validate:"omitempty,email"`
+	NewPassword string `json:"new_password"  validate:"omitempty,min=8,max=24"`
 	Password    string `validate:"omitempty,min=8,max=24,required_with=NewEmail NewPassword"`
 	Email       string `validate:"omitempty,email"`
 }

@@ -16,22 +16,25 @@ type HandlerFinance struct {
 	Logger *loggers.Logger
 }
 
-func NewHandlerFinance(router *http.ServeMux, service *ServiceFinance, response *response.HandlerResponse, logger *loggers.Logger, mv *shared_middleware.ManagerMiddleware) {
+func NewHandlerFinance(router *http.ServeMux, service *ServiceFinance, response *response.HandlerResponse, logger *loggers.Logger, mv *shared_middleware.ManagerSharedMiddleware) {
 	finance := &HandlerFinance{
 		ServiceFinance:  service,
 		HandlerResponse: response,
 		Logger:          logger,
 	}
-	router.Handle("GET /api/v1/finance/{budget_uuid}/{expense_uuid}", mv.HandlerAuthToken(finance.Finance()))
+	router.Handle("GET /api/v1/finance/{budget_uuid}/{expense_uuid}", mv.HandlerAccessToken(finance.Finance()))
 }
 func (h HandlerFinance) Finance() http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
+		resp := &response.Response{
+			Error: make([]string, 0, 5),
+		}
 		ctxValues := request.Context().Value(shared_middleware.KeyContextValue)
 		values, ok := ctxValues.(*shared_middleware.ContextValues)
 		if !ok {
 			h.Logger.Error(shared_errors.ErrFailedAssertionContextValues.Error() + request.Pattern)
-			h.Response.Error = append(h.Response.Error, shared_errors.ErrCriticalServer.Error())
-			h.ResponseSend(writer, http.StatusInternalServerError)
+			resp.Error = append(resp.Error, shared_errors.ErrCriticalServer.Error())
+			h.ResponseSend(writer, resp, http.StatusInternalServerError)
 			return
 		}
 		budgetUUID := request.PathValue("budget_uuid")
@@ -39,19 +42,19 @@ func (h HandlerFinance) Finance() http.HandlerFunc {
 		values.DataLog.MapLog["budget_uuid"] = budgetUUID
 		values.DataLog.MapLog["expense_uuid"] = expenseUUID
 		finance, errGetFinance := h.ServiceFinance.Finance(values.DataAuth.UserUUID, budgetUUID, expenseUUID)
-		h.Response.Error = append(h.Response.Error, errGetFinance...)
-		if len(h.Response.Error) != 0 {
+		resp.Error = append(resp.Error, errGetFinance...)
+		if len(resp.Error) != 0 {
 			values.DataLog.Errors = append(values.DataLog.Errors, errGetFinance...)
-			if h.Response.Error[0] == custom_errors.ErrNotFoundUser.Error() || h.Response.Error[0] == custom_errors.ErrNotFoundBudget.Error() || h.Response.Error[0] == custom_errors.ErrNotFoundExpense.Error() {
-				h.ResponseSend(writer, http.StatusNotFound)
-			} else if h.Response.Error[0] == ErrFailedGetFinance.Error() {
-				h.ResponseSend(writer, http.StatusInternalServerError)
+			if resp.Error[0] == custom_errors.ErrNotFoundUser.Error() || resp.Error[0] == custom_errors.ErrNotFoundBudget.Error() || resp.Error[0] == custom_errors.ErrNotFoundExpense.Error() {
+				h.ResponseSend(writer, resp, http.StatusNotFound)
+			} else if resp.Error[0] == ErrFailedGetFinance.Error() {
+				h.ResponseSend(writer, resp, http.StatusInternalServerError)
 			} else {
-				h.ResponseSend(writer, http.StatusBadRequest)
+				h.ResponseSend(writer, resp, http.StatusBadRequest)
 			}
 		}
-		h.Response.Success = true
-		h.Response.Data = finance
-		h.ResponseSend(writer, http.StatusOK)
+		resp.Success = true
+		resp.Data = finance
+		h.ResponseSend(writer, resp, http.StatusOK)
 	}
 }

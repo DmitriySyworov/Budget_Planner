@@ -3,6 +3,7 @@ package main
 import (
 	authconfig "app/auth-service/config"
 	"app/auth-service/internal/auth"
+	"app/auth-service/internal/middleware"
 	"app/auth-service/internal/user"
 	"context"
 	"net/http"
@@ -22,6 +23,7 @@ func main() {
 	responseHandler := response.NewHandlerResponse(logger)
 	//
 	sharedMv := shared_middleware.NewManagerSharedMiddleware(conf.Signature, logger, responseHandler)
+	mv := middleware.NewManagerMiddleware(conf.Signature, logger, responseHandler)
 	//
 	postgres := open_db.OpenPostgres(conf.DSN, logger)
 	redis := open_db.OpenRedis(conf.RedisAddress, conf.RedisPassword)
@@ -36,12 +38,12 @@ func main() {
 	//
 	router.HandleFunc("GET /health", health(logger))
 	router.HandleFunc("GET /ready", ready(postgres, redis, logger))
-	auth.NewHandlerAuth(router, serviceAuth, responseHandler, logger, sharedMv)
-	user.NewHandlerUser(router, serviceUser, responseHandler, logger, sharedMv)
+	auth.NewHandlerAuth(router, serviceAuth, responseHandler, logger, mv)
+	user.NewHandlerUser(router, serviceUser, responseHandler, logger, mv, sharedMv)
 	//
 	chainMv := shared_middleware.Chain(
-		sharedMv.Recovery,
 		sharedMv.Logging,
+		sharedMv.Recovery,
 	)
 	service := http.Server{
 		Addr:    ":" + conf.ApiPort,

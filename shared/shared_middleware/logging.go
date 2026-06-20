@@ -14,43 +14,40 @@ type DataLog struct {
 	Errors   []string
 }
 
-func (m *ManagerMiddleware) Logging(next http.Handler) http.Handler {
+func (m *ManagerSharedMiddleware) Logging(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		defer func() {
-			m.ContextValues = &ContextValues{
-				DataAuth: &DataAuth{
-					UserUUID:  "",
-					SessionID: "",
-				},
-				DataLog: &DataLog{
-					UserUUID: "",
-					Errors:   make([]string, 10),
-					MapLog:   make(map[string]any, sizeMap),
-				},
-			}
-		}()
 		wrapperWriter := &WrapperWriter{
 			Status:         http.StatusOK,
 			ResponseWriter: writer,
 		}
-		ctxValue := context.WithValue(context.Background(), KeyContextValue, m.ContextValues)
+		const sizeMap = 8
+		logValues := &ContextValues{
+			DataAuth: &DataAuth{},
+			DataLog: &DataLog{
+				Errors: make([]string, 0, 10),
+				MapLog: make(map[string]any, sizeMap),
+			}}
+		ctxValue := context.WithValue(context.Background(), KeyContextValue, logValues)
 		ctxRequest := request.WithContext(ctxValue)
+		logValues.DataLog.Method = request.Method
+		logValues.DataLog.Path = request.URL.Path
 		next.ServeHTTP(wrapperWriter, ctxRequest)
-		m.DataLog.Method = request.Method
-		m.DataLog.Path = request.Pattern
 		dataLoggerHandler := &loggers.DataLoggerHandler{
 			Status:      wrapperWriter.Status,
-			Method:      m.DataLog.Method,
-			Path:        m.DataLog.Path,
-			UserUUID:    m.ContextValues.DataLog.UserUUID,
-			Errors:      m.ContextValues.DataLog.Errors,
-			DataRequest: m.ContextValues.DataLog.MapLog,
+			Method:      logValues.DataLog.Method,
+			Path:        logValues.DataLog.Path,
+			UserUUID:    logValues.DataLog.UserUUID,
+			Errors:      logValues.DataLog.Errors,
+			DataRequest: logValues.DataLog.MapLog,
 		}
 		if wrapperWriter.Status >= 200 && wrapperWriter.Status < 400 {
 			dataLoggerHandler.Msg = "successful operation"
 			m.Logger.LoggerHandler(dataLoggerHandler)
-		} else {
+		} else if wrapperWriter.Status >= 400 && wrapperWriter.Status < 500 {
 			dataLoggerHandler.Msg = "unsuccessful operation"
+			m.Logger.LoggerHandler(dataLoggerHandler)
+		} else {
+			dataLoggerHandler.Msg = "critical error"
 			m.Logger.LoggerHandler(dataLoggerHandler)
 		}
 	})

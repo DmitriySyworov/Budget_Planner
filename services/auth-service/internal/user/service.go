@@ -70,7 +70,7 @@ func (s *ServiceUser) UpdateUser(userUUID string, body *RequestUpdateUser) (*mod
 	dataUser[newEmailKey] = body.NewEmail
 	dataUser[newNameKey] = body.NewName
 	dataUser[newPasswordKey] = newHashedPassword
-	respAuth, errAuth := s.HelperAuth(actionUpdate, dataUser, s.Conf)
+	respAuth, errAuth := s.HelperAuth(actionUpdate, dataUser)
 	if errAuth != nil {
 		return nil, nil, []string{custom_errors.ErrFailedSecurity.Error()}
 	}
@@ -84,8 +84,8 @@ func (s *ServiceUser) GetUser(userUUID string) (*ResponseUser, []string) {
 	return user, nil
 }
 func (s *ServiceUser) DeleteUser(email, typeRemove string) (*common.ResponseAuth, []string) {
-	sliceError := make([]string, 2)
-	if typeRemove != shared_common.TypeSoftDelete && typeRemove != shared_common.TypeHardDelete && typeRemove != "" {
+	sliceError := make([]string, 0, 2)
+	if typeRemove != shared_common.TypeSoftDelete && typeRemove != shared_common.TypeHardDelete {
 		sliceError = append(sliceError, shared_errors.ErrIncorrectTypeRemove.Error())
 	}
 	if !s.Repo.UserExistsByEmail(email) {
@@ -97,7 +97,7 @@ func (s *ServiceUser) DeleteUser(email, typeRemove string) (*common.ResponseAuth
 	const sizeRemoveDataMap = 2
 	dataUser := make(map[string]string, sizeRemoveDataMap)
 	dataUser[emailKey] = email
-	respAuth, errAuth := s.HelperAuth(actionUpdate, dataUser, s.Conf)
+	respAuth, errAuth := s.HelperAuth(typeRemove, dataUser)
 	if errAuth != nil {
 		return nil, []string{custom_errors.ErrFailedSecurity.Error()}
 	}
@@ -114,7 +114,7 @@ const (
 )
 
 func (s *ServiceUser) ConfirmUser(codeUser int, userUUID, sessionID, action string) (*ResponseUser, []string) {
-	sliceError := make([]string, 2)
+	sliceError := make([]string, 0, 2)
 	if len(sessionID) != 36 {
 		sliceError = append(sliceError, custom_errors.ErrIncorrectSessionID.Error())
 	}

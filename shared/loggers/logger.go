@@ -42,7 +42,7 @@ func (l *Logger) LoggerHandler(data *DataLoggerHandler) {
 			slog.Any("errors", data.Errors),
 			slog.Any("data", data.DataRequest))
 	} else {
-		l.Logger.Info(data.Msg,
+		l.Logger.Error(data.Msg,
 			slog.Int("status", data.Status),
 			slog.String("method", data.Method),
 			slog.String("path", data.Path),
