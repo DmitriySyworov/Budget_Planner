@@ -10,10 +10,12 @@ type IRepoUser interface {
 	CreateUser(user *model.User) error
 	UserExistsByEmail(email string) bool
 	GetPasswordByEmail(email string) (string, error)
+	GetUserUUIDByEmail(email string) (string, error)
+	RecoveryUser(userUUID string) error
 }
 type IServiceAuth interface {
-	HelperAuth(userEmail string, conf *authconfig.VerifyEmail) (*common.ResponseAuth, string, error)
+	HelperAuth(action string, dataUser map[string]string, conf *authconfig.VerifyEmail) (*common.ResponseAuth, error)
 }
 type IRepoAuth interface {
-	GetSession(sessionID string) (int, error)
+	GetUserSession(sessionID, action string) (map[string]string, error)
 }

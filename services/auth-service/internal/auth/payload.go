@@ -9,6 +9,9 @@ type RequestLogin struct {
 	Email    string `validate:"required,email"`
 	Password string `validate:"required,min=8,max=24"`
 }
+type RequestRecovery struct {
+	Email string `validate:"required,email"`
+}
 type ResponseConfirm struct {
 	AccessJwt  string `json:"access_jwt"`
 	RefreshJwt string `json:"refresh_jwt"`

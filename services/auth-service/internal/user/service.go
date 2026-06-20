@@ -6,6 +6,7 @@ import (
 	"app/auth-service/internal/custom_errors"
 	"app/auth-service/internal/di"
 	"app/auth-service/internal/model"
+	"fmt"
 	"shared/shared_common"
 	"shared/shared_errors"
 	"time"
@@ -63,12 +64,14 @@ func (s *ServiceUser) UpdateUser(userUUID string, body *RequestUpdateUser) (*mod
 	} else {
 		return nil, nil, []string{ErrIncorrectChoiceEmail.Error()}
 	}
-	respAuth, sessionId, errAuth := s.HelperAuth(sendEmail, s.Conf)
+	const sizeUpdateDataMap = 5
+	dataUser := make(map[string]string, sizeUpdateDataMap)
+	dataUser[emailKey] = sendEmail
+	dataUser[newEmailKey] = body.NewEmail
+	dataUser[newNameKey] = body.NewName
+	dataUser[newPasswordKey] = newHashedPassword
+	respAuth, errAuth := s.HelperAuth(actionUpdate, dataUser, s.Conf)
 	if errAuth != nil {
-		return nil, nil, []string{custom_errors.ErrFailedSecurity.Error()}
-	}
-
-	if s.Repo.CreateUpdateDataUserSession(body.NewName, body.NewEmail, newHashedPassword, sessionId) != nil {
 		return nil, nil, []string{custom_errors.ErrFailedSecurity.Error()}
 	}
 	return nil, respAuth, nil
@@ -91,11 +94,11 @@ func (s *ServiceUser) DeleteUser(email, typeRemove string) (*common.ResponseAuth
 	if len(sliceError) != 0 {
 		return nil, sliceError
 	}
-	respAuth, sessionId, errAuth := s.HelperAuth(email, s.Conf)
+	const sizeRemoveDataMap = 2
+	dataUser := make(map[string]string, sizeRemoveDataMap)
+	dataUser[emailKey] = email
+	respAuth, errAuth := s.HelperAuth(actionUpdate, dataUser, s.Conf)
 	if errAuth != nil {
-		return nil, []string{custom_errors.ErrFailedSecurity.Error()}
-	}
-	if s.Repo.CreateRemoveDataUserSession(typeRemove, sessionId) != nil {
 		return nil, []string{custom_errors.ErrFailedSecurity.Error()}
 	}
 	return respAuth, nil
@@ -103,6 +106,11 @@ func (s *ServiceUser) DeleteUser(email, typeRemove string) (*common.ResponseAuth
 
 const (
 	actionUpdate = "update"
+
+	emailKey       = "email"
+	newEmailKey    = "new_email"
+	newNameKey     = "new_name"
+	newPasswordKey = "new_password"
 )
 
 func (s *ServiceUser) ConfirmUser(codeUser int, userUUID, sessionID, action string) (*ResponseUser, []string) {
@@ -116,25 +124,21 @@ func (s *ServiceUser) ConfirmUser(codeUser int, userUUID, sessionID, action stri
 	if len(sliceError) != 0 {
 		return nil, sliceError
 	}
-	code, errGetCode := s.IRepoAuth.GetSession(sessionID)
+	dataSession, errGetCode := s.IRepoAuth.GetUserSession(sessionID, action)
 	if errGetCode != nil {
 		return nil, []string{custom_errors.ErrSessionExpired.Error()}
 	}
-	if codeUser != code {
+	if fmt.Sprint(codeUser) != dataSession[common.CodeKey] {
 		return nil, []string{custom_errors.ErrIncorrectCode.Error()}
 	}
 	if action == actionUpdate {
 		if !s.Repo.UserExistsByUserUUID(userUUID) {
 			return nil, []string{custom_errors.ErrNotFoundUser.Error()}
 		}
-		dtoUpdateData, errGetSessionUpdate := s.Repo.GetUpdateDataUserSession(sessionID)
-		if errGetSessionUpdate != nil {
-			return nil, []string{custom_errors.ErrSessionExpired.Error()}
-		}
 		user := &model.User{
-			Name:     dtoUpdateData.NewName,
-			Email:    dtoUpdateData.NewEmail,
-			Password: dtoUpdateData.NewPassword,
+			Name:     dataSession[newNameKey],
+			Email:    dataSession[newEmailKey],
+			Password: dataSession[newPasswordKey],
 		}
 		if s.Repo.UpdateUser(user, userUUID) != nil {
 			return nil, []string{ErrFailedUpdateUser.Error()}
@@ -147,17 +151,13 @@ func (s *ServiceUser) ConfirmUser(codeUser int, userUUID, sessionID, action stri
 			UserUUID:  user.UserUUID,
 		}, nil
 	}
-	typeRemove, errGetSession := s.Repo.GetRemoveDataUserSession(sessionID)
-	if errGetSession != nil {
-		return nil, []string{custom_errors.ErrSessionExpired.Error()}
-	}
-	if typeRemove ==  shared_common.TypeHardDelete {
+	if action == shared_common.TypeHardDelete {
 		if s.Repo.DeleteUser(userUUID) != nil {
 			return nil, []string{ErrFailedDeleteUser.Error()}
 		}
-	}else if typeRemove == shared_common.TypeSoftDelete {
-			 if s.Repo.RemoveUser(userUUID) != nil {
-				return nil, []string{ErrFailedRemoveUser.Error()}
+	} else if action == shared_common.TypeSoftDelete {
+		if s.Repo.RemoveUser(userUUID) != nil {
+			return nil, []string{ErrFailedRemoveUser.Error()}
 		}
 	} else {
 		return nil, []string{custom_errors.ErrSessionExpired.Error()}

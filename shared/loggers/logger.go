@@ -28,10 +28,26 @@ type DataLoggerHandler struct {
 
 func (l *Logger) LoggerHandler(data *DataLoggerHandler) {
 	if data.Status >= 200 && data.Status < 400 {
-		l.Logger.Info(data.Msg, "status", data.Status, "method", data.Method, "path", data.Path, "user_uuid", data.UserUUID)
+		l.Logger.Info(data.Msg,
+			slog.Int("status", data.Status),
+			slog.String("method", data.Method),
+			slog.String("path", data.Path),
+			slog.String("user_uuid", data.UserUUID))
 	} else if data.Status >= 400 && data.Status < 500 {
-		l.Logger.Info(data.Msg, "status", data.Status, "method", data.Method, "path", data.Path, "user_uuid", data.UserUUID, "errors", data.Errors, "data", data.DataRequest)
+		l.Logger.Info(data.Msg,
+			slog.Int("status", data.Status),
+			slog.String("method", data.Method),
+			slog.String("path", data.Path),
+			slog.String("user_uuid", data.UserUUID),
+			slog.Any("errors", data.Errors),
+			slog.Any("data", data.DataRequest))
 	} else {
-		l.Logger.Error(data.Msg, "status", data.Status, "method", data.Method, "path", data.Path, "user_uuid", data.UserUUID, "errors", data.Errors, "data", data.DataRequest)
+		l.Logger.Info(data.Msg,
+			slog.Int("status", data.Status),
+			slog.String("method", data.Method),
+			slog.String("path", data.Path),
+			slog.String("user_uuid", data.UserUUID),
+			slog.Any("errors", data.Errors),
+			slog.Any("data", data.DataRequest))
 	}
 }

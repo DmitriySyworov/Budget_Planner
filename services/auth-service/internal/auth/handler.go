@@ -14,7 +14,6 @@ import (
 )
 
 type HandlerAuth struct {
-	response.Response
 	*response.HandlerResponse
 	*loggers.Logger
 	*ServiceAuth
@@ -125,7 +124,43 @@ func (h *HandlerAuth) Login() http.HandlerFunc {
 }
 func (h *HandlerAuth) Recovery() http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
-
+		ctxValues := request.Context().Value(shared_middleware.KeyContextValue)
+		values, ok := ctxValues.(*shared_middleware.ContextValues)
+		if !ok {
+			h.Logger.Error(shared_errors.ErrFailedAssertionContextValues.Error() + request.Pattern)
+			h.Response.Error = append(h.Response.Error, shared_errors.ErrCriticalServer.Error())
+			h.ResponseSend(writer, http.StatusInternalServerError)
+			return
+		}
+		body, errBody := handler_request.HandlerRequest[RequestLogin](request.Body)
+		if errBody != nil {
+			if errValidate, okErrValidate := errBody.(validator.ValidationErrors); okErrValidate {
+				for _, err := range errValidate {
+					if err.Field() == "Email" {
+						h.Response.Error = append(h.Response.Error, custom_errors.ErrIncorrectEmail.Error())
+					}
+				}
+			} else {
+				h.Response.Error = append(h.Response.Error, errBody.Error())
+			}
+			values.DataLog.Errors = append(values.DataLog.Errors, h.Response.Error...)
+			h.ResponseSend(writer, http.StatusBadRequest)
+			return
+		}
+		respAuth, errRecovery := h.ServiceAuth.Recovery(body.Email)
+		h.Response.Error = append(h.Response.Error, errRecovery...)
+		if len(h.Response.Error) != 0 {
+			values.DataLog.Errors = append(values.DataLog.Errors, h.Response.Error...)
+			if h.Response.Error[0] == custom_errors.ErrNotFoundUser.Error() {
+				h.ResponseSend(writer, http.StatusNotFound)
+			} else if h.Response.Error[0] == custom_errors.ErrFailedSecurity.Error() {
+				h.ResponseSend(writer, http.StatusInternalServerError)
+			}
+			return
+		}
+		h.Response.Success = true
+		h.Response.Data = respAuth
+		h.ResponseSend(writer, http.StatusAccepted)
 	}
 }
 func (h *HandlerAuth) Confirm() http.HandlerFunc {
@@ -166,6 +201,8 @@ func (h *HandlerAuth) Confirm() http.HandlerFunc {
 				h.ResponseSend(writer, http.StatusBadRequest)
 			case custom_errors.ErrSessionExpired.Error(), custom_errors.ErrIncorrectCode.Error(), custom_errors.ErrIncorrectSessionID.Error():
 				h.ResponseSend(writer, http.StatusUnauthorized)
+			case custom_errors.ErrNotFoundUser.Error():
+				h.ResponseSend(writer, http.StatusNotFound)
 			default:
 				h.ResponseSend(writer, http.StatusInternalServerError)
 			}

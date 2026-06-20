@@ -25,7 +25,7 @@ func (m *ManagerMiddleware) Logging(next http.Handler) http.Handler {
 				DataLog: &DataLog{
 					UserUUID: "",
 					Errors:   make([]string, 10),
-					MapLog:   make(map[string]any, 8),
+					MapLog:   make(map[string]any, sizeMap),
 				},
 			}
 		}()

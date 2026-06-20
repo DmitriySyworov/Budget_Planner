@@ -37,12 +37,9 @@ services:
     environment:
       EXTERNAL_API_PORT : ${EXTERNAL_API_PORT}
       DSN : ${DSN}
-      REDIS_ADDRESS : ${REDIS_ADDRESS}
-      REDIS_PASSWORD : ${REDIS_PASSWORD}
     depends_on:
      migration:
        condition: service_completed_successfully
 
 volumes:
   postgres-data:
-  redis-data:

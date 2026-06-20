@@ -36,14 +36,12 @@ CREATE TABLE description_expense (
     description_expense_uuid uuid PRIMARY KEY,
     expense_uuid uuid REFERENCES  expense(expense_uuid) ON DELETE CASCADE
  );
-CREATE INDEX idx_user_uuid ON users(user_uuid);
 CREATE INDEX idx_budget_uuid ON budget(budget_uuid);
 CREATE INDEX idx_budget_user_uuid ON budget(user_uuid);
 CREATE INDEX idx_expense_budget_uuid ON expense(budget_uuid);
 CREATE INDEX idx_expense_uuid ON expense(expense_uuid);
 CREATE INDEX idx_description_expense_expense_uuid ON description_expense(expense_uuid);
 CREATE INDEX idx_description_expense_uuid ON description_expense(description_expense_uuid);
-CREATE INDEX idx_users_deleted_at ON users(deleted_at);
 CREATE INDEX idx_budget_deleted_at ON budget(deleted_at);
 -- +goose Down
 DROP TABLE IF EXISTS description_expense;

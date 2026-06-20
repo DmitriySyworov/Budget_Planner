@@ -14,7 +14,6 @@ import (
 )
 
 type HandlerUser struct {
-	response.Response
 	*response.HandlerResponse
 	*loggers.Logger
 	*ServiceUser

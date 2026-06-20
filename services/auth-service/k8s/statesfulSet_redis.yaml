@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis-auth
+spec:
+  serviceName: redis-auth-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-auth
+  template:
+    metadata:
+      labels:
+        app: redis-auth
+    spec:
+      containers:
+        - name: redis-auth
+          image: redis:7-alpine
+          command: ["redis-server"]
+          args: ["--requirepass", "$(REDIS_PASSWORD)", "--appendonly", "yes"]
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: auth-user-all-secrets
+                  key: redis-password
+          ports:
+            - containerPort: 6379
+              name: redis-auth
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: redis-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 1Gi
