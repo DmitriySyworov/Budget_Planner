@@ -1,9 +1,9 @@
 package budget
 
 import (
-	"app/budget-planner/internal/common"
 	"app/budget-planner/internal/custom_errors"
 	"app/budget-planner/internal/model"
+	"errors"
 	"shared/shared_common"
 	"shared/shared_errors"
 	"time"
@@ -20,22 +20,21 @@ func NewServiceBudget(repo *RepositoryBudget) *ServiceBudget {
 		Repo: repo,
 	}
 }
-func (s *ServiceBudget) CreateBudget(body *CreateAndUpdateBudget, userUUID string) (*model.Budget, []string) {
-	sliceError := make([]string, 0, 3)
+func (s *ServiceBudget) CreateBudget(body *CreateAndUpdateBudget, userUUID string) (*model.Budget, error) {
+	mapError := shared_errors.MapError{Map: make(map[string]string, 3)}
 	start, errStart := time.Parse(time.DateOnly, body.Start)
 	if errStart != nil {
-		sliceError = append(sliceError, ErrIncorrectStart.Error())
+		mapError.Map["start"] = ErrIncorrectStart.Error()
 	}
 	finish, errFinish := time.Parse(time.DateOnly, body.Finish)
 	if errFinish != nil {
-		sliceError = append(sliceError, ErrIncorrectFinish.Error())
+		mapError.Map["finish"] = ErrIncorrectFinish.Error()
 	}
-
 	if s.Repo.DateOverlap(start, finish) {
-		sliceError = append(sliceError, ErrOverlapStartFinish.Error())
+		mapError.Map["dates"] = ErrOverlapStartFinish.Error()
 	}
-	if len(sliceError) != 0 {
-		return nil, sliceError
+	if len(mapError.Map) != 0 {
+		return nil, mapError
 	}
 	budget := &model.Budget{
 		Amount:      body.Amount,
@@ -46,45 +45,45 @@ func (s *ServiceBudget) CreateBudget(body *CreateAndUpdateBudget, userUUID strin
 		UserUUID:    userUUID,
 	}
 	if errCreate := s.Repo.Create(budget); errCreate != nil {
-		return nil, []string{ErrFailedCreateBudget.Error()}
+		return nil, ErrFailedCreateBudget
 	}
 	return budget, nil
 }
-func (s *ServiceBudget) UpdateBudget(body *CreateAndUpdateBudget, userUUID, budgetUUID string) (*model.Budget, []string) {
-	sliceError := make([]string, 0, 3)
-	budget, errValidate := s.helperValidateBudget(userUUID, budgetUUID)
+func (s *ServiceBudget) UpdateBudget(body *CreateAndUpdateBudget, userUUID, budgetUUID string) (*model.Budget, error) {
+	mapError := shared_errors.MapError{Map: make(map[string]string, 3)}
+	budget, errValidate := s.HelperValidateBudget(userUUID, budgetUUID)
 	if errValidate != nil {
-		sliceError = append(sliceError, errValidate.Error())
+		mapError.Map["budget"] = errValidate.Error()
 	}
 	var start, finish time.Time
 	var errStart, errFinish error
 	if body.Start != "" {
 		start, errStart = time.Parse(time.DateOnly, body.Start)
 		if errStart != nil {
-			sliceError = append(sliceError, ErrIncorrectStart.Error())
+			mapError.Map["start"] = ErrIncorrectStart.Error()
 		}
 	}
 	if body.Finish != "" {
 		finish, errFinish = time.Parse(time.DateOnly, body.Finish)
 		if errFinish != nil {
-			sliceError = append(sliceError, ErrIncorrectFinish.Error())
+			mapError.Map["finish"] = ErrIncorrectFinish.Error()
 		}
 	}
 	if body.Start != "" && body.Finish != "" && errStart == nil && errFinish == nil {
 		if s.Repo.DateOverlap(start, finish) {
-			sliceError = append(sliceError, ErrOverlapStartFinish.Error())
+			mapError.Map["dates"] = ErrOverlapStartFinish.Error()
 		}
 	} else if body.Start != "" && body.Finish == "" && errStart == nil && errValidate == nil {
 		if s.Repo.DateOverlap(start, budget.Finish) {
-			sliceError = append(sliceError, ErrOverlapStartFinish.Error())
+			mapError.Map["dates"] = ErrOverlapStartFinish.Error()
 		}
 	} else if body.Start == "" && body.Finish != "" && errFinish == nil && errValidate == nil {
 		if s.Repo.DateOverlap(budget.Start, finish) {
-			sliceError = append(sliceError, ErrOverlapStartFinish.Error())
+			mapError.Map["dates"] = ErrOverlapStartFinish.Error()
 		}
 	}
-	if len(sliceError) != 0 || errValidate != nil {
-		return nil, sliceError
+	if len(mapError.Map) != 0 || errValidate != nil {
+		return nil, mapError
 	}
 	budget.Amount = body.Amount
 	budget.Start = start
@@ -92,42 +91,42 @@ func (s *ServiceBudget) UpdateBudget(body *CreateAndUpdateBudget, userUUID, budg
 	budget.Description = body.Description
 	errUpdate := s.Repo.UpdateBudget(budget, userUUID, budgetUUID)
 	if errUpdate != nil {
-		return nil, []string{ErrFailedUpdateBudget.Error()}
+		return nil, ErrFailedUpdateBudget
 	}
 	return budget, nil
 }
-func (s *ServiceBudget) GetBudget(userUUID, budgetUUID string) (*model.Budget, []string) {
-	budget, errValidate := s.helperValidateBudget(userUUID, budgetUUID)
+func (s *ServiceBudget) GetBudget(userUUID, budgetUUID string) (*model.Budget, error) {
+	budget, errValidate := s.HelperValidateBudget(userUUID, budgetUUID)
 	if errValidate != nil {
-		return nil, []string{errValidate.Error()}
+		return nil, errValidate
 	}
 	return budget, nil
 }
 
-func (s *ServiceBudget) RemoveBudget(userUUID, budgetUUID, typeRemove string) []string {
-	sliceError := make([]string, 0, 2)
-	_, errValidate := s.helperValidateBudget(userUUID, budgetUUID)
-	sliceError = append(sliceError, errValidate.Error())
+func (s *ServiceBudget) RemoveBudget(userUUID, budgetUUID, typeRemove string) error {
+	mapError := shared_errors.MapError{Map: make(map[string]string, 2)}
+	_, errValidate := s.HelperValidateBudget(userUUID, budgetUUID)
+	mapError.Map["budget"] = errValidate.Error()
 	if typeRemove != shared_common.TypeSoftDelete && typeRemove != shared_common.TypeHardDelete && typeRemove != "" {
-		sliceError = append(sliceError, shared_errors.ErrIncorrectTypeRemove.Error())
+		mapError.Map["type"] = shared_errors.ErrIncorrectTypeRemove.Error()
 	}
-	if len(sliceError) != 0 {
-		return sliceError
+	if len(mapError.Map) != 0 {
+		return mapError
 	}
 	if typeRemove == shared_common.TypeSoftDelete || typeRemove == "" {
 		errRemove := s.Repo.RemoveBudget(userUUID, budgetUUID)
 		if errRemove != nil {
-			return []string{ErrFailedRemoveBudget.Error()}
+			return ErrFailedRemoveBudget
 		}
 	} else if typeRemove == shared_common.TypeHardDelete {
 		errDelete := s.Repo.DeleteBudget(userUUID, budgetUUID)
 		if errDelete != nil {
-			return []string{ErrFailedDeleteBudget.Error()}
+			return ErrFailedDeleteBudget
 		}
 	}
-	return []string{shared_errors.ErrIncorrectTypeRemove.Error()}
+	return shared_errors.ErrIncorrectTypeRemove
 }
-func (s *ServiceBudget) helperValidateBudget(userUUID, budgetUUID string) (*model.Budget, error) {
+func (s *ServiceBudget) HelperValidateBudget(userUUID, budgetUUID string) (*model.Budget, error) {
 	if _, errBudgetUUID := uuid.Parse(budgetUUID); errBudgetUUID != nil {
 		return nil, custom_errors.ErrIncorrectFormatBudgetUUID
 	}
@@ -138,16 +137,23 @@ func (s *ServiceBudget) helperValidateBudget(userUUID, budgetUUID string) (*mode
 	return budget, nil
 }
 
-func (s *ServiceBudget) ListBudget(userUUID, limitStr, offsetStr string) ([]model.Budget, []string) {
-	sliceError := make([]string, 0, 3)
-	limit, offset, errPagination := common.PaginationHelper(limitStr, offsetStr)
-	sliceError = append(sliceError, errPagination...)
-	if len(sliceError) != 0 {
-		return nil, sliceError
+func (s *ServiceBudget) ListBudget(userUUID, limitStr, offsetStr string) ([]model.Budget, error) {
+	limit, offset, errPagination := shared_common.PaginationHelper(limitStr, offsetStr)
+	if len(errPagination) != 0 {
+		mapError := shared_errors.MapError{Map: make(map[string]string, 2)}
+		for _, err := range errPagination {
+			switch {
+			case errors.Is(err, shared_errors.ErrIncorrectLimit):
+				mapError.Map["limit"] = shared_errors.ErrIncorrectLimit.Error()
+			case errors.Is(err, shared_errors.ErrIncorrectOffset):
+				mapError.Map["offset"] = shared_errors.ErrIncorrectOffset.Error()
+			}
+		}
+		return nil, mapError
 	}
 	listBudget, errList := s.Repo.ListBudget(userUUID, limit, offset)
 	if errList != nil {
-		return nil, []string{custom_errors.ErrNotFoundBudget.Error()}
+		return nil, custom_errors.ErrNotFoundBudget
 	}
 	return listBudget, nil
 }

@@ -33,10 +33,9 @@ func (j *JWT) CreateSessionJWT(sessionID string) (string, error) {
 	}
 	return token, nil
 }
-func (j *JWT) CreateAccessJWT(accessID, userUUID string) (string, error) {
+func (j *JWT) CreateAccessJWT(userUUID string) (string, error) {
 	claim := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"type":      "access",
-		"access_id": accessID,
 		"user_uuid": userUUID,
 		"exp":       time.Now().Add(time.Minute * 5).Unix(),
 	})

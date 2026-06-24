@@ -2,6 +2,7 @@ package finance
 
 import (
 	"app/budget-planner/internal/custom_errors"
+	"errors"
 	"shared/response"
 	"shared/shared_errors"
 	"shared/shared_middleware"
@@ -27,13 +28,13 @@ func NewHandlerFinance(router *http.ServeMux, service *ServiceFinance, response 
 func (h HandlerFinance) Finance() http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		resp := &response.Response{
-			Error: make([]string, 0, 5),
+			Error: make(map[string]string),
 		}
 		ctxValues := request.Context().Value(shared_middleware.KeyContextValue)
 		values, ok := ctxValues.(*shared_middleware.ContextValues)
 		if !ok {
 			h.Logger.Error(shared_errors.ErrFailedAssertionContextValues.Error() + request.Pattern)
-			resp.Error = append(resp.Error, shared_errors.ErrCriticalServer.Error())
+			resp.Error["global"] = shared_errors.ErrCriticalServer.Error()
 			h.ResponseSend(writer, resp, http.StatusInternalServerError)
 			return
 		}
@@ -42,15 +43,24 @@ func (h HandlerFinance) Finance() http.HandlerFunc {
 		values.DataLog.MapLog["budget_uuid"] = budgetUUID
 		values.DataLog.MapLog["expense_uuid"] = expenseUUID
 		finance, errGetFinance := h.ServiceFinance.Finance(values.DataAuth.UserUUID, budgetUUID, expenseUUID)
-		resp.Error = append(resp.Error, errGetFinance...)
-		if len(resp.Error) != 0 {
-			values.DataLog.Errors = append(values.DataLog.Errors, errGetFinance...)
-			if resp.Error[0] == custom_errors.ErrNotFoundUser.Error() || resp.Error[0] == custom_errors.ErrNotFoundBudget.Error() || resp.Error[0] == custom_errors.ErrNotFoundExpense.Error() {
-				h.ResponseSend(writer, resp, http.StatusNotFound)
-			} else if resp.Error[0] == ErrFailedGetFinance.Error() {
-				h.ResponseSend(writer, resp, http.StatusInternalServerError)
-			} else {
+		if errGetFinance != nil {
+			values.DataLog.Errors = errGetFinance.Error()
+			var mapError shared_errors.MapError
+			if errors.As(errGetFinance, &mapError) {
+				resp.Error = mapError.Map
 				h.ResponseSend(writer, resp, http.StatusBadRequest)
+				return
+			}
+			switch {
+			case errors.Is(errGetFinance, custom_errors.ErrNotFoundBudget):
+				resp.Error["budget"] = errGetFinance.Error()
+				h.ResponseSend(writer, resp, http.StatusNotFound)
+			case errors.Is(errGetFinance, custom_errors.ErrNotFoundExpense):
+				resp.Error["expense"] = errGetFinance.Error()
+				h.ResponseSend(writer, resp, http.StatusNotFound)
+			case errors.Is(errGetFinance, ErrFailedGetFinance):
+				resp.Error["finance"] = errGetFinance.Error()
+				h.ResponseSend(writer, resp, http.StatusInternalServerError)
 			}
 		}
 		resp.Success = true

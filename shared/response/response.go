@@ -9,8 +9,8 @@ import (
 
 type Response struct {
 	Success bool
-	Data    any      `json:"data,omitempty"`
-	Error   []string `json:"errors,omitempty"`
+	Data    any               `json:"data,omitempty"`
+	Error   map[string]string `json:"errors,omitempty"`
 }
 type HandlerResponse struct {
 	*loggers.Logger

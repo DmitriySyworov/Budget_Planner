@@ -15,6 +15,3 @@ type ResponseAuth struct {
 	Message    string
 	JwtSession string `json:"jwt_session"`
 }
-type RequestConfirm struct {
-	Code int `validate:"required,min=100000,max=999999"`
-}

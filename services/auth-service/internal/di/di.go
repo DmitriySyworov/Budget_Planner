@@ -11,6 +11,8 @@ type IRepoUser interface {
 	GetPasswordByEmail(email string) (string, error)
 	GetUserUUIDByEmail(email string) (string, error)
 	RecoveryUser(userUUID string) error
+	UpdateUser(user *model.User, userUUID string) error
+	GetUserByEmail(email string) (*model.User, error)
 }
 type IServiceAuth interface {
 	HelperAuth(action string, dataUser map[string]string) (*common.ResponseAuth, error)

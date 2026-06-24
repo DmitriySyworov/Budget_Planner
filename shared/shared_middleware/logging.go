@@ -11,7 +11,7 @@ type DataLog struct {
 	Path     string
 	UserUUID string
 	MapLog   map[string]any
-	Errors   []string
+	Errors   string
 }
 
 func (m *ManagerSharedMiddleware) Logging(next http.Handler) http.Handler {
@@ -24,7 +24,6 @@ func (m *ManagerSharedMiddleware) Logging(next http.Handler) http.Handler {
 		logValues := &ContextValues{
 			DataAuth: &DataAuth{},
 			DataLog: &DataLog{
-				Errors: make([]string, 0, 10),
 				MapLog: make(map[string]any, sizeMap),
 			}}
 		ctxValue := context.WithValue(context.Background(), KeyContextValue, logValues)

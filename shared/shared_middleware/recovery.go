@@ -11,9 +11,9 @@ func (m *ManagerSharedMiddleware) Recovery(next http.Handler) http.Handler {
 		defer func() {
 			if errPanic := recover(); errPanic != nil {
 				resp := &response.Response{
-					Error: make([]string, 0, 1),
+					Error: make(map[string]string),
 				}
-				resp.Error = append(resp.Error, shared_errors.ErrCriticalServer.Error())
+				resp.Error["global"] = shared_errors.ErrCriticalServer.Error()
 				m.ResponseSend(writer, resp, http.StatusInternalServerError)
 				m.Logger.Error("critical error: ", "panic", errPanic)
 			}

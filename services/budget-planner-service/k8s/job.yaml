@@ -1,0 +1,30 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrations-budget-planner-job
+spec:
+  completions: 1
+  backoffLimit: 2
+  activeDeadlineSeconds: 200
+  template:
+    metadata:
+      name: migrations-budget-planner-pod
+    spec:
+      restartPolicy: Never
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox:latest
+          command:
+            - "sh"
+            - "-c"
+            - "until nc -z -v -w3 postgres-service 5432; do echo 'Waiting for PostgreSQL...'; sleep 2; done"
+      containers:
+        - name: migration-budget-planner-tool
+          image: dmitriysyworov/budget-planner-service:latest
+          command: ["./migrator"]
+          env:
+            - name: DSN
+              valueFrom:
+                secretKeyRef:
+                  name: budget-planner-all-secrets
+                  key: dsn

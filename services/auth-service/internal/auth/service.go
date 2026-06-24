@@ -10,6 +10,7 @@ import (
 	"app/auth-service/internal/send_letter"
 	"fmt"
 	"shared/loggers"
+	"shared/shared_errors"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -30,14 +31,14 @@ func NewServiceAuth(repo *RepositoryAuth, repoUser di.IRepoUser, conf *authconfi
 		Logger:    logger,
 	}
 }
-func (s *ServiceAuth) Register(body *RequestRegister) (*common.ResponseAuth, []string) {
+func (s *ServiceAuth) Register(body *RequestRegister) (*common.ResponseAuth, error) {
 	if s.IRepoUser.UserExistsByEmail(body.Email) {
-		return nil, []string{ErrUserAlreadyExist.Error()}
+		return nil, ErrUserAlreadyExist
 	}
 	hashPassword, errGeneratePassword := bcrypt.GenerateFromPassword([]byte(body.Password), bcrypt.DefaultCost)
 	if errGeneratePassword != nil {
 		s.Logger.Error("failed to hash the password")
-		return nil, []string{custom_errors.ErrFailedSecurity.Error()}
+		return nil, custom_errors.ErrFailedSecurity
 	}
 	const sizeRegisterMap = 4
 	dataMap := make(map[string]string, sizeRegisterMap)
@@ -46,37 +47,55 @@ func (s *ServiceAuth) Register(body *RequestRegister) (*common.ResponseAuth, []s
 	dataMap[emailKey] = body.Email
 	respAuth, errAuth := s.HelperAuth(actionRegister, dataMap)
 	if errAuth != nil {
-		return nil, []string{custom_errors.ErrFailedSecurity.Error()}
+		return nil, custom_errors.ErrFailedSecurity
 	}
 	return respAuth, nil
 }
-func (s *ServiceAuth) Login(body *RequestLogin) (*common.ResponseAuth, []string) {
+func (s *ServiceAuth) Login(body *RequestLogin) (*common.ResponseAuth, error) {
 	hashPassword, errGetPassword := s.IRepoUser.GetPasswordByEmail(body.Email)
 	if errGetPassword != nil {
-		return nil, []string{custom_errors.ErrIncorrectPasswordOrEmail.Error()}
+		return nil, custom_errors.ErrIncorrectPasswordOrEmail
 	}
 	if bcrypt.CompareHashAndPassword([]byte(hashPassword), []byte(body.Password)) != nil {
-		return nil, []string{custom_errors.ErrIncorrectPasswordOrEmail.Error()}
+		return nil, custom_errors.ErrIncorrectPasswordOrEmail
 	}
 	const sizeLoginMap = 2
 	dataMap := make(map[string]string, sizeLoginMap)
 	dataMap[emailKey] = body.Email
 	respAuth, errAuth := s.HelperAuth(actionLogin, dataMap)
 	if errAuth != nil {
-		return nil, []string{custom_errors.ErrFailedSecurity.Error()}
+		return nil, custom_errors.ErrFailedSecurity
 	}
 	return respAuth, nil
 }
-func (s *ServiceAuth) Recovery(email string) (*common.ResponseAuth, []string) {
-	if !s.IRepoUser.UserExistsByEmail(email) {
-		return nil, []string{custom_errors.ErrNotFoundUser.Error()}
+func (s *ServiceAuth) Recovery(body *RequestRecovery, action string) (*common.ResponseAuth, error) {
+	mapError := &shared_errors.MapError{
+		Map: make(map[string]string, 2),
+	}
+	hashedPassword, errGetPassword := s.IRepoUser.GetPasswordByEmail(body.Email)
+	if errGetPassword != nil {
+		mapError.Map["email"] = custom_errors.ErrNotFoundUser.Error()
+	}
+	if action != actionRecoveryPassword && action != actionRecoveryUser {
+		mapError.Map["action"] = ErrIncorrectActionRecovery.Error()
+	}
+	if len(mapError.Map) != 0 {
+		return nil, mapError
+	}
+	if action == actionRecoveryUser {
+		if body.Password == "" {
+			return nil, ErrPasswordEmpty
+		}
+		if bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(body.Password)) != nil {
+			return nil, custom_errors.ErrIncorrectPasswordOrEmail
+		}
 	}
 	const sizeRecoveryMap = 2
 	dataMap := make(map[string]string, sizeRecoveryMap)
-	dataMap[emailKey] = email
-	respAuth, errAuth := s.HelperAuth(actionRecovery, dataMap)
+	dataMap[emailKey] = body.Email
+	respAuth, errAuth := s.HelperAuth(action, dataMap)
 	if errAuth != nil {
-		return nil, []string{custom_errors.ErrFailedSecurity.Error()}
+		return nil, custom_errors.ErrFailedSecurity
 	}
 	return respAuth, nil
 }
@@ -110,39 +129,43 @@ func (s *ServiceAuth) HelperAuth(action string, dataUser map[string]string) (*co
 }
 
 const (
-	actionRegister = "register"
-	actionLogin    = "login"
-	actionRecovery = "recovery"
+	actionRegister         = "register"
+	actionLogin            = "login"
+	actionRecoveryUser     = "recovery_user"
+	actionRecoveryPassword = "recovery_password"
 
 	nameKey     = "name"
 	emailKey    = "email"
 	passwordKey = "password"
 )
 
-func (s *ServiceAuth) Confirm(codeUser int, sessionID, action, userAgent string) (*ResponseConfirm, []string) {
-	sliceError := make([]string, 0, 2)
+func (s *ServiceAuth) Confirm(body *RequestConfirm, sessionID, action, userAgent string) (*ResponseConfirm, error) {
+	mapError := shared_errors.MapError{Map: make(map[string]string, 2)}
 	if len(sessionID) != 36 {
-		sliceError = append(sliceError, custom_errors.ErrIncorrectSessionID.Error())
+		mapError.Map["session"] = custom_errors.ErrIncorrectSessionID.Error()
 	}
-	if action != actionRecovery && action != actionLogin && action != actionRegister {
-		sliceError = append(sliceError, ErrIncorrectAction.Error())
+	if action != actionRecoveryUser && action != actionRecoveryPassword && action != actionLogin && action != actionRegister {
+		mapError.Map["action"] = ErrIncorrectAction.Error()
 	}
-	if len(sliceError) != 0 {
-		return nil, sliceError
+	if len(mapError.Map) != 0 {
+		return nil, mapError
+	}
+	if action == actionRecoveryPassword && body.NewPassword == "" {
+		return nil, ErrNotSpecifiedNewPassword
 	}
 	dataUser, errGetCode := s.Repo.GetUserSession(sessionID, action)
 	if errGetCode != nil {
-		return nil, []string{custom_errors.ErrSessionExpired.Error()}
+		return nil, custom_errors.ErrSessionExpired
 	}
 
-	if fmt.Sprint(codeUser) != dataUser[common.CodeKey] {
-		return nil, []string{custom_errors.ErrIncorrectCode.Error()}
+	if fmt.Sprint(body.Code) != dataUser[common.CodeKey] {
+		return nil, custom_errors.ErrIncorrectCode
 	}
 	var userUUID string
 	switch action {
 	case actionRegister:
 		if s.IRepoUser.UserExistsByEmail(dataUser[emailKey]) {
-			return nil, []string{ErrUserAlreadyExist.Error()}
+			return nil, ErrUserAlreadyExist
 		}
 		userUUID = uuid.New().String()
 		if s.IRepoUser.CreateUser(&model.User{
@@ -151,28 +174,43 @@ func (s *ServiceAuth) Confirm(codeUser int, sessionID, action, userAgent string)
 			Password: dataUser[passwordKey],
 			UserUUID: userUUID,
 		}) != nil {
-			return nil, []string{ErrCreateUser.Error()}
+			return nil, ErrCreateUser
 		}
 	case actionLogin:
 		if uUUID, errGetUserUUID := s.IRepoUser.GetUserUUIDByEmail(dataUser[emailKey]); errGetUserUUID != nil {
-			return nil, []string{custom_errors.ErrNotFoundUser.Error()}
+			return nil, custom_errors.ErrNotFoundUser
 		} else {
 			userUUID = uUUID
 		}
-	case actionRecovery:
+	case actionRecoveryUser:
 		if uUUID, errGetUserUUID := s.IRepoUser.GetUserUUIDByEmail(dataUser[emailKey]); errGetUserUUID != nil {
-			return nil, []string{custom_errors.ErrNotFoundUser.Error()}
+			return nil, custom_errors.ErrNotFoundUser
 		} else {
 			userUUID = uUUID
 			if s.IRepoUser.RecoveryUser(uUUID) != nil {
-				return nil, []string{ErrFailedRecoveryUser.Error()}
+				return nil, ErrFailedRecoveryUser
 			}
+		}
+	case actionRecoveryPassword:
+		user, errGetUser := s.IRepoUser.GetUserByEmail(dataUser[emailKey])
+		if errGetUser != nil {
+			return nil, custom_errors.ErrNotFoundUser
+		}
+		userUUID = user.UserUUID
+		hashPassword, errHashPass := bcrypt.GenerateFromPassword([]byte(body.NewPassword), bcrypt.DefaultCost)
+		if errHashPass != nil {
+			s.Logger.Error("failed to hashed password: " + errHashPass.Error())
+			return nil, custom_errors.ErrFailedSecurity
+		}
+		user.Password = string(hashPassword)
+		if s.IRepoUser.UpdateUser(user, user.UserUUID) != nil {
+			return nil, ErrChangePassword
 		}
 	}
 	refreshID := uuid.New().String()
 	respConfirm, errConfirm := s.helperConfirm(userUUID, refreshID)
 	if errConfirm != nil {
-		return nil, []string{custom_errors.ErrFailedSecurity.Error()}
+		return nil, custom_errors.ErrFailedSecurity
 	}
 	if errDeleteOldRefresh := s.Repo.DeleteOldRefresh(userUUID); errDeleteOldRefresh != nil {
 		if action != actionRegister {
@@ -180,36 +218,36 @@ func (s *ServiceAuth) Confirm(codeUser int, sessionID, action, userAgent string)
 		}
 	}
 	if s.Repo.CreateRefresh(refreshID, userUUID, userAgent) != nil {
-		return nil, []string{custom_errors.ErrFailedSecurity.Error()}
+		return nil, custom_errors.ErrFailedSecurity
 	}
 	return respConfirm, nil
 }
-func (s *ServiceAuth) Refresh(oldRefreshToken, userAgent string) (*ResponseConfirm, []string) {
+func (s *ServiceAuth) Refresh(oldRefreshToken, userAgent string) (*ResponseConfirm, error) {
 	j := JWT.NewJWT(s.Conf.Signature, s.Logger)
 	oldRefreshID, errParseRefresh := j.ParseRefreshToken(oldRefreshToken)
 	if errParseRefresh != nil {
-		return nil, []string{errParseRefresh.Error()}
+		return nil, errParseRefresh
 	}
 	dtoRefresh, errGetRefresh := s.Repo.GetRefresh(oldRefreshID)
 	if errGetRefresh != nil {
-		return nil, []string{ErrRenewalRefresh.Error()}
+		return nil, ErrRenewalRefresh
 	}
 	if userAgent != dtoRefresh.UserAgent {
-		return nil, []string{ErrRenewalRefresh.Error()}
+		return nil, ErrRenewalRefresh
 	}
 	newRefreshID := uuid.New().String()
 	respConfirm, errConfirm := s.helperConfirm(dtoRefresh.UserUUID, newRefreshID)
 	if errConfirm != nil {
-		return nil, []string{custom_errors.ErrFailedSecurity.Error()}
+		return nil, custom_errors.ErrFailedSecurity
 	}
 	if s.Repo.RotationRefresh(newRefreshID, oldRefreshID, dtoRefresh.UserUUID, dtoRefresh.UserAgent) != nil {
-		return nil, []string{custom_errors.ErrFailedSecurity.Error()}
+		return nil, custom_errors.ErrFailedSecurity
 	}
 	return respConfirm, nil
 }
 func (s *ServiceAuth) helperConfirm(userUUID, refreshID string) (*ResponseConfirm, error) {
 	j := JWT.NewJWT(s.Conf.Signature, s.Logger)
-	accessJwt, errCreateAccess := j.CreateAccessJWT(uuid.New().String(), userUUID)
+	accessJwt, errCreateAccess := j.CreateAccessJWT(userUUID)
 	if errCreateAccess != nil {
 		return nil, custom_errors.ErrFailedSecurity
 	}
