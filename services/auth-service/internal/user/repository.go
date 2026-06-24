@@ -66,23 +66,30 @@ func (r *RepositoryUser) UserExistsByUserUUID(userUUID string) bool {
 	return true
 }
 func (r *RepositoryUser) GetResponseUserByUUID(userUUID string) (*ResponseUser, error) {
-	var user ResponseUser
+	user := &ResponseUser{}
 	if errGet := r.Postgres.Raw(`SELECT created_at, updated_at, name, email, user_uuid FROM users
-WHERE user_uuid = ? AND deleted_at IS NULL`, userUUID).Scan(&user).Error; errGet != nil {
+WHERE user_uuid = ? AND deleted_at IS NULL`, userUUID).Scan(user).Error; errGet != nil {
 		r.Logger.Error("failed to get user: " + errGet.Error())
 		return nil, errGet
 	}
 	if user.UserUUID == "" {
 		return nil, custom_errors.ErrNotFoundUser
 	}
-	return &user, nil
+	return user, nil
 }
 func (r *RepositoryUser) GetUserByUUID(userUUID string) (*model.User, error) {
-	var user model.User
-	if errGet := r.Postgres.Where("user_uuid = ?", userUUID).Take(&user).Error; errGet != nil {
+	user := &model.User{}
+	if errGet := r.Postgres.Where("user_uuid = ?", userUUID).Take(user).Error; errGet != nil {
 		return nil, errGet
 	}
-	return &user, nil
+	return user, nil
+}
+func (r *RepositoryUser) GetUserByEmail(email string) (*model.User, error) {
+	user := &model.User{}
+	if errGet := r.Postgres.Where("email = ?", email).Take(user).Error; errGet != nil {
+		return nil, errGet
+	}
+	return user, nil
 }
 func (r *RepositoryUser) GetPasswordByEmail(email string) (string, error) {
 	var password string
@@ -127,10 +134,11 @@ func (r *RepositoryUser) DeleteUser(userUUID string) error {
 }
 func (r *RepositoryUser) RecoveryUser(userUUID string) error {
 	if errRecovery := r.Postgres.
+		Model(&model.User{}).
 		Unscoped().
 		Where("user_uuid = ?", userUUID).
 		Update("deleted_at", nil).Error; errRecovery != nil {
-		r.Logger.Error("failed to recovery user: ", errRecovery)
+		r.Logger.Error("failed to recovery user: " + errRecovery.Error())
 		return errRecovery
 	}
 	return nil

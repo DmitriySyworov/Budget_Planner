@@ -10,6 +10,10 @@ type ResponseUser struct {
 type RequestRemoveUser struct {
 	Email string `validate:"required,email"`
 }
+type RequestConfirm struct {
+	Code int `validate:"required,min=100000,max=999999"`
+}
+
 type RequestUpdateUser struct {
 	NewName     string `json:"new_name" validate:"omitempty,min=2,max=64"`
 	NewEmail    string `json:"new_email" validate:"omitempty,email"`

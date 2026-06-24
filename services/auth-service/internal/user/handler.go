@@ -1,9 +1,9 @@
 package user
 
 import (
-	"app/auth-service/internal/common"
 	"app/auth-service/internal/custom_errors"
 	"app/auth-service/internal/middleware"
+	"errors"
 	"net/http"
 	"shared/handler_request"
 	"shared/loggers"
@@ -39,60 +39,63 @@ func NewHandlerUser(router *http.ServeMux,
 func (h *HandlerUser) UpdateUser() http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		resp := &response.Response{
-			Error: make([]string, 0, 5),
+			Error: make(map[string]string),
 		}
 		ctxValues := request.Context().Value(shared_middleware.KeyContextValue)
 		values, ok := ctxValues.(*shared_middleware.ContextValues)
 		if !ok {
 			h.Logger.Error(shared_errors.ErrFailedAssertionContextValues.Error() + request.Pattern)
-			resp.Error = append(resp.Error, shared_errors.ErrCriticalServer.Error())
+			resp.Error["global"] = shared_errors.ErrCriticalServer.Error()
 			h.ResponseSend(writer, resp, http.StatusInternalServerError)
 			return
 		}
 		body, errBody := handler_request.HandlerRequest[RequestUpdateUser](request.Body)
 		if errBody != nil {
+			mapError := shared_errors.MapError{Map: make(map[string]string, 5)}
 			if errValidate, okErrValidate := errBody.(validator.ValidationErrors); okErrValidate {
 				for _, err := range errValidate {
-					if err.Field() == "Email" {
+					switch {
+					case err.Field() == "Email":
 						values.DataLog.MapLog["email"] = body.Email
-						resp.Error = append(resp.Error, custom_errors.ErrIncorrectEmail.Error())
-					}
-					if err.Field() == "NewEmail" {
+						mapError.Map["email"] = custom_errors.ErrIncorrectEmail.Error()
+					case err.Field() == "NewEmail":
 						values.DataLog.MapLog["new_email"] = body.NewEmail
-						resp.Error = append(resp.Error, ErrIncorrectNewEmail.Error())
-					}
-					if err.Field() == "NewName" {
+						mapError.Map["new_email"] = ErrIncorrectNewEmail.Error()
+					case err.Field() == "NewName":
 						values.DataLog.MapLog["new_name"] = body.NewName
-						resp.Error = append(resp.Error, ErrIncorrectNewName.Error())
-					}
-					if err.Field() == "NewPassword" {
-						resp.Error = append(resp.Error, ErrIncorrectEnterNewPassword.Error())
-					}
-					if err.Field() == "Password" {
-						resp.Error = append(resp.Error, custom_errors.ErrIncorrectEnterPassword.Error())
+						mapError.Map["new_name"] = ErrIncorrectNewName.Error()
+					case err.Field() == "NewPassword":
+						mapError.Map["new_password"] = custom_errors.ErrIncorrectEnterNewPassword.Error()
+					case err.Field() == "Password":
+						mapError.Map["password"] = custom_errors.ErrIncorrectEnterPassword.Error()
 					}
 				}
 			} else {
-				resp.Error = append(resp.Error, errBody.Error())
+				mapError.Map["body"] = errBody.Error()
 			}
-			values.DataLog.Errors = append(values.DataLog.Errors, resp.Error...)
+			resp.Error = mapError.Map
+			values.DataLog.Errors = mapError.Error()
 			h.ResponseSend(writer, resp, http.StatusBadRequest)
 			return
 		}
 		userUpdate, respAuth, errUpdateAuth := h.ServiceUser.UpdateUser(values.DataAuth.UserUUID, body)
-		resp.Error = append(resp.Error, errUpdateAuth...)
-		if len(resp.Error) != 0 {
-			values.DataLog.Errors = append(values.DataLog.Errors, resp.Error...)
-			if resp.Error[0] == custom_errors.ErrNotFoundUser.Error() {
+		if errUpdateAuth != nil {
+			values.DataLog.Errors = errUpdateAuth.Error()
+			switch {
+			case errors.Is(errUpdateAuth, custom_errors.ErrNotFoundUser):
+				resp.Error["user"] = errUpdateAuth.Error()
 				h.ResponseSend(writer, resp, http.StatusNotFound)
-			} else if resp.Error[0] == custom_errors.ErrIncorrectPasswordOrEmail.Error() {
+			case errors.Is(errUpdateAuth, custom_errors.ErrIncorrectPasswordOrEmail):
+				resp.Error["auth"] = errUpdateAuth.Error()
 				h.ResponseSend(writer, resp, http.StatusUnauthorized)
-			} else if resp.Error[0] == custom_errors.ErrFailedSecurity.Error() {
-				h.ResponseSend(writer, resp, http.StatusInternalServerError)
-			} else {
+			case errors.Is(errUpdateAuth, ErrIncorrectChoiceEmail):
+				resp.Error["email"] = errUpdateAuth.Error()
 				h.ResponseSend(writer, resp, http.StatusBadRequest)
-				return
+			default:
+				resp.Error["global"] = errUpdateAuth.Error()
+				h.ResponseSend(writer, resp, http.StatusInternalServerError)
 			}
+			return
 		}
 		resp.Success = true
 		if respAuth != nil {
@@ -110,23 +113,24 @@ func (h *HandlerUser) UpdateUser() http.HandlerFunc {
 func (h *HandlerUser) GetUser() http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		resp := &response.Response{
-			Error: make([]string, 0, 5),
+			Error: make(map[string]string),
 		}
 		ctxValues := request.Context().Value(shared_middleware.KeyContextValue)
 		values, ok := ctxValues.(*shared_middleware.ContextValues)
 		if !ok {
 			h.Logger.Error(shared_errors.ErrFailedAssertionContextValues.Error() + request.Pattern)
-			resp.Error = append(resp.Error, shared_errors.ErrCriticalServer.Error())
+			resp.Error["global"] = shared_errors.ErrCriticalServer.Error()
 			h.ResponseSend(writer, resp, http.StatusInternalServerError)
 			return
 		}
 		respUser, errGetUser := h.ServiceUser.GetUser(values.DataAuth.UserUUID)
-		resp.Error = append(resp.Error, errGetUser...)
-		if len(resp.Error) != 0 {
-			values.DataLog.Errors = append(values.DataLog.Errors, resp.Error...)
-			if resp.Error[0] == custom_errors.ErrNotFoundUser.Error() {
+		if errGetUser != nil {
+			values.DataLog.Errors = errGetUser.Error()
+			if errors.Is(errGetUser, custom_errors.ErrNotFoundUser) {
+				resp.Error["user"] = errGetUser.Error()
 				h.ResponseSend(writer, resp, http.StatusNotFound)
 			} else {
+				resp.Error["global"] = errGetUser.Error()
 				h.ResponseSend(writer, resp, http.StatusInternalServerError)
 			}
 			return
@@ -139,13 +143,13 @@ func (h *HandlerUser) GetUser() http.HandlerFunc {
 func (h *HandlerUser) DeleteUser() http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		resp := &response.Response{
-			Error: make([]string, 0, 5),
+			Error: make(map[string]string),
 		}
 		ctxValues := request.Context().Value(shared_middleware.KeyContextValue)
 		values, ok := ctxValues.(*shared_middleware.ContextValues)
 		if !ok {
 			h.Logger.Error(shared_errors.ErrFailedAssertionContextValues.Error() + request.Pattern)
-			resp.Error = append(resp.Error, shared_errors.ErrCriticalServer.Error())
+			resp.Error["global"] = shared_errors.ErrCriticalServer.Error()
 			h.ResponseSend(writer, resp, http.StatusInternalServerError)
 			return
 		}
@@ -157,28 +161,34 @@ func (h *HandlerUser) DeleteUser() http.HandlerFunc {
 				for _, err := range errValidate {
 					if err.Field() == "Email" {
 						values.DataLog.MapLog["email"] = body.Email
-						resp.Error = append(resp.Error, custom_errors.ErrIncorrectEmail.Error())
+						values.DataLog.Errors = custom_errors.ErrIncorrectEmail.Error()
+						resp.Error["email"] = custom_errors.ErrIncorrectEmail.Error()
 					}
 				}
 			} else {
-				resp.Error = append(resp.Error, errBody.Error())
+				values.DataLog.Errors = errBody.Error()
+				resp.Error["body"] = errBody.Error()
 			}
-			values.DataLog.Errors = append(values.DataLog.Errors, resp.Error...)
 			h.ResponseSend(writer, resp, http.StatusBadRequest)
 			return
 		}
 		respAuth, errRemoveAuth := h.ServiceUser.DeleteUser(body.Email, typeRemove)
-		resp.Error = append(resp.Error, errRemoveAuth...)
-		if len(resp.Error) != 0 {
-			values.DataLog.Errors = append(values.DataLog.Errors, resp.Error...)
-			if resp.Error[0] == custom_errors.ErrNotFoundUser.Error() {
-				h.ResponseSend(writer, resp, http.StatusNotFound)
-			} else if resp.Error[0] == custom_errors.ErrFailedSecurity.Error() {
-				h.ResponseSend(writer, resp, http.StatusInternalServerError)
+		if errRemoveAuth != nil {
+			values.DataLog.Errors = errRemoveAuth.Error()
+			var mapError shared_errors.MapError
+			if errors.As(errRemoveAuth, &mapError) {
+				resp.Error = mapError.Map
+				switch {
+				case mapError.Map["user"] == custom_errors.ErrNotFoundUser.Error() && len(mapError.Map) == 1:
+					h.ResponseSend(writer, resp, http.StatusNotFound)
+				default:
+					h.ResponseSend(writer, resp, http.StatusBadRequest)
+				}
 			} else {
-				h.ResponseSend(writer, resp, http.StatusBadRequest)
-				return
+				resp.Error["global"] = errRemoveAuth.Error()
+				h.ResponseSend(writer, resp, http.StatusInternalServerError)
 			}
+			return
 		}
 		resp.Success = true
 		resp.Data = respAuth
@@ -188,44 +198,52 @@ func (h *HandlerUser) DeleteUser() http.HandlerFunc {
 func (h *HandlerUser) ConfirmUser() http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		resp := &response.Response{
-			Error: make([]string, 0, 5),
+			Error: make(map[string]string),
 		}
 		ctxValues := request.Context().Value(shared_middleware.KeyContextValue)
 		values, ok := ctxValues.(*shared_middleware.ContextValues)
 		if !ok {
 			h.Logger.Error(shared_errors.ErrFailedAssertionContextValues.Error() + request.Pattern)
-			resp.Error = append(resp.Error, shared_errors.ErrCriticalServer.Error())
+			resp.Error["global"] = shared_errors.ErrCriticalServer.Error()
 			h.ResponseSend(writer, resp, http.StatusInternalServerError)
 			return
 		}
-		body, errBody := handler_request.HandlerRequest[common.RequestConfirm](request.Body)
+		body, errBody := handler_request.HandlerRequest[RequestConfirm](request.Body)
 		if errBody != nil {
 			if errValidate, okErrValidate := errBody.(validator.ValidationErrors); okErrValidate {
 				for _, err := range errValidate {
 					if err.Field() == "Code" {
-						resp.Error = append(resp.Error, custom_errors.ErrIncorrectFormatCode.Error())
+						values.DataLog.Errors = custom_errors.ErrIncorrectFormatCode.Error()
+						resp.Error["auth"] = custom_errors.ErrIncorrectFormatCode.Error()
 					}
 				}
 			} else {
-				resp.Error = append(resp.Error, errBody.Error())
+				values.DataLog.Errors = errBody.Error()
+				resp.Error["body"] = errBody.Error()
 			}
-			values.DataLog.Errors = append(values.DataLog.Errors, resp.Error...)
 			h.ResponseSend(writer, resp, http.StatusBadRequest)
 			return
 		}
 		action := request.URL.Query().Get("action")
 		values.DataLog.MapLog["action"] = action
 		respUserUpdate, errConfirm := h.ServiceUser.ConfirmUser(body.Code, values.DataAuth.UserUUID, values.DataAuth.SessionID, action)
-		resp.Error = append(resp.Error, errConfirm...)
-		if len(resp.Error) != 0 {
-			values.DataLog.Errors = append(values.DataLog.Errors, resp.Error...)
-			if resp.Error[0] == custom_errors.ErrNotFoundUser.Error() {
-				h.ResponseSend(writer, resp, http.StatusNotFound)
-			} else if resp.Error[0] == ErrFailedRemoveUser.Error() || resp.Error[0] == ErrFailedDeleteUser.Error() || resp.Error[0] == ErrFailedUpdateUser.Error() {
-				h.ResponseSend(writer, resp, http.StatusInternalServerError)
-			} else if resp.Error[0] == custom_errors.ErrIncorrectSessionID.Error() || resp.Error[0] == ErrIncorrectAction.Error() {
+		if errConfirm != nil {
+			values.DataLog.Errors = errConfirm.Error()
+			var mapError shared_errors.MapError
+			if errors.As(errConfirm, &mapError) {
+				resp.Error = mapError.Map
 				h.ResponseSend(writer, resp, http.StatusBadRequest)
-			} else {
+				return
+			}
+			switch {
+			case errors.Is(errConfirm, custom_errors.ErrNotFoundUser):
+				resp.Error["user"] = errConfirm.Error()
+				h.ResponseSend(writer, resp, http.StatusNotFound)
+			case errors.Is(errConfirm, ErrFailedRemoveUser), errors.Is(errConfirm, ErrFailedDeleteUser), errors.Is(errConfirm, ErrFailedUpdateUser):
+				resp.Error["global"] = errConfirm.Error()
+				h.ResponseSend(writer, resp, http.StatusInternalServerError)
+			default:
+				resp.Error["auth"] = errConfirm.Error()
 				h.ResponseSend(writer, resp, http.StatusUnauthorized)
 			}
 			return

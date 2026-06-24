@@ -30,32 +30,35 @@ func HelperHandleHeader(header string) (string, error) {
 func (m *ManagerSharedMiddleware) HandlerAccessToken(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		resp := &response.Response{
-			Error: make([]string, 0, 1),
+			Error: make(map[string]string),
 		}
 		ctxValues := request.Context().Value(KeyContextValue)
 		values, ok := ctxValues.(*ContextValues)
 		if !ok {
 			m.Logger.Error(shared_errors.ErrFailedAssertionContextValues.Error() + "middleware HandlerAuthToken")
-			resp.Error = append(resp.Error, shared_errors.ErrCriticalServer.Error())
+			resp.Error["global"] = shared_errors.ErrCriticalServer.Error()
 			m.ResponseSend(writer, resp, http.StatusInternalServerError)
 			return
 		}
 		header := request.Header.Get("Authorization")
 		token, errToken := HelperHandleHeader(header)
 		if errToken != nil {
-			resp.Error = append(resp.Error, shared_errors.ErrInvalidAccessToken.Error())
+			values.DataLog.Errors = shared_errors.ErrInvalidAccessToken.Error()
+			resp.Error["auth"] = shared_errors.ErrInvalidAccessToken.Error()
 			m.HandlerResponse.ResponseSend(writer, resp, http.StatusUnauthorized)
 			return
 		}
 		j := shared_jwt.NewSharedJWT(m.Signature)
 		userUUID, errParse := j.ParseAccessToken(token)
 		if errParse != nil {
-			resp.Error = append(resp.Error, shared_errors.ErrInvalidAccessToken.Error())
+			values.DataLog.Errors = shared_errors.ErrInvalidAccessToken.Error()
+			resp.Error["auth"] = shared_errors.ErrInvalidAccessToken.Error()
 			m.HandlerResponse.ResponseSend(writer, resp, http.StatusUnauthorized)
 			return
 		}
 		if len(userUUID) != 36 {
-			resp.Error = append(resp.Error, shared_errors.ErrInvalidAccessToken.Error())
+			values.DataLog.Errors = shared_errors.ErrInvalidAccessToken.Error()
+			resp.Error["auth"] = shared_errors.ErrInvalidAccessToken.Error()
 			m.HandlerResponse.ResponseSend(writer, resp, http.StatusUnauthorized)
 			return
 		}

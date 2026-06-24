@@ -22,7 +22,7 @@ type DataLoggerHandler struct {
 	Method      string
 	Path        string
 	UserUUID    string
-	Errors      []string
+	Errors      string
 	DataRequest map[string]any
 }
 

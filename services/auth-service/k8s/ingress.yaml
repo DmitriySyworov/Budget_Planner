@@ -1,0 +1,51 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: auth-user-ingress
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /api/v1/register
+            pathType: Prefix
+            backend:
+              service:
+                name: service-auth-user
+                port:
+                  number: 8080
+          - path: /api/v1/login
+            pathType: Prefix
+            backend:
+              service:
+                name: service-auth-user
+                port:
+                  number: 8080
+          - path: /api/v1/recovery
+            pathType: Prefix
+            backend:
+              service:
+                name: service-auth-user
+                port:
+                  number: 8080
+          - path: /api/v1/refresh
+            pathType: Prefix
+            backend:
+              service:
+                name: service-auth-user
+                port:
+                  number: 8080
+          - path: /api/v1/confirm
+            pathType: Prefix
+            backend:
+              service:
+                name: service-auth-user
+                port:
+                  number: 8080
+          - path: /api/v1/user
+            pathType: Prefix
+            backend:
+              service:
+                name: service-auth-user
+                port:
+                  number: 8080

@@ -33,7 +33,7 @@ func main() {
 	repoFinance := finance.NewRepositoryFinance(postgres)
 	//
 	serviceBudget := budget.NewServiceBudget(repoBudget)
-	serviceExpense := expense.NewServiceExpense(repoExpense, repoBudget)
+	serviceExpense := expense.NewServiceExpense(repoExpense, serviceBudget)
 	serviceFinance := finance.NewServiceFinance(repoFinance, repoBudget, repoExpense)
 	//
 	router.HandleFunc("GET /health", health(logger))

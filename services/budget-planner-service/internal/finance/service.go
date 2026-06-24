@@ -4,6 +4,7 @@ import (
 	"app/budget-planner/internal/custom_errors"
 	"app/budget-planner/internal/di"
 	"errors"
+	"shared/shared_errors"
 
 	"github.com/google/uuid"
 )
@@ -24,26 +25,26 @@ func NewServiceFinance(repoFinance *RepositoryFinance, repoBudget di.IRepoBudget
 
 var ErrFailedGetFinance = errors.New("failed to get finance")
 
-func (s *ServiceFinance) Finance(userUUID, budgetUUID, expenseUUID string) (*Finance, []string) {
-	sliceError := make([]string, 2)
+func (s *ServiceFinance) Finance(userUUID, budgetUUID, expenseUUID string) (*Finance, error) {
+	mapError := shared_errors.MapError{Map: make(map[string]string, 2)}
 	if _, errBudgetUUID := uuid.Parse(budgetUUID); errBudgetUUID != nil {
-		sliceError = append(sliceError, custom_errors.ErrIncorrectFormatBudgetUUID.Error())
+		mapError.Map["budget"] = custom_errors.ErrIncorrectFormatBudgetUUID.Error()
 	}
 	if _, errExpenseUUID := uuid.Parse(expenseUUID); errExpenseUUID != nil {
-		sliceError = append(sliceError, custom_errors.ErrIncorrectFormatExpenseUUID.Error())
+		mapError.Map["expense"] = custom_errors.ErrIncorrectFormatExpenseUUID.Error()
 	}
-	if len(sliceError) != 0 {
-		return nil, sliceError
+	if len(mapError.Map) != 0 {
+		return nil, mapError
 	}
 	if !s.IRepoBudget.BudgetExist(userUUID, budgetUUID) {
-		return nil, []string{custom_errors.ErrNotFoundBudget.Error()}
+		return nil, custom_errors.ErrNotFoundBudget
 	}
 	if !s.IRepoExpense.ExpenseExist(budgetUUID, expenseUUID) {
-		return nil, []string{custom_errors.ErrNotFoundExpense.Error()}
+		return nil, custom_errors.ErrNotFoundExpense
 	}
 	dtoFinance, errGetFinance := s.Repo.Finance(budgetUUID, expenseUUID)
 	if errGetFinance != nil {
-		return nil, []string{ErrFailedGetFinance.Error()}
+		return nil, ErrFailedGetFinance
 	}
 	return &Finance{
 		&Budget{
