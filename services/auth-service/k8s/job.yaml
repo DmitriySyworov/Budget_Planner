@@ -17,10 +17,10 @@ spec:
           command:
             - "sh"
             - "-c"
-            - "until nc -z -v -w3 postgres-service 5432; do echo 'Waiting for PostgreSQL...'; sleep 2; done"
+            - "until nc -z -v -w3 postgres-user-headless 5432; do echo 'Waiting for PostgreSQL...'; sleep 2; done"
       containers:
         - name: migration-user-tool
-          image: dmitriysyworov/auth-user-service:latest
+          image: dmitriysyworov/auth-user-service:v1
           command: ["./migrator"]
           env:
             - name: DSN

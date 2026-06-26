@@ -16,49 +16,53 @@ import (
 )
 
 func main() {
-	logger := loggers.NewLogger()
+	apiPort, logging, handlers := App()
+	service := http.Server{
+		Addr:    ":" + apiPort,
+		Handler: handlers,
+	}
+	if errApi := service.ListenAndServe(); errApi != nil {
+		logging.Error("critical error on the server: " + errApi.Error())
+		os.Exit(1)
+	}
+}
+func App() (string, *loggers.Logger, http.Handler) {
+	logging := loggers.NewLogger()
 	//
-	conf := authconfig.NewConfig(logger)
+	conf := authconfig.NewConfig(logging)
 	//
-	responseHandler := response.NewHandlerResponse(logger)
+	responseHandler := response.NewHandlerResponse(logging)
 	//
-	sharedMv := shared_middleware.NewManagerSharedMiddleware(conf.Signature, logger, responseHandler)
-	mv := middleware.NewManagerMiddleware(conf.Signature, logger, responseHandler)
+	sharedMv := shared_middleware.NewManagerSharedMiddleware(conf.Signature, logging, responseHandler)
+	mv := middleware.NewManagerMiddleware(conf.Signature, logging, responseHandler)
 	//
-	postgres := open_db.OpenPostgres(conf.DSN, logger)
+	postgres := open_db.OpenPostgres(conf.DSN, logging)
 	redis := open_db.OpenRedis(conf.RedisAddress, conf.RedisPassword)
 	//
 	router := http.NewServeMux()
 	//
-	repoAuth := auth.NewRepository(redis, logger)
-	repoUser := user.NewRepositoryUser(postgres, logger)
+	repoAuth := auth.NewRepository(redis, logging)
+	repoUser := user.NewRepositoryUser(postgres, logging)
 	//
-	serviceAuth := auth.NewServiceAuth(repoAuth, repoUser, conf.VerifyEmail, logger)
+	serviceAuth := auth.NewServiceAuth(repoAuth, repoUser, conf.VerifyEmail, logging)
 	serviceUser := user.NewServiceUser(repoUser, serviceAuth, repoAuth)
 	//
-	router.HandleFunc("GET /health", health(logger))
-	router.HandleFunc("GET /ready", ready(postgres, redis, logger))
-	auth.NewHandlerAuth(router, serviceAuth, responseHandler, logger, mv)
-	user.NewHandlerUser(router, serviceUser, responseHandler, logger, mv, sharedMv)
+	router.HandleFunc("GET /health", health(logging))
+	router.HandleFunc("GET /ready", ready(postgres, redis, logging))
+	auth.NewHandlerAuth(router, serviceAuth, responseHandler, logging, mv)
+	user.NewHandlerUser(router, serviceUser, responseHandler, logging, mv, sharedMv)
 	//
 	chainMv := shared_middleware.Chain(
 		sharedMv.Logging,
 		sharedMv.Recovery,
 	)
-	service := http.Server{
-		Addr:    ":" + conf.ApiPort,
-		Handler: chainMv(router),
-	}
-	if errApi := service.ListenAndServe(); errApi != nil {
-		logger.Error("critical error on the server: ", errApi)
-		os.Exit(1)
-	}
+	return conf.ApiPort, logging, chainMv(router)
 }
 func health(logger *loggers.Logger) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		writer.WriteHeader(http.StatusOK)
 		if _, errWrite := writer.Write([]byte("OK")); errWrite != nil {
-			logger.Error("failed to writer health check: ", errWrite)
+			logger.Error("failed to writer health check: " + errWrite.Error())
 		}
 	}
 }
@@ -69,17 +73,17 @@ func ready(postgres *open_db.Postgres, redis *open_db.Redis, logger *loggers.Log
 		sqlDb, errDb := postgres.DB.DB()
 		if errDb != nil {
 			writer.WriteHeader(http.StatusInternalServerError)
-			logger.Error("ready check failed (Postgres init): ", errDb)
+			logger.Error("ready check failed (Postgres init): " + errDb.Error())
 			return
 		}
 		if errPingPostgres := sqlDb.PingContext(ctxTimeout); errPingPostgres != nil {
 			writer.WriteHeader(http.StatusInternalServerError)
-			logger.Error("ready check failed (Postgres ping): ", errPingPostgres)
+			logger.Error("ready check failed (Postgres ping): " + errPingPostgres.Error())
 			return
 		}
 		if errPingRedis := redis.Ping(ctxTimeout).Err(); errPingRedis != nil {
 			writer.WriteHeader(http.StatusInternalServerError)
-			logger.Error("ready check failed (Redis ping): ", errPingRedis)
+			logger.Error("ready check failed (Redis ping): " + errPingRedis.Error())
 			return
 		}
 		writer.WriteHeader(http.StatusOK)

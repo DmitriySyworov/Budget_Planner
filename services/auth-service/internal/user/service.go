@@ -29,7 +29,7 @@ func NewServiceUser(repo *RepositoryUser, iServiceAuth di.IServiceAuth, iRepoAut
 	}
 }
 
-func (s *ServiceUser) UpdateUser(userUUID string, body *RequestUpdateUser) (*model.User, *common.ResponseAuth, error) {
+func (s *ServiceUser) UpdateUser(userUUID string, body *RequestUpdateUser) (*model.Users, *common.ResponseAuth, error) {
 	if body.NewPassword == "" && body.NewEmail == "" {
 		user, errGet := s.Repo.GetUserByUUID(userUUID)
 		if errGet != nil || user == nil {
@@ -135,7 +135,7 @@ func (s *ServiceUser) ConfirmUser(codeUser int, userUUID, sessionID, action stri
 		if !s.Repo.UserExistsByUserUUID(userUUID) {
 			return nil, custom_errors.ErrNotFoundUser
 		}
-		user := &model.User{
+		user := &model.Users{
 			Name:     dataSession[newNameKey],
 			Email:    dataSession[newEmailKey],
 			Password: dataSession[newPasswordKey],

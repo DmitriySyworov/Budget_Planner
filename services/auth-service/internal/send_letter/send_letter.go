@@ -40,7 +40,7 @@ func (l *SendLetter) SendEmailLetter(userEmail string, code int) error {
 	for {
 		select {
 		case <-after:
-			l.Logger.Info(ErrSendTimeExpired + userEmail)
+			l.Logger.Warn(ErrSendTimeExpired + userEmail)
 			return errors.New(ErrSendTimeExpired + userEmail)
 		default:
 			send := email.NewEmail()
@@ -48,9 +48,13 @@ func (l *SendLetter) SendEmailLetter(userEmail string, code int) error {
 			send.To = []string{userEmail}
 			send.Subject = "Verification letter from the budget-planner service"
 			send.Text = []byte(fmt.Sprint("If you are performing an action on budget-planner, please use the following authorization code: ", code))
-			if errSend := send.Send(l.SmtpAddressHost,
-				smtp.PlainAuth("", l.ApiEmail, l.ApiPassword, l.SmtpAddress)); errSend != nil {
-				l.Logger.Info(ErrSendEmail+userEmail, errSend)
+
+			var auth smtp.Auth
+			if l.ApiPassword != "test" {
+				auth = smtp.PlainAuth("", l.ApiEmail, l.ApiPassword, l.SmtpAddress)
+			}
+			if errSend := send.Send(l.SmtpAddressHost, auth); errSend != nil {
+				l.Logger.Warn(ErrSendEmail + userEmail + errSend.Error())
 				return errors.New(ErrSendEmail + userEmail)
 			}
 			return nil

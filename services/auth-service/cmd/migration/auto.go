@@ -3,6 +3,8 @@ package main
 import (
 	"database/sql"
 	"embed"
+	"flag"
+	"fmt"
 	"os"
 	"shared/loggers"
 
@@ -16,13 +18,21 @@ var embedMigrations embed.FS
 
 func main() {
 	logger := loggers.NewLogger()
-	errEnvFile := godotenv.Load()
-	if errEnvFile != nil {
+	if errEnvFile := godotenv.Load(); errEnvFile != nil {
 		logger.Warn(".env file not found. This is normal if running inside a container")
 	}
-	dsn := os.Getenv("DSN")
+	test := flag.Bool("test", false, "choosing a test DSN")
+	flag.Parse()
+	var dsn string
+	if *test {
+		fmt.Println("OK")
+		dsn = os.Getenv("DSN")
+	} else {
+		dsn = os.Getenv("DSN")
+	}
+	fmt.Println(dsn)
 	if dsn == "" {
-		logger.Error("environment variable 'DSN' not found")
+		logger.Error("environment variables DSN not found")
 		os.Exit(1)
 	}
 	db, errOpen := sql.Open("postgres", dsn)
@@ -41,7 +51,7 @@ func main() {
 		os.Exit(1)
 	}
 	if errMigrate := goose.Up(db, "."); errMigrate != nil {
-		logger.Error("failed to migrate tables: ", errMigrate)
+		logger.Error("failed to migrate tables: " + errMigrate.Error())
 		os.Exit(1)
 	}
 }

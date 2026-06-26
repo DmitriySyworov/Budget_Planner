@@ -20,14 +20,14 @@ func NewRepositoryUser(postgres *open_db.Postgres, logger *loggers.Logger) *Repo
 		Logger:   logger,
 	}
 }
-func (r *RepositoryUser) CreateUser(user *model.User) error {
+func (r *RepositoryUser) CreateUser(user *model.Users) error {
 	if errCreate := r.Postgres.Create(user).Error; errCreate != nil {
 		r.Logger.Error("failed to create user: ", errCreate)
 		return errCreate
 	}
 	return nil
 }
-func (r *RepositoryUser) UpdateUser(user *model.User, userUUID string) error {
+func (r *RepositoryUser) UpdateUser(user *model.Users, userUUID string) error {
 	if errUpdate := r.Postgres.
 		Clauses(clause.Returning{}).
 		Where("user_uuid = ?", userUUID).
@@ -77,15 +77,15 @@ WHERE user_uuid = ? AND deleted_at IS NULL`, userUUID).Scan(user).Error; errGet 
 	}
 	return user, nil
 }
-func (r *RepositoryUser) GetUserByUUID(userUUID string) (*model.User, error) {
-	user := &model.User{}
+func (r *RepositoryUser) GetUserByUUID(userUUID string) (*model.Users, error) {
+	user := &model.Users{}
 	if errGet := r.Postgres.Where("user_uuid = ?", userUUID).Take(user).Error; errGet != nil {
 		return nil, errGet
 	}
 	return user, nil
 }
-func (r *RepositoryUser) GetUserByEmail(email string) (*model.User, error) {
-	user := &model.User{}
+func (r *RepositoryUser) GetUserByEmail(email string) (*model.Users, error) {
+	user := &model.Users{}
 	if errGet := r.Postgres.Where("email = ?", email).Take(user).Error; errGet != nil {
 		return nil, errGet
 	}
@@ -107,7 +107,7 @@ func (r *RepositoryUser) GetUserUUIDByEmail(email string) (string, error) {
 	var userUUID string
 	if errGetUserUUID := r.Postgres.Raw(`SELECT user_uuid FROM users
 						WHERE email = ?`, email).Scan(&userUUID).Error; errGetUserUUID != nil {
-		r.Logger.Error("failed to get userUUID: ", errGetUserUUID)
+		r.Logger.Error("failed to get userUUID: " + errGetUserUUID.Error())
 		return "", ErrFailedGetUser
 	}
 	if userUUID == "" {
@@ -116,7 +116,7 @@ func (r *RepositoryUser) GetUserUUIDByEmail(email string) (string, error) {
 	return userUUID, nil
 }
 func (r *RepositoryUser) RemoveUser(userUUID string) error {
-	if errRemove := r.Postgres.Where("user_uuid = ?", userUUID).Delete(&model.User{}).Error; errRemove != nil {
+	if errRemove := r.Postgres.Where("user_uuid = ?", userUUID).Delete(&model.Users{}).Error; errRemove != nil {
 		r.Logger.Error("failed to remove user: ", errRemove)
 		return errRemove
 	}
@@ -126,7 +126,7 @@ func (r *RepositoryUser) DeleteUser(userUUID string) error {
 	if errDelete := r.Postgres.
 		Unscoped().
 		Where("user_uuid = ?", userUUID).
-		Delete(&model.User{}).Error; errDelete != nil {
+		Delete(&model.Users{}).Error; errDelete != nil {
 		r.Logger.Error("failed to delete user: ", errDelete)
 		return errDelete
 	}
@@ -134,7 +134,7 @@ func (r *RepositoryUser) DeleteUser(userUUID string) error {
 }
 func (r *RepositoryUser) RecoveryUser(userUUID string) error {
 	if errRecovery := r.Postgres.
-		Model(&model.User{}).
+		Model(&model.Users{}).
 		Unscoped().
 		Where("user_uuid = ?", userUUID).
 		Update("deleted_at", nil).Error; errRecovery != nil {

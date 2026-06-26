@@ -28,9 +28,9 @@ func main() {
 	//
 	router := http.NewServeMux()
 	//
-	repoBudget := budget.NewRepositoryBudget(postgres)
-	repoExpense := expense.NewRepositoryExpense(postgres)
-	repoFinance := finance.NewRepositoryFinance(postgres)
+	repoBudget := budget.NewRepositoryBudget(postgres, logger)
+	repoExpense := expense.NewRepositoryExpense(postgres, logger)
+	repoFinance := finance.NewRepositoryFinance(postgres, logger)
 	//
 	serviceBudget := budget.NewServiceBudget(repoBudget)
 	serviceExpense := expense.NewServiceExpense(repoExpense, serviceBudget)
@@ -70,12 +70,12 @@ func ready(postgres *open_db.Postgres, logger *loggers.Logger) http.HandlerFunc 
 		defer cancel()
 		sqlDb, errDb := postgres.DB.DB()
 		if errDb != nil {
-			logger.Error("ready check failed (Postgres init): ", errDb)
+			logger.Error("ready check failed (Postgres init): " + errDb.Error())
 			writer.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		if errPing := sqlDb.PingContext(ctxTimeout); errPing != nil {
-			logger.Error("ready check failed (Postgres ping): ", errPing)
+			logger.Error("ready check failed (Postgres ping): " + errPing.Error())
 			writer.WriteHeader(http.StatusInternalServerError)
 			return
 		}

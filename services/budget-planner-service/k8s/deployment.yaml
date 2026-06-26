@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: app-budget-planner
-          image: dmitriysyworov/budget-planner-service:latest
+          image: dmitriysyworov/budget-planner-service:v1
           imagePullPolicy: Always
           ports:
             - containerPort: 8080

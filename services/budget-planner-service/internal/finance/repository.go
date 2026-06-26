@@ -1,12 +1,16 @@
 package finance
 
-import "shared/open_db"
+import (
+	"shared/loggers"
+	"shared/open_db"
+)
 
 type RepositoryFinance struct {
 	*open_db.Postgres
+	*loggers.Logger
 }
 
-func NewRepositoryFinance(postgres *open_db.Postgres) *RepositoryFinance {
+func NewRepositoryFinance(postgres *open_db.Postgres, logger *loggers.Logger) *RepositoryFinance {
 	return &RepositoryFinance{
 		Postgres: postgres,
 	}
@@ -37,8 +41,8 @@ type DTOFinance struct {
 func (r *RepositoryFinance) Finance(budgetUUID, expenseUUID string) (*DTOFinance, error) {
 	dtoFinance := &DTOFinance{}
 	if errQueryFinance := r.Postgres.Raw(`WITH calculation_expense as (
-SELECT  expense.other + expense.supermarket +  expense.restaurant + expense.health + expense.sport + expense.savings + expense.investments + expense.leisure  as sum_expsense,
-    expense.*  FROM expense
+SELECT  expenses.other + expenses.supermarket +  expenses.restaurant + expenses.health + expenses.sport + expenses.savings + expenses.investments + expenses.leisure  as sum_expsense,
+    expenses.*  FROM expenses
     WHERE budget_uuid = ? AND expense_uuid = ?
 ),
 calculation_descrition_expense as (
@@ -52,7 +56,7 @@ COUNT(*) FILTER ( WHERE category = 'sport') as counter_expense_sport,
 COUNT(*) FILTER ( WHERE category = 'investments') as counter_expense_investments,
 COUNT(*) FILTER ( WHERE category = 'leisure' ) as counter_expense_leisure,
 expense_uuid
-FROM description_expense
+FROM description_expenses
 WHERE expense_uuid = ?
 GROUP BY  expense_uuid
 )
@@ -66,8 +70,8 @@ SELECT
     d.counter_expense_leisure,
     d.counter_expense_savings,
     d.counter_expense_investments,
-    budget.amount - e.sum_expsense                                        as budget_balance,
-    budget.amount as initial_budget,
+    budgets.amount - e.sum_expsense                                        as budget_balance,
+    budgets.amount as initial_budget,
     ROUND(e.health * 100.0 / NULLIF(e.sum_expsense, 0), 2)      as health_expense_percent,
     ROUND(e.other * 100.0 / NULLIF(e.sum_expsense, 0), 2)       as other_expense_percent,
     ROUND(e.supermarket * 100.0 / NULLIF(e.sum_expsense, 0), 2) as supermarket_expense_percent,
@@ -76,11 +80,12 @@ SELECT
     ROUND(e.leisure * 100.0 / NULLIF(e.sum_expsense, 0), 2)     as leisure_expense_percent,
     ROUND(e.savings * 100.0 / NULLIF(e.sum_expsense, 0), 2)     as savings_expense_percent,
     ROUND(e.investments * 100.0 / NULLIF(e.sum_expsense, 0), 2) as investments_expense_percent,
-    ROUND(budget.amount / NULLIF(budget.finish-budget.start, 0), 2)  as predicted_average_spend_per_day
+    ROUND(budgets.amount / NULLIF(budgets.finish-budgets.start, 0), 2)  as predicted_average_spend_per_day
 FROM calculation_expense e
-JOIN budget ON budget.budget_uuid = e.budget_uuid
+JOIN budgets ON budgets.budget_uuid = e.budget_uuid
 LEFT JOIN  calculation_descrition_expense d ON d.expense_uuid = e.expense_uuid
 `, budgetUUID, expenseUUID, expenseUUID).Scan(dtoFinance).Error; errQueryFinance != nil {
+		r.Logger.Error("failed to get user finance: " + errQueryFinance.Error())
 		return nil, errQueryFinance
 	}
 	return dtoFinance, nil

@@ -206,7 +206,9 @@ func (h *HandlerAuth) Recovery() http.HandlerFunc {
 }
 func (h *HandlerAuth) Confirm() http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
-		resp := &response.Response{}
+		resp := &response.Response{
+			Error: make(map[string]string),
+		}
 		ctxValues := request.Context().Value(shared_middleware.KeyContextValue)
 		values, ok := ctxValues.(*shared_middleware.ContextValues)
 		if !ok {
@@ -269,7 +271,7 @@ func (h *HandlerAuth) Confirm() http.HandlerFunc {
 		}
 		resp.Success = true
 		resp.Data = respConfirm
-		if action == actionRegister {
+		if action == ActionRegister {
 			h.ResponseSend(writer, resp, http.StatusCreated)
 		} else {
 			h.ResponseSend(writer, resp, http.StatusOK)

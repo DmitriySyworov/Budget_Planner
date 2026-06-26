@@ -13,5 +13,5 @@ const (
 
 type ResponseAuth struct {
 	Message    string
-	JwtSession string `json:"jwt_session"`
+	SessionJwt string `json:"session_jwt"`
 }
