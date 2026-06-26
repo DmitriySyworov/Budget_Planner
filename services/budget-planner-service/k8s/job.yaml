@@ -17,10 +17,10 @@ spec:
           command:
             - "sh"
             - "-c"
-            - "until nc -z -v -w3 postgres-service 5432; do echo 'Waiting for PostgreSQL...'; sleep 2; done"
+            - "until nc -z -v -w3 postgres-budget-headless 5432; do echo 'Waiting for PostgreSQL...'; sleep 2; done"
       containers:
         - name: migration-budget-planner-tool
-          image: dmitriysyworov/budget-planner-service:latest
+          image: dmitriysyworov/budget-planner-service:v1
           command: ["./migrator"]
           env:
             - name: DSN

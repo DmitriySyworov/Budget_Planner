@@ -31,7 +31,10 @@ type Db struct {
 
 func NewConfig(logger *loggers.Logger) *Config {
 	if errFileEnv := godotenv.Load(); errFileEnv != nil {
-		logger.Warn(".env file not found.  This is normal if running inside a container")
+		logger.Warn(".env file not found. This is normal if running inside a container")
+		if errFileEnvTest := godotenv.Load(".env.test"); errFileEnvTest != nil {
+			logger.Warn(".env.test file not found. This is normal if tests don't run")
+		}
 	}
 	apiPort := os.Getenv("EXTERNAL_API_PORT")
 	signature := os.Getenv("JWT_SIGNATURE")

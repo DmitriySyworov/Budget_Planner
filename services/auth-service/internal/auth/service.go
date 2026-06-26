@@ -45,7 +45,7 @@ func (s *ServiceAuth) Register(body *RequestRegister) (*common.ResponseAuth, err
 	dataMap[nameKey] = body.Name
 	dataMap[passwordKey] = string(hashPassword)
 	dataMap[emailKey] = body.Email
-	respAuth, errAuth := s.HelperAuth(actionRegister, dataMap)
+	respAuth, errAuth := s.HelperAuth(ActionRegister, dataMap)
 	if errAuth != nil {
 		return nil, custom_errors.ErrFailedSecurity
 	}
@@ -53,6 +53,7 @@ func (s *ServiceAuth) Register(body *RequestRegister) (*common.ResponseAuth, err
 }
 func (s *ServiceAuth) Login(body *RequestLogin) (*common.ResponseAuth, error) {
 	hashPassword, errGetPassword := s.IRepoUser.GetPasswordByEmail(body.Email)
+	fmt.Println(body.Email)
 	if errGetPassword != nil {
 		return nil, custom_errors.ErrIncorrectPasswordOrEmail
 	}
@@ -62,7 +63,7 @@ func (s *ServiceAuth) Login(body *RequestLogin) (*common.ResponseAuth, error) {
 	const sizeLoginMap = 2
 	dataMap := make(map[string]string, sizeLoginMap)
 	dataMap[emailKey] = body.Email
-	respAuth, errAuth := s.HelperAuth(actionLogin, dataMap)
+	respAuth, errAuth := s.HelperAuth(ActionLogin, dataMap)
 	if errAuth != nil {
 		return nil, custom_errors.ErrFailedSecurity
 	}
@@ -76,13 +77,13 @@ func (s *ServiceAuth) Recovery(body *RequestRecovery, action string) (*common.Re
 	if errGetPassword != nil {
 		mapError.Map["email"] = custom_errors.ErrNotFoundUser.Error()
 	}
-	if action != actionRecoveryPassword && action != actionRecoveryUser {
+	if action != ActionRecoveryPassword && action != ActionRecoveryUser {
 		mapError.Map["action"] = ErrIncorrectActionRecovery.Error()
 	}
 	if len(mapError.Map) != 0 {
 		return nil, mapError
 	}
-	if action == actionRecoveryUser {
+	if action == ActionRecoveryUser {
 		if body.Password == "" {
 			return nil, ErrPasswordEmpty
 		}
@@ -114,9 +115,6 @@ func (s *ServiceAuth) HelperAuth(action string, dataUser map[string]string) (*co
 	if s.Repo.CreateUserSession(sessionID, action, dataUser) != nil {
 		return nil, custom_errors.ErrFailedSecurity
 	}
-	fmt.Println("OK")
-	fmt.Println(s.Conf.Signature)
-	fmt.Println("Ok2")
 	j := JWT.NewJWT(s.Conf.Signature, s.Logger)
 	token, errJwtSession := j.CreateSessionJWT(sessionID)
 	if errJwtSession != nil {
@@ -124,15 +122,15 @@ func (s *ServiceAuth) HelperAuth(action string, dataUser map[string]string) (*co
 	}
 	return &common.ResponseAuth{
 		Message:    "we have sent a confirmation code to the following email address: " + dataUser[emailKey],
-		JwtSession: token,
+		SessionJwt: token,
 	}, nil
 }
 
 const (
-	actionRegister         = "register"
-	actionLogin            = "login"
-	actionRecoveryUser     = "recovery_user"
-	actionRecoveryPassword = "recovery_password"
+	ActionRegister         = "register"
+	ActionLogin            = "login"
+	ActionRecoveryUser     = "recovery_user"
+	ActionRecoveryPassword = "recovery_password"
 
 	nameKey     = "name"
 	emailKey    = "email"
@@ -144,13 +142,13 @@ func (s *ServiceAuth) Confirm(body *RequestConfirm, sessionID, action, userAgent
 	if len(sessionID) != 36 {
 		mapError.Map["session"] = custom_errors.ErrIncorrectSessionID.Error()
 	}
-	if action != actionRecoveryUser && action != actionRecoveryPassword && action != actionLogin && action != actionRegister {
+	if action != ActionRecoveryUser && action != ActionRecoveryPassword && action != ActionLogin && action != ActionRegister {
 		mapError.Map["action"] = ErrIncorrectAction.Error()
 	}
 	if len(mapError.Map) != 0 {
 		return nil, mapError
 	}
-	if action == actionRecoveryPassword && body.NewPassword == "" {
+	if action == ActionRecoveryPassword && body.NewPassword == "" {
 		return nil, ErrNotSpecifiedNewPassword
 	}
 	dataUser, errGetCode := s.Repo.GetUserSession(sessionID, action)
@@ -163,12 +161,12 @@ func (s *ServiceAuth) Confirm(body *RequestConfirm, sessionID, action, userAgent
 	}
 	var userUUID string
 	switch action {
-	case actionRegister:
+	case ActionRegister:
 		if s.IRepoUser.UserExistsByEmail(dataUser[emailKey]) {
 			return nil, ErrUserAlreadyExist
 		}
 		userUUID = uuid.New().String()
-		if s.IRepoUser.CreateUser(&model.User{
+		if s.IRepoUser.CreateUser(&model.Users{
 			Name:     dataUser[nameKey],
 			Email:    dataUser[emailKey],
 			Password: dataUser[passwordKey],
@@ -176,13 +174,13 @@ func (s *ServiceAuth) Confirm(body *RequestConfirm, sessionID, action, userAgent
 		}) != nil {
 			return nil, ErrCreateUser
 		}
-	case actionLogin:
+	case ActionLogin:
 		if uUUID, errGetUserUUID := s.IRepoUser.GetUserUUIDByEmail(dataUser[emailKey]); errGetUserUUID != nil {
 			return nil, custom_errors.ErrNotFoundUser
 		} else {
 			userUUID = uUUID
 		}
-	case actionRecoveryUser:
+	case ActionRecoveryUser:
 		if uUUID, errGetUserUUID := s.IRepoUser.GetUserUUIDByEmail(dataUser[emailKey]); errGetUserUUID != nil {
 			return nil, custom_errors.ErrNotFoundUser
 		} else {
@@ -191,7 +189,7 @@ func (s *ServiceAuth) Confirm(body *RequestConfirm, sessionID, action, userAgent
 				return nil, ErrFailedRecoveryUser
 			}
 		}
-	case actionRecoveryPassword:
+	case ActionRecoveryPassword:
 		user, errGetUser := s.IRepoUser.GetUserByEmail(dataUser[emailKey])
 		if errGetUser != nil {
 			return nil, custom_errors.ErrNotFoundUser
@@ -213,7 +211,7 @@ func (s *ServiceAuth) Confirm(body *RequestConfirm, sessionID, action, userAgent
 		return nil, custom_errors.ErrFailedSecurity
 	}
 	if errDeleteOldRefresh := s.Repo.DeleteOldRefresh(userUUID); errDeleteOldRefresh != nil {
-		if action != actionRegister {
+		if action != ActionRegister {
 			s.Logger.Warn(fmt.Sprintf("failed to delete old refreshID in action %s:", action) + errDeleteOldRefresh.Error())
 		}
 	}

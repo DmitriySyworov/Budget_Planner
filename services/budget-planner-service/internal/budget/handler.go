@@ -44,7 +44,7 @@ func (h *HandlerBudget) CreateBudget() http.HandlerFunc {
 			h.ResponseSend(writer, resp, http.StatusInternalServerError)
 			return
 		}
-		body, errBody := handler_request.HandlerRequest[CreateAndUpdateBudget](request.Body)
+		body, errBody := handler_request.HandlerRequest[RequestCreateBudget](request.Body)
 		if errBody != nil {
 			mapError := shared_errors.MapError{Map: make(map[string]string, 3)}
 			if errValidate, isErrValid := errBody.(validator.ValidationErrors); isErrValid {
@@ -101,7 +101,7 @@ func (h *HandlerBudget) UpdateBudget() http.HandlerFunc {
 			h.ResponseSend(writer, resp, http.StatusInternalServerError)
 			return
 		}
-		body, errBody := handler_request.HandlerRequest[CreateAndUpdateBudget](request.Body)
+		body, errBody := handler_request.HandlerRequest[RequestUpdateBudget](request.Body)
 		if errBody != nil {
 			mapError := shared_errors.MapError{Map: make(map[string]string, 3)}
 			if errValidate, isErrValid := errBody.(validator.ValidationErrors); isErrValid {

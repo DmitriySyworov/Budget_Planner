@@ -29,7 +29,7 @@ services:
     volumes:
       - ${PATH_VOLUMES}/redis-data:/data
   migration:
-    container_name: migration-budget-planner
+    container_name: migration-auth-user
     build:
       context: ../../
       dockerfile: ./services/auth-service/Dockerfile
@@ -41,7 +41,7 @@ services:
       postgres:
         condition: service_healthy
   app:
-    container_name: app-budget-planner
+    container_name: app-auth-user
     build:
       context: ../../
       dockerfile: ./services/auth-service/Dockerfile

@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: app-auth-user
-          image: dmitriysyworov/auth-user-service:latest
+          image: dmitriysyworov/auth-user-service:v1
           imagePullPolicy: Always
           ports:
             - containerPort: 8080

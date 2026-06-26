@@ -22,12 +22,12 @@ func NewServiceExpense(repo *RepositoryExpense, serviceBudget di.IServiceBudget)
 		IServiceBudget: serviceBudget,
 	}
 }
-func (s *ServiceExpense) CreateExpense(body *CreateAndUpdateExpense, userUUID, budgetUUID string) (*model.DescriptionExpense, error) {
+func (s *ServiceExpense) CreateExpense(body *CreateAndUpdateExpense, userUUID, budgetUUID string) (*model.DescriptionExpenses, error) {
 	_, errValidate := s.IServiceBudget.HelperValidateBudget(userUUID, budgetUUID)
 	if errValidate != nil {
 		return nil, errValidate
 	}
-	descriptionExpense := &model.DescriptionExpense{
+	descriptionExpense := &model.DescriptionExpenses{
 		Category:    body.Category,
 		Expense:     body.Expense,
 		Description: body.Description,
@@ -49,7 +49,7 @@ func (s *ServiceExpense) CreateExpense(body *CreateAndUpdateExpense, userUUID, b
 	}
 	return descriptionExpense, nil
 }
-func (s *ServiceExpense) UpdateExpense(body *CreateAndUpdateExpense, userUUID, budgetUUID string, descriptionExpenseUUID string) (*model.DescriptionExpense, error) {
+func (s *ServiceExpense) UpdateExpense(body *CreateAndUpdateExpense, userUUID, budgetUUID string, descriptionExpenseUUID string) (*model.DescriptionExpenses, error) {
 	_, errValidate := s.IServiceBudget.HelperValidateBudget(userUUID, budgetUUID)
 	if errValidate != nil {
 		return nil, errValidate
@@ -83,7 +83,7 @@ func (s *ServiceExpense) UpdateExpense(body *CreateAndUpdateExpense, userUUID, b
 	}
 	return descriptionExpense, nil
 }
-func (s *ServiceExpense) GetExpense(userUUID, budgetUUID, descriptionExpenseUUID string) (*model.DescriptionExpense, error) {
+func (s *ServiceExpense) GetExpense(userUUID, budgetUUID, descriptionExpenseUUID string) (*model.DescriptionExpenses, error) {
 	_, errValidate := s.IServiceBudget.HelperValidateBudget(userUUID, budgetUUID)
 	if errValidate != nil {
 		return nil, errValidate
@@ -126,7 +126,7 @@ func (s *ServiceExpense) DeleteExpense(userUUID, budgetUUID, descriptionExpenseU
 	}
 	return nil
 }
-func (s *ServiceExpense) ListExpense(budgetUUID, limitStr, offsetStr string) ([]model.DescriptionExpense, error) {
+func (s *ServiceExpense) ListExpense(budgetUUID, limitStr, offsetStr string) ([]model.DescriptionExpenses, error) {
 	mapError := shared_errors.MapError{Map: make(map[string]string, 3)}
 	limit, offset, errPagination := shared_common.PaginationHelper(limitStr, offsetStr)
 	if len(errPagination) != 0 {

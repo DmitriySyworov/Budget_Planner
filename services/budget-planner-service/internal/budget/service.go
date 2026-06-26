@@ -20,7 +20,7 @@ func NewServiceBudget(repo *RepositoryBudget) *ServiceBudget {
 		Repo: repo,
 	}
 }
-func (s *ServiceBudget) CreateBudget(body *CreateAndUpdateBudget, userUUID string) (*model.Budget, error) {
+func (s *ServiceBudget) CreateBudget(body *RequestCreateBudget, userUUID string) (*model.Budgets, error) {
 	mapError := shared_errors.MapError{Map: make(map[string]string, 3)}
 	start, errStart := time.Parse(time.DateOnly, body.Start)
 	if errStart != nil {
@@ -30,13 +30,13 @@ func (s *ServiceBudget) CreateBudget(body *CreateAndUpdateBudget, userUUID strin
 	if errFinish != nil {
 		mapError.Map["finish"] = ErrIncorrectFinish.Error()
 	}
-	if s.Repo.DateOverlap(start, finish) {
+	if !s.Repo.DateOverlap(start, finish) {
 		mapError.Map["dates"] = ErrOverlapStartFinish.Error()
 	}
 	if len(mapError.Map) != 0 {
 		return nil, mapError
 	}
-	budget := &model.Budget{
+	budget := &model.Budgets{
 		Amount:      body.Amount,
 		Start:       start,
 		Finish:      finish,
@@ -44,12 +44,12 @@ func (s *ServiceBudget) CreateBudget(body *CreateAndUpdateBudget, userUUID strin
 		BudgetUUID:  uuid.New().String(),
 		UserUUID:    userUUID,
 	}
-	if errCreate := s.Repo.Create(budget); errCreate != nil {
+	if errCreate := s.Repo.CreateBudget(budget); errCreate != nil {
 		return nil, ErrFailedCreateBudget
 	}
 	return budget, nil
 }
-func (s *ServiceBudget) UpdateBudget(body *CreateAndUpdateBudget, userUUID, budgetUUID string) (*model.Budget, error) {
+func (s *ServiceBudget) UpdateBudget(body *RequestUpdateBudget, userUUID, budgetUUID string) (*model.Budgets, error) {
 	mapError := shared_errors.MapError{Map: make(map[string]string, 3)}
 	budget, errValidate := s.HelperValidateBudget(userUUID, budgetUUID)
 	if errValidate != nil {
@@ -70,15 +70,15 @@ func (s *ServiceBudget) UpdateBudget(body *CreateAndUpdateBudget, userUUID, budg
 		}
 	}
 	if body.Start != "" && body.Finish != "" && errStart == nil && errFinish == nil {
-		if s.Repo.DateOverlap(start, finish) {
+		if !s.Repo.DateOverlap(start, finish) {
 			mapError.Map["dates"] = ErrOverlapStartFinish.Error()
 		}
 	} else if body.Start != "" && body.Finish == "" && errStart == nil && errValidate == nil {
-		if s.Repo.DateOverlap(start, budget.Finish) {
+		if !s.Repo.DateOverlap(start, budget.Finish) {
 			mapError.Map["dates"] = ErrOverlapStartFinish.Error()
 		}
 	} else if body.Start == "" && body.Finish != "" && errFinish == nil && errValidate == nil {
-		if s.Repo.DateOverlap(budget.Start, finish) {
+		if !s.Repo.DateOverlap(budget.Start, finish) {
 			mapError.Map["dates"] = ErrOverlapStartFinish.Error()
 		}
 	}
@@ -95,7 +95,7 @@ func (s *ServiceBudget) UpdateBudget(body *CreateAndUpdateBudget, userUUID, budg
 	}
 	return budget, nil
 }
-func (s *ServiceBudget) GetBudget(userUUID, budgetUUID string) (*model.Budget, error) {
+func (s *ServiceBudget) GetBudget(userUUID, budgetUUID string) (*model.Budgets, error) {
 	budget, errValidate := s.HelperValidateBudget(userUUID, budgetUUID)
 	if errValidate != nil {
 		return nil, errValidate
@@ -126,7 +126,7 @@ func (s *ServiceBudget) RemoveBudget(userUUID, budgetUUID, typeRemove string) er
 	}
 	return shared_errors.ErrIncorrectTypeRemove
 }
-func (s *ServiceBudget) HelperValidateBudget(userUUID, budgetUUID string) (*model.Budget, error) {
+func (s *ServiceBudget) HelperValidateBudget(userUUID, budgetUUID string) (*model.Budgets, error) {
 	if _, errBudgetUUID := uuid.Parse(budgetUUID); errBudgetUUID != nil {
 		return nil, custom_errors.ErrIncorrectFormatBudgetUUID
 	}
@@ -137,7 +137,7 @@ func (s *ServiceBudget) HelperValidateBudget(userUUID, budgetUUID string) (*mode
 	return budget, nil
 }
 
-func (s *ServiceBudget) ListBudget(userUUID, limitStr, offsetStr string) ([]model.Budget, error) {
+func (s *ServiceBudget) ListBudget(userUUID, limitStr, offsetStr string) ([]model.Budgets, error) {
 	limit, offset, errPagination := shared_common.PaginationHelper(limitStr, offsetStr)
 	if len(errPagination) != 0 {
 		mapError := shared_errors.MapError{Map: make(map[string]string, 2)}

@@ -9,5 +9,5 @@ type IRepoExpense interface {
 	ExpenseExist(budgetUUID, expenseUUID string) bool
 }
 type IServiceBudget interface {
-	HelperValidateBudget(userUUID, budgetUUID string) (*model.Budget, error)
+	HelperValidateBudget(userUUID, budgetUUID string) (*model.Budgets, error)
 }
