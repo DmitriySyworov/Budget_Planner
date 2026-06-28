@@ -30,7 +30,7 @@ func (s *ServiceBudget) CreateBudget(body *RequestCreateBudget, userUUID string)
 	if errFinish != nil {
 		mapError.Map["finish"] = ErrIncorrectFinish.Error()
 	}
-	if !s.Repo.DateOverlap(start, finish) {
+	if s.Repo.DateOverlap(start, finish) {
 		mapError.Map["dates"] = ErrOverlapStartFinish.Error()
 	}
 	if len(mapError.Map) != 0 {
@@ -70,15 +70,15 @@ func (s *ServiceBudget) UpdateBudget(body *RequestUpdateBudget, userUUID, budget
 		}
 	}
 	if body.Start != "" && body.Finish != "" && errStart == nil && errFinish == nil {
-		if !s.Repo.DateOverlap(start, finish) {
+		if s.Repo.DateOverlap(start, finish) {
 			mapError.Map["dates"] = ErrOverlapStartFinish.Error()
 		}
 	} else if body.Start != "" && body.Finish == "" && errStart == nil && errValidate == nil {
-		if !s.Repo.DateOverlap(start, budget.Finish) {
+		if s.Repo.DateOverlap(start, budget.Finish) {
 			mapError.Map["dates"] = ErrOverlapStartFinish.Error()
 		}
 	} else if body.Start == "" && body.Finish != "" && errFinish == nil && errValidate == nil {
-		if !s.Repo.DateOverlap(budget.Start, finish) {
+		if s.Repo.DateOverlap(budget.Start, finish) {
 			mapError.Map["dates"] = ErrOverlapStartFinish.Error()
 		}
 	}

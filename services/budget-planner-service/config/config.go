@@ -20,9 +20,11 @@ type DB struct {
 }
 
 func NewConfig(logger *loggers.Logger) *Config {
-	errEnvFile := godotenv.Load()
-	if errEnvFile != nil {
+	if godotenv.Load() != nil {
 		logger.Warn(".env file not found.  This is normal if running inside a container")
+		if godotenv.Load(".env.test") != nil {
+			logger.Warn(".env.test file not found. This is normal if tests don't run")
+		}
 	}
 	apiPort := os.Getenv("EXTERNAL_API_PORT")
 	dsn := os.Getenv("DSN")

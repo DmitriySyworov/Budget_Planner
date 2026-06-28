@@ -41,7 +41,7 @@ func (s *ServiceUser) UpdateUser(userUUID string, body *RequestUpdateUser) (*mod
 		}
 		return user, nil, nil
 	}
-	origPassword, errGetUser := s.Repo.GetPasswordByEmail(body.Email)
+	origPassword, errGetUser := s.Repo.GetPasswordByUUID(userUUID)
 	if errGetUser != nil {
 		return nil, nil, custom_errors.ErrIncorrectPasswordOrEmail
 	}
@@ -83,20 +83,20 @@ func (s *ServiceUser) GetUser(userUUID string) (*ResponseUser, error) {
 	}
 	return user, nil
 }
-func (s *ServiceUser) DeleteUser(email, typeRemove string) (*common.ResponseAuth, error) {
-	mapError := shared_errors.MapError{Map: make(map[string]string, 2)}
+func (s *ServiceUser) RemoveUser(body *RequestRemoveUser, typeRemove string) (*common.ResponseAuth, error) {
 	if typeRemove != shared_common.TypeSoftDelete && typeRemove != shared_common.TypeHardDelete {
-		mapError.Map["type"] = shared_errors.ErrIncorrectTypeRemove.Error()
+		return nil, shared_errors.ErrIncorrectTypeRemove
 	}
-	if !s.Repo.UserExistsByEmail(email) {
-		mapError.Map["user"] = custom_errors.ErrNotFoundUser.Error()
+	password, errGetPassword := s.Repo.GetPasswordByEmail(body.Email)
+	if errGetPassword != nil {
+		return nil, custom_errors.ErrIncorrectPasswordOrEmail
 	}
-	if len(mapError.Map) != 0 {
-		return nil, mapError
+	if bcrypt.CompareHashAndPassword([]byte(password), []byte(body.Password)) != nil {
+		return nil, custom_errors.ErrIncorrectPasswordOrEmail
 	}
 	const sizeRemoveDataMap = 2
 	dataUser := make(map[string]string, sizeRemoveDataMap)
-	dataUser[emailKey] = email
+	dataUser[emailKey] = body.Email
 	respAuth, errAuth := s.HelperAuth(typeRemove, dataUser)
 	if errAuth != nil {
 		return nil, custom_errors.ErrFailedSecurity

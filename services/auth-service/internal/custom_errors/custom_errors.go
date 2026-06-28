@@ -13,4 +13,5 @@ var (
 	ErrSessionExpired            = errors.New("authorization session has expired or does not exist")
 	ErrIncorrectCode             = errors.New("incorrect code")
 	ErrIncorrectEnterNewPassword = errors.New("new password must be between 8 and 24 characters")
+	ErrInvalidSessionToken       = errors.New("invalid session token")
 )

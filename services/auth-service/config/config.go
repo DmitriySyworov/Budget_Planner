@@ -14,14 +14,14 @@ type Config struct {
 }
 
 type API struct {
-	ApiPort string
+	ApiPort   string
+	Signature string
 }
 type VerifyEmail struct {
 	ApiEmail        string
 	ApiPassword     string
 	SmtpAddress     string
 	SmtpAddressHost string
-	Signature       string
 }
 type Db struct {
 	DSN           string
@@ -30,9 +30,9 @@ type Db struct {
 }
 
 func NewConfig(logger *loggers.Logger) *Config {
-	if errFileEnv := godotenv.Load(); errFileEnv != nil {
+	if godotenv.Load() != nil {
 		logger.Warn(".env file not found. This is normal if running inside a container")
-		if errFileEnvTest := godotenv.Load(".env.test"); errFileEnvTest != nil {
+		if godotenv.Load(".env.test") != nil {
 			logger.Warn(".env.test file not found. This is normal if tests don't run")
 		}
 	}
@@ -92,14 +92,14 @@ func NewConfig(logger *loggers.Logger) *Config {
 			RedisAddress:  redisAddress,
 		},
 		API: &API{
-			ApiPort: apiPort,
+			ApiPort:   apiPort,
+			Signature: signature,
 		},
 		VerifyEmail: &VerifyEmail{
 			ApiEmail:        apiEmail,
 			ApiPassword:     apiPassword,
 			SmtpAddress:     smtpAddress,
 			SmtpAddressHost: smtpAddressHost,
-			Signature:       signature,
 		},
 	}
 }

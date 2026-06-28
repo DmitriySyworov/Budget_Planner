@@ -16,51 +16,54 @@ import (
 )
 
 func main() {
-	logger := loggers.NewLogger()
+	confApi, logging, handlers := App()
+	server := http.Server{
+		Addr:    ":" + confApi.ApiPort,
+		Handler: handlers,
+	}
+	errApi := server.ListenAndServe()
+	if errApi != nil {
+		logging.Error("critical error on the server: " + errApi.Error())
+		os.Exit(1)
+	}
+}
+func App() (*budgetconfig.Api, *loggers.Logger, http.Handler) {
+	logging := loggers.NewLogger()
 	//
-	conf := budgetconfig.NewConfig(logger)
+	conf := budgetconfig.NewConfig(logging)
 	//
-	postgres := open_db.OpenPostgres(conf.DSN, logger)
+	postgres := open_db.OpenPostgres(conf.DSN, logging)
 	//
-	handlerResponse := response.NewHandlerResponse(logger)
+	handlerResponse := response.NewHandlerResponse(logging)
 	//
-	sharedMv := shared_middleware.NewManagerSharedMiddleware(conf.Signature, logger, handlerResponse)
+	sharedMv := shared_middleware.NewManagerSharedMiddleware(conf.Signature, logging, handlerResponse)
 	//
 	router := http.NewServeMux()
 	//
-	repoBudget := budget.NewRepositoryBudget(postgres, logger)
-	repoExpense := expense.NewRepositoryExpense(postgres, logger)
-	repoFinance := finance.NewRepositoryFinance(postgres, logger)
+	repoBudget := budget.NewRepositoryBudget(postgres, logging)
+	repoExpense := expense.NewRepositoryExpense(postgres, logging)
+	repoFinance := finance.NewRepositoryFinance(postgres, logging)
 	//
 	serviceBudget := budget.NewServiceBudget(repoBudget)
 	serviceExpense := expense.NewServiceExpense(repoExpense, serviceBudget)
 	serviceFinance := finance.NewServiceFinance(repoFinance, repoBudget, repoExpense)
 	//
-	router.HandleFunc("GET /health", health(logger))
-	router.HandleFunc("GET /ready", ready(postgres, logger))
-	budget.NewHandlerBudget(router, serviceBudget, logger, handlerResponse, sharedMv)
-	expense.NewHandlerExpense(router, serviceExpense, logger, handlerResponse, sharedMv)
-	finance.NewHandlerFinance(router, serviceFinance, handlerResponse, logger, sharedMv)
+	router.HandleFunc("GET /health", health(logging))
+	router.HandleFunc("GET /ready", ready(postgres, logging))
+	budget.NewHandlerBudget(router, serviceBudget, logging, handlerResponse, sharedMv)
+	expense.NewHandlerExpense(router, serviceExpense, logging, handlerResponse, sharedMv)
+	finance.NewHandlerFinance(router, serviceFinance, handlerResponse, logging, sharedMv)
 	chainMv := shared_middleware.Chain(
 		sharedMv.Recovery,
 		sharedMv.Logging,
 	)
-	server := http.Server{
-		Addr:    ":" + conf.ApiPort,
-		Handler: chainMv(router),
-	}
-	errApi := server.ListenAndServe()
-	if errApi != nil {
-		logger.Error("critical error on the server: " + errApi.Error())
-		os.Exit(1)
-	}
+	return conf.Api, logging, chainMv(router)
 }
-
 func health(logger *loggers.Logger) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		writer.WriteHeader(http.StatusOK)
 		if _, errWrite := writer.Write([]byte("OK")); errWrite != nil {
-			logger.Error("failed to write health check: ", errWrite)
+			logger.Error("failed to write health check: " + errWrite.Error())
 		}
 	}
 }

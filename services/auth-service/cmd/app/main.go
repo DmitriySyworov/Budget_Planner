@@ -16,9 +16,9 @@ import (
 )
 
 func main() {
-	apiPort, logging, handlers := App()
+	apiConf, logging, handlers := App()
 	service := http.Server{
-		Addr:    ":" + apiPort,
+		Addr:    ":" + apiConf.ApiPort,
 		Handler: handlers,
 	}
 	if errApi := service.ListenAndServe(); errApi != nil {
@@ -26,7 +26,7 @@ func main() {
 		os.Exit(1)
 	}
 }
-func App() (string, *loggers.Logger, http.Handler) {
+func App() (*authconfig.API, *loggers.Logger, http.Handler) {
 	logging := loggers.NewLogger()
 	//
 	conf := authconfig.NewConfig(logging)
@@ -44,7 +44,7 @@ func App() (string, *loggers.Logger, http.Handler) {
 	repoAuth := auth.NewRepository(redis, logging)
 	repoUser := user.NewRepositoryUser(postgres, logging)
 	//
-	serviceAuth := auth.NewServiceAuth(repoAuth, repoUser, conf.VerifyEmail, logging)
+	serviceAuth := auth.NewServiceAuth(repoAuth, repoUser, conf, logging)
 	serviceUser := user.NewServiceUser(repoUser, serviceAuth, repoAuth)
 	//
 	router.HandleFunc("GET /health", health(logging))
@@ -56,7 +56,7 @@ func App() (string, *loggers.Logger, http.Handler) {
 		sharedMv.Logging,
 		sharedMv.Recovery,
 	)
-	return conf.ApiPort, logging, chainMv(router)
+	return conf.API, logging, chainMv(router)
 }
 func health(logger *loggers.Logger) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {

@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"app/auth-service/internal/JWT"
+	"app/auth-service/internal/custom_errors"
 	"context"
 	"net/http"
 	"shared/response"
@@ -25,22 +26,22 @@ func (m *ManagerMiddleware) HandlerSessionToken(next http.Handler) http.Handler 
 		header := request.Header.Get("X-Session-Token")
 		token, errToken := shared_middleware.HelperHandleHeader(header)
 		if errToken != nil {
-			values.DataLog.Errors = shared_errors.ErrInvalidSessionToken.Error()
-			resp.Error["auth"] = shared_errors.ErrInvalidSessionToken.Error()
+			values.DataLog.Errors = custom_errors.ErrInvalidSessionToken.Error()
+			resp.Error["auth"] = custom_errors.ErrInvalidSessionToken.Error()
 			m.HandlerResponse.ResponseSend(writer, resp, http.StatusUnauthorized)
 			return
 		}
 		j := JWT.NewJWT(m.Signature, m.Logger)
 		sessionID, errParse := j.ParseSessionToken(token)
 		if errParse != nil {
-			values.DataLog.Errors = shared_errors.ErrInvalidSessionToken.Error()
-			resp.Error["auth"] = shared_errors.ErrInvalidSessionToken.Error()
+			values.DataLog.Errors = custom_errors.ErrInvalidSessionToken.Error()
+			resp.Error["auth"] = custom_errors.ErrInvalidSessionToken.Error()
 			m.HandlerResponse.ResponseSend(writer, resp, http.StatusUnauthorized)
 			return
 		}
 		if len(sessionID) != 36 {
-			values.DataLog.Errors = shared_errors.ErrInvalidSessionToken.Error()
-			resp.Error["auth"] = shared_errors.ErrInvalidSessionToken.Error()
+			values.DataLog.Errors = custom_errors.ErrInvalidSessionToken.Error()
+			resp.Error["auth"] = custom_errors.ErrInvalidSessionToken.Error()
 			m.HandlerResponse.ResponseSend(writer, resp, http.StatusUnauthorized)
 			return
 		}

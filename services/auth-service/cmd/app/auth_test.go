@@ -29,7 +29,7 @@ func TestRegisterSuccessful(t *testing.T) {
 	if errReadFile != nil {
 		t.Fatal("failed to read sql file: ", errReadFile)
 	}
-	shared_testing.RefreshUserTestData(dataSqlFile, t)
+	shared_testing.RefreshUserTestData(dataSqlFile, []string{"users"}, t)
 	deleteRedisData(t)
 	deleteMailPitMessages(t)
 	_, _, app := App()
@@ -55,7 +55,7 @@ func TestLoginSuccessful(t *testing.T) {
 	if errReadFile != nil {
 		t.Fatal("failed to read sql file: ", errReadFile)
 	}
-	shared_testing.RefreshUserTestData(dataSqlFile, t)
+	shared_testing.RefreshUserTestData(dataSqlFile, []string{"users"}, t)
 	deleteRedisData(t)
 	deleteMailPitMessages(t)
 	_, _, app := App()
@@ -93,7 +93,7 @@ func TestRecoverySuccess(t *testing.T) {
 		if errReadFile != nil {
 			t.Fatal("failed to read sql file: ", errReadFile)
 		}
-		shared_testing.RefreshUserTestData(dataSqlFile, t)
+		shared_testing.RefreshUserTestData(dataSqlFile, []string{"users"}, t)
 		deleteRedisData(t)
 		deleteMailPitMessages(t)
 		dataRecovery, errMarshalRecovery := json.Marshal(testCase.RequestRecovery)
@@ -153,40 +153,34 @@ func deleteRedisData(t *testing.T) {
 	}
 }
 func helperTestConfirmAndRefresh(resp *http.Response, action, newPassword string, testServer *httptest.Server, t *testing.T) {
-	resultDataLogin := shared_testing.HelperCheckResponse(resp, t)
-	if resp.StatusCode != http.StatusAccepted {
-		t.Fatalf("expected %d got %d", http.StatusAccepted, resp.StatusCode)
+	resultData := shared_testing.HelperHandleResponse[common.ResponseAuth](resp, http.StatusAccepted, t)
+	code := helperExtractCode(t)
+	requestConfirm := auth.RequestConfirm{
+		Code:        code,
+		NewPassword: newPassword,
 	}
-	respReg, ok := resultDataLogin.(map[string]any)
-	if !ok {
-		t.Fatal("failed to assertion type (map[string)any): ", resultDataLogin)
+	dataConfirm, errMarshal := json.Marshal(requestConfirm)
+	if errMarshal != nil {
+		t.Fatal("failed to prepare request confirm: ", errMarshal)
 	}
-	dataConfirm := prepareConfirm(newPassword, t)
 	reqConfirm, errReqConfirm := http.NewRequest(http.MethodPost, testServer.URL+"/api/v1/confirm?action="+action, bytes.NewBuffer(dataConfirm))
 	if errReqConfirm != nil {
 		t.Fatal("failed to prepare request confirm: ", errReqConfirm)
 	}
-	reqConfirm.Header.Set("X-Session-Token", "Bearer "+respReg["session_jwt"].(string))
+	reqConfirm.Header.Set("X-Session-Token", "Bearer "+resultData.SessionJwt)
 	respConfirm, errRespConfirm := http.DefaultClient.Do(reqConfirm)
-	if errRespConfirm != nil {
-		t.Fatal("failed to get response confirm: ", errRespConfirm)
-	}
-	resultDataConfirm := shared_testing.HelperCheckResponse(respConfirm, t)
 	var expectedStatusCode int
 	if action == auth.ActionRegister {
 		expectedStatusCode = http.StatusCreated
 	} else {
 		expectedStatusCode = http.StatusOK
 	}
-	if respConfirm.StatusCode != expectedStatusCode {
-		t.Fatalf("expected register confirm %d got %d", expectedStatusCode, respConfirm.StatusCode)
+	if errRespConfirm != nil {
+		t.Fatal("failed to get response confirm: ", errRespConfirm)
 	}
-	dataRespConfirm, ok := resultDataConfirm.(map[string]any)
-	if !ok {
-		t.Fatal("failed to assertion type (map[string]any): ", dataRespConfirm)
-	}
+	resultDataConfirm := shared_testing.HelperHandleResponse[auth.ResponseConfirm](respConfirm, expectedStatusCode, t)
 	bodyRefresh := auth.RequestRefresh{
-		RefreshJwt: dataRespConfirm["refresh_jwt"].(string),
+		RefreshJwt: resultDataConfirm.RefreshJwt,
 	}
 	dataRefresh, errMarshalRefresh := json.Marshal(bodyRefresh)
 	if errMarshalRefresh != nil {
@@ -196,17 +190,10 @@ func helperTestConfirmAndRefresh(resp *http.Response, action, newPassword string
 	if errRespRefresh != nil {
 		t.Fatal("failed to get response refresh: ", errRespRefresh)
 	}
-	resultDataRefresh := shared_testing.HelperCheckResponse(respRefresh, t)
-	if respRefresh.StatusCode != http.StatusOK {
-		t.Fatalf("expected refresh %d got %d", http.StatusOK, respRefresh.StatusCode)
-	}
-	dataRespRefresh, ok := resultDataRefresh.(map[string]any)
-	if !ok {
-		t.Fatal("failed to assertion type (map[string]any): ", dataRespRefresh)
-	}
-	t.Log(dataRespRefresh["refresh_jwt"])
+	resultDataRefresh := shared_testing.HelperHandleResponse[auth.ResponseConfirm](respRefresh, http.StatusOK, t)
+	t.Log(resultDataRefresh)
 }
-func prepareConfirm(password string, t *testing.T) []byte {
+func helperExtractCode(t *testing.T) int {
 	respCode, errRespCode := http.Get("http://localhost:8025/api/v1/messages")
 	if errRespCode != nil {
 		t.Fatal("failed to send response code: ", errRespCode)
@@ -233,13 +220,5 @@ func prepareConfirm(password string, t *testing.T) []byte {
 	if errParseCode != nil {
 		t.Fatal("failed to parse code: ", errParseCode)
 	}
-	requestConfirm := auth.RequestConfirm{
-		Code:        code,
-		NewPassword: password,
-	}
-	dataResp, errMarshal := json.Marshal(requestConfirm)
-	if errMarshal != nil {
-		t.Fatal("failed to prepare request confirm: ", errMarshal)
-	}
-	return dataResp
+	return code
 }

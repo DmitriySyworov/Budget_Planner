@@ -41,7 +41,7 @@ func main() {
 		os.Exit(1)
 	}
 	if errMigrate := goose.Up(db, "."); errMigrate != nil {
-		logger.Error("failed to migrate tables: ", errMigrate)
+		logger.Error("failed to migrate tables: " + errMigrate.Error())
 		os.Exit(1)
 	}
 }
