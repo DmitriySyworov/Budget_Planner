@@ -246,6 +246,7 @@ func (h *HandlerBudget) ListBudget() http.HandlerFunc {
 		values.DataLog.MapLog["offset"] = offset
 		budgetList, errList := h.ServiceBudget.ListBudget(values.DataAuth.UserUUID, limit, offset)
 		if errList != nil {
+			values.DataLog.Errors = errList.Error()
 			var mapError shared_errors.MapError
 			if errors.As(errList, &mapError) {
 				resp.Error = mapError.Map

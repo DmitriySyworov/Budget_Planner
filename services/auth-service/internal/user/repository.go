@@ -84,12 +84,25 @@ func (r *RepositoryUser) GetUserByUUID(userUUID string) (*model.Users, error) {
 	}
 	return user, nil
 }
+
 func (r *RepositoryUser) GetUserByEmail(email string) (*model.Users, error) {
 	user := &model.Users{}
 	if errGet := r.Postgres.Where("email = ?", email).Take(user).Error; errGet != nil {
 		return nil, errGet
 	}
 	return user, nil
+}
+func (r *RepositoryUser) GetPasswordByUUID(userUUID string) (string, error) {
+	var password string
+	if errGetPassword := r.Postgres.Raw(`SELECT password FROM users
+						WHERE user_uuid = ?`, userUUID).Scan(&password).Error; errGetPassword != nil {
+		r.Logger.Error("failed to get user password: ", errGetPassword)
+		return "", ErrFailedGetUser
+	}
+	if password == "" {
+		return "", custom_errors.ErrNotFoundUser
+	}
+	return password, nil
 }
 func (r *RepositoryUser) GetPasswordByEmail(email string) (string, error) {
 	var password string

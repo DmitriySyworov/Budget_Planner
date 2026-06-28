@@ -3,8 +3,6 @@ package main
 import (
 	"database/sql"
 	"embed"
-	"flag"
-	"fmt"
 	"os"
 	"shared/loggers"
 
@@ -21,16 +19,7 @@ func main() {
 	if errEnvFile := godotenv.Load(); errEnvFile != nil {
 		logger.Warn(".env file not found. This is normal if running inside a container")
 	}
-	test := flag.Bool("test", false, "choosing a test DSN")
-	flag.Parse()
-	var dsn string
-	if *test {
-		fmt.Println("OK")
-		dsn = os.Getenv("DSN")
-	} else {
-		dsn = os.Getenv("DSN")
-	}
-	fmt.Println(dsn)
+	dsn := os.Getenv("DSN")
 	if dsn == "" {
 		logger.Error("environment variables DSN not found")
 		os.Exit(1)

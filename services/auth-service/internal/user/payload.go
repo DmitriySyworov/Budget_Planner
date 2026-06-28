@@ -8,7 +8,8 @@ type ResponseUser struct {
 	UserUUID  string
 }
 type RequestRemoveUser struct {
-	Email string `validate:"required,email"`
+	Email    string `validate:"required,email"`
+	Password string `validate:"required,min=8,max=24"`
 }
 type RequestConfirm struct {
 	Code int `validate:"required,min=100000,max=999999"`

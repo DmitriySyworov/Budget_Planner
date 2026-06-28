@@ -34,7 +34,7 @@ func (j *SharedJWT) ParseAccessToken(accessToken string) (string, error) {
 	if types, okType := token.Claims.(jwt.MapClaims)["type"].(string); !okType || types != "access" {
 		return "", shared_errors.ErrInvalidAccessToken
 	}
-	if userUUID, okUUID := token.Claims.(jwt.MapClaims)["user_uuid"].(string); !okUUID {
+	if userUUID, okUUID := token.Claims.(jwt.MapClaims)["sub"].(string); !okUUID {
 		return "", shared_errors.ErrInvalidAccessToken
 	} else {
 		return userUUID, nil

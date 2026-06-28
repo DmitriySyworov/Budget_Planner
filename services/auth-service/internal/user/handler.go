@@ -33,7 +33,7 @@ func NewHandlerUser(router *http.ServeMux,
 	}
 	router.Handle("PATCH /api/v1/user", sharedMv.HandlerAccessToken(user.UpdateUser()))
 	router.Handle("GET /api/v1/user", sharedMv.HandlerAccessToken(user.GetUser()))
-	router.Handle("DELETE /api/v1/user", sharedMv.HandlerAccessToken(user.DeleteUser()))
+	router.Handle("DELETE /api/v1/user", sharedMv.HandlerAccessToken(user.RemoveUser()))
 	router.Handle("POST /api/v1/user/confirm", sharedMv.HandlerAccessToken(mv.HandlerSessionToken(user.ConfirmUser())))
 }
 func (h *HandlerUser) UpdateUser() http.HandlerFunc {
@@ -140,7 +140,7 @@ func (h *HandlerUser) GetUser() http.HandlerFunc {
 		h.ResponseSend(writer, resp, http.StatusOK)
 	}
 }
-func (h *HandlerUser) DeleteUser() http.HandlerFunc {
+func (h *HandlerUser) RemoveUser() http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		resp := &response.Response{
 			Error: make(map[string]string),
@@ -164,6 +164,10 @@ func (h *HandlerUser) DeleteUser() http.HandlerFunc {
 						values.DataLog.Errors = custom_errors.ErrIncorrectEmail.Error()
 						resp.Error["email"] = custom_errors.ErrIncorrectEmail.Error()
 					}
+					if err.Field() == "Password" {
+						values.DataLog.Errors = custom_errors.ErrIncorrectEnterPassword.Error()
+						resp.Error["password"] = custom_errors.ErrIncorrectEnterPassword.Error()
+					}
 				}
 			} else {
 				values.DataLog.Errors = errBody.Error()
@@ -172,19 +176,17 @@ func (h *HandlerUser) DeleteUser() http.HandlerFunc {
 			h.ResponseSend(writer, resp, http.StatusBadRequest)
 			return
 		}
-		respAuth, errRemoveAuth := h.ServiceUser.DeleteUser(body.Email, typeRemove)
+		respAuth, errRemoveAuth := h.ServiceUser.RemoveUser(body, typeRemove)
 		if errRemoveAuth != nil {
 			values.DataLog.Errors = errRemoveAuth.Error()
-			var mapError shared_errors.MapError
-			if errors.As(errRemoveAuth, &mapError) {
-				resp.Error = mapError.Map
-				switch {
-				case mapError.Map["user"] == custom_errors.ErrNotFoundUser.Error() && len(mapError.Map) == 1:
-					h.ResponseSend(writer, resp, http.StatusNotFound)
-				default:
-					h.ResponseSend(writer, resp, http.StatusBadRequest)
-				}
-			} else {
+			switch {
+			case errors.Is(errRemoveAuth, custom_errors.ErrIncorrectPasswordOrEmail):
+				resp.Error["auth"] = errRemoveAuth.Error()
+				h.ResponseSend(writer, resp, http.StatusUnauthorized)
+			case errors.Is(errRemoveAuth, shared_errors.ErrIncorrectTypeRemove):
+				resp.Error["action"] = errRemoveAuth.Error()
+				h.ResponseSend(writer, resp, http.StatusBadRequest)
+			default:
 				resp.Error["global"] = errRemoveAuth.Error()
 				h.ResponseSend(writer, resp, http.StatusInternalServerError)
 			}

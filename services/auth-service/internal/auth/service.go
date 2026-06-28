@@ -19,11 +19,11 @@ import (
 type ServiceAuth struct {
 	Repo      *RepositoryAuth
 	IRepoUser di.IRepoUser
-	Conf      *authconfig.VerifyEmail
+	Conf      *authconfig.Config
 	Logger    *loggers.Logger
 }
 
-func NewServiceAuth(repo *RepositoryAuth, repoUser di.IRepoUser, conf *authconfig.VerifyEmail, logger *loggers.Logger) *ServiceAuth {
+func NewServiceAuth(repo *RepositoryAuth, repoUser di.IRepoUser, conf *authconfig.Config, logger *loggers.Logger) *ServiceAuth {
 	return &ServiceAuth{
 		Repo:      repo,
 		IRepoUser: repoUser,
@@ -101,7 +101,7 @@ func (s *ServiceAuth) Recovery(body *RequestRecovery, action string) (*common.Re
 	return respAuth, nil
 }
 func (s *ServiceAuth) HelperAuth(action string, dataUser map[string]string) (*common.ResponseAuth, error) {
-	sender := send_letter.NewSendLetter(s.Conf, s.Logger)
+	sender := send_letter.NewSendLetter(s.Conf.VerifyEmail, s.Logger)
 	sessionID := uuid.New().String()
 	code, errCode := send_letter.GenerateCode()
 	if errCode != nil {
