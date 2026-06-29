@@ -136,7 +136,7 @@ func TestRemoveUserSuccessful(t *testing.T) {
 		t.Fatal("failed to read sql file: ", errReadFile)
 	}
 	for _, test := range CaseDataRemove {
-		shared_testing.RefreshUserTestData(dataSqlFile, []string{"users"}, t)
+		db := shared_testing.RefreshUserTestData(dataSqlFile, []string{"users"}, t)
 		deleteRedisData(t)
 		deleteMailPitMessages(t)
 		accessToken := shared_testing.CreateTestAccessToken(test.UserUUID, confApi.Signature, t)
@@ -176,5 +176,16 @@ func TestRemoveUserSuccessful(t *testing.T) {
 			t.Fatal("failed to get response confirm: ", errRespConfirm)
 		}
 		shared_testing.HelperHandleResponse[struct{}](respConfirm, http.StatusNoContent, t)
+		if test.Type == shared_common.TypeSoftDelete {
+			if db.Where("user_uuid = ?", test.UserUUID).
+				Take(&model.Users{}).Error == nil {
+				t.Fatal("failed to remove user")
+			}
+		} else if test.Type == shared_common.TypeHardDelete {
+			if db.Unscoped().Where("user_uuid = ?", test.UserUUID).
+				Take(&model.Users{}).Error == nil {
+				t.Fatal("failed to delete user")
+			}
+		}
 	}
 }

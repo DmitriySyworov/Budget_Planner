@@ -1,5 +1,5 @@
 services:
-  postgres-test:
+  postgres-user-test:
     container_name: postgres-user-test
     image: postgres:latest
     ports:
@@ -13,7 +13,7 @@ services:
       timeout: 5s
       interval: 5s
       retries: 5
-  redis-test:
+  redis-auth-test:
     container_name: redis-auth-test
     image: redis:latest
     ports:
@@ -24,7 +24,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-  migration-test:
+  migration-user-test:
     container_name: migration-auth-user-test
     build:
       context: ../../
@@ -34,7 +34,7 @@ services:
       DSN : ${DSN_TEST_MIGRATION}
     restart: "no"
     depends_on:
-      postgres-test:
+      postgres-user-test:
         condition: service_healthy
   mailpit:
     image: axllent/mailpit:latest

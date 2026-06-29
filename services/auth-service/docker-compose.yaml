@@ -1,5 +1,5 @@
 services:
-  postgres:
+  postgres-user:
     container_name: postgres-user
     image: postgres:latest
     ports:
@@ -15,7 +15,7 @@ services:
       retries: 5
     volumes:
       - ${PATH_VOLUMES}/postgres-data:/var/lib/postgresql/18/data
-  redis:
+  redis-auth:
     container_name: redis-auth
     image: redis:latest
     ports:
@@ -28,7 +28,7 @@ services:
       retries: 5
     volumes:
       - ${PATH_VOLUMES}/redis-data:/data
-  migration:
+  migration-user:
     container_name: migration-auth-user
     build:
       context: ../../
@@ -38,9 +38,9 @@ services:
       DSN : ${DSN}
     restart: "no"
     depends_on:
-      postgres:
+      postgres-user:
         condition: service_healthy
-  app:
+  app-auth-user:
     container_name: app-auth-user
     build:
       context: ../../
@@ -58,9 +58,9 @@ services:
       SMTP_ADDRESS : ${SMTP_ADDRESS}
       SMTP_ADDRESS_HOST : ${SMTP_ADDRESS_HOST}
     depends_on:
-      migration:
+      migration-user:
         condition: service_completed_successfully
-      redis:
+      redis-auth:
         condition: service_healthy
 
 volumes:
