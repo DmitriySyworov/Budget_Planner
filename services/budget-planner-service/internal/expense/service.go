@@ -37,7 +37,7 @@ func (s *ServiceExpense) CreateExpense(body *CreateAndUpdateExpense, userUUID, b
 		newExpenseUUID := uuid.New().String()
 		descriptionExpense.ExpenseUUID = newExpenseUUID
 		descriptionExpense.DescriptionExpenseUUID = uuid.New().String()
-		if errUpsert := s.Repo.UpsertExpense(descriptionExpense, budgetUUID, expenseUUID); errUpsert != nil {
+		if errUpsert := s.Repo.UpsertExpense(descriptionExpense, budgetUUID, newExpenseUUID); errUpsert != nil {
 			return nil, ErrFailedCreateExpense
 		}
 	} else {

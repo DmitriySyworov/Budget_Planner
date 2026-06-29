@@ -29,7 +29,7 @@ func NewHandlerExpense(router *http.ServeMux, service *ServiceExpense, logger *l
 	router.Handle("POST /api/v1/expense/{budget_uuid}", mv.HandlerAccessToken(expense.CreateExpense()))
 	router.Handle("PATCH /api/v1/expense/{budget_uuid}/{description_expense_uuid}", mv.HandlerAccessToken(expense.UpdateExpense()))
 	router.Handle("GET /api/v1/expense/{budget_uuid}/{description_expense_uuid}", mv.HandlerAccessToken(expense.GetExpense()))
-	router.Handle("DELETE /api/v1/expense/{budget_uuid}/{description_expense_uuid}", mv.HandlerAccessToken(expense.RemoveExpense()))
+	router.Handle("DELETE /api/v1/expense/{budget_uuid}/{description_expense_uuid}", mv.HandlerAccessToken(expense.DeleteExpense()))
 	router.Handle("GET /api/v1/expense/{budget_uuid}", mv.HandlerAccessToken(expense.ListExpense()))
 }
 
@@ -174,7 +174,7 @@ func (h *HandlerExpense) GetExpense() http.HandlerFunc {
 			h.ResponseSend(writer, resp, http.StatusInternalServerError)
 			return
 		}
-		budgetUUID := request.PathValue("budget_uid")
+		budgetUUID := request.PathValue("budget_uuid")
 		values.DataLog.MapLog["budget_uuid"] = budgetUUID
 		descriptionExpenseUUID := request.PathValue("description_expense_uuid")
 		values.DataLog.MapLog["description_expense_uuid"] = descriptionExpenseUUID
@@ -199,7 +199,7 @@ func (h *HandlerExpense) GetExpense() http.HandlerFunc {
 		h.ResponseSend(writer, resp, http.StatusOK)
 	}
 }
-func (h *HandlerExpense) RemoveExpense() http.HandlerFunc {
+func (h *HandlerExpense) DeleteExpense() http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		resp := &response.Response{
 			Error: make(map[string]string),
@@ -216,11 +216,11 @@ func (h *HandlerExpense) RemoveExpense() http.HandlerFunc {
 		values.DataLog.MapLog["budget_uuid"] = budgetUUID
 		descriptionExpenseUUID := request.PathValue("description_expense_uuid")
 		values.DataLog.MapLog["description_expense_uuid"] = descriptionExpenseUUID
-		errRemove := h.ServiceExpense.DeleteExpense(values.DataAuth.UserUUID, budgetUUID, descriptionExpenseUUID)
-		if errRemove != nil {
-			values.DataLog.Errors = errRemove.Error()
+		errDelete := h.ServiceExpense.DeleteExpense(values.DataAuth.UserUUID, budgetUUID, descriptionExpenseUUID)
+		if errDelete != nil {
+			values.DataLog.Errors = errDelete.Error()
 			var mapError shared_errors.MapError
-			if errors.As(errRemove, &mapError) {
+			if errors.As(errDelete, &mapError) {
 				resp.Error = mapError.Map
 				switch {
 				case mapError.Map["budget"] == custom_errors.ErrIncorrectFormatBudgetUUID.Error() && len(mapError.Map) == 1:
@@ -229,7 +229,7 @@ func (h *HandlerExpense) RemoveExpense() http.HandlerFunc {
 					h.ResponseSend(writer, resp, http.StatusNotFound)
 				}
 			} else {
-				resp.Error["global"] = errRemove.Error()
+				resp.Error["global"] = errDelete.Error()
 				h.ResponseSend(writer, resp, http.StatusInternalServerError)
 			}
 			return
@@ -254,7 +254,7 @@ func (h *HandlerExpense) ListExpense() http.HandlerFunc {
 		values.DataLog.MapLog["limit"] = limit
 		offset := request.URL.Query().Get("offset")
 		values.DataLog.MapLog["offset"] = offset
-		budgetUUID := request.PathValue("budget_uid")
+		budgetUUID := request.PathValue("budget_uuid")
 		values.DataLog.MapLog["budget_uuid"] = budgetUUID
 		expenseList, errList := h.ServiceExpense.ListExpense(budgetUUID, limit, offset)
 		if errList != nil {
