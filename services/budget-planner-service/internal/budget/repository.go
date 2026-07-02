@@ -69,10 +69,19 @@ func (r *RepositoryBudget) DeleteBudget(userUUID, budgetUUID string) error {
 	}
 	return nil
 }
-func (r *RepositoryBudget) DateOverlap(start, finish time.Time) bool {
+func (r *RepositoryBudget) DateOverlapCreate(userUUID string, start, finish time.Time) bool {
 	var isOverlap bool
-	if errQuery := r.Raw(`SELECT FROM budgets
-				WHERE (start, finish) OVERLAPS (?, ?)`, start, finish).Scan(&isOverlap).Error; errQuery != nil {
+	if errQuery := r.Raw(`SELECT EXISTS(SELECT  FROM budgets
+WHERE user_uuid = ? AND (start, finish) OVERLAPS (?, ?))`, userUUID, start, finish).Scan(&isOverlap).Error; errQuery != nil {
+		r.Logger.Error("failed to check overlap dates: " + errQuery.Error())
+		return true
+	}
+	return isOverlap
+}
+func (r *RepositoryBudget) DateOverlapUpdate(userUUID, budgetUUID string, start, finish time.Time) bool {
+	var isOverlap bool
+	if errQuery := r.Raw(`SELECT EXISTS(SELECT  FROM budgets
+WHERE user_uuid = ? AND budget_uuid != ? AND (start, finish) OVERLAPS (?, ?))`, userUUID, budgetUUID, start, finish).Scan(&isOverlap).Error; errQuery != nil {
 		r.Logger.Error("failed to check overlap dates: " + errQuery.Error())
 		return true
 	}

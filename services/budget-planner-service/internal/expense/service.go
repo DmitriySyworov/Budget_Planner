@@ -22,7 +22,7 @@ func NewServiceExpense(repo *RepositoryExpense, serviceBudget di.IServiceBudget)
 		IServiceBudget: serviceBudget,
 	}
 }
-func (s *ServiceExpense) CreateExpense(body *CreateAndUpdateExpense, userUUID, budgetUUID string) (*model.DescriptionExpenses, error) {
+func (s *ServiceExpense) CreateExpense(body *RequestCreateDescriptionExpense, userUUID, budgetUUID string) (*model.DescriptionExpenses, error) {
 	_, errValidate := s.IServiceBudget.HelperValidateBudget(userUUID, budgetUUID)
 	if errValidate != nil {
 		return nil, errValidate
@@ -37,7 +37,7 @@ func (s *ServiceExpense) CreateExpense(body *CreateAndUpdateExpense, userUUID, b
 		newExpenseUUID := uuid.New().String()
 		descriptionExpense.ExpenseUUID = newExpenseUUID
 		descriptionExpense.DescriptionExpenseUUID = uuid.New().String()
-		if errUpsert := s.Repo.UpsertExpense(descriptionExpense, budgetUUID, expenseUUID); errUpsert != nil {
+		if errUpsert := s.Repo.UpsertExpense(descriptionExpense, budgetUUID, newExpenseUUID); errUpsert != nil {
 			return nil, ErrFailedCreateExpense
 		}
 	} else {
@@ -49,7 +49,7 @@ func (s *ServiceExpense) CreateExpense(body *CreateAndUpdateExpense, userUUID, b
 	}
 	return descriptionExpense, nil
 }
-func (s *ServiceExpense) UpdateExpense(body *CreateAndUpdateExpense, userUUID, budgetUUID string, descriptionExpenseUUID string) (*model.DescriptionExpenses, error) {
+func (s *ServiceExpense) UpdateExpense(body *RequestUpdateDescriptionExpense, userUUID, budgetUUID string, descriptionExpenseUUID string) (*model.DescriptionExpenses, error) {
 	_, errValidate := s.IServiceBudget.HelperValidateBudget(userUUID, budgetUUID)
 	if errValidate != nil {
 		return nil, errValidate

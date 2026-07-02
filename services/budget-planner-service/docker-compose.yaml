@@ -1,5 +1,5 @@
 services:
-  postgres:
+  postgres-planner:
     container_name: postgres-budget-planner
     image: postgres:latest
     ports:
@@ -15,7 +15,7 @@ services:
       retries: 5
     volumes:
       - ${PATH_VOLUMES}/postgres-data:/var/lib/postgresql/18/data
-  migration:
+  migration-planner:
     container_name: migration-budget-planner
     build:
       context: ../../
@@ -25,9 +25,9 @@ services:
       DSN : ${DSN}
     restart: "no"
     depends_on:
-      postgres:
+      postgres-planner:
         condition: service_healthy
-  app:
+  app-planner:
     container_name: app-budget-planner
     build:
       context: ../../
@@ -38,8 +38,8 @@ services:
       EXTERNAL_API_PORT : ${EXTERNAL_API_PORT}
       DSN : ${DSN}
     depends_on:
-     migration:
-       condition: service_completed_successfully
+      migration-planner:
+        condition: service_completed_successfully
 
 volumes:
   postgres-data:

@@ -1,7 +1,6 @@
 package shared_testing
 
 import (
-	"database/sql"
 	"encoding/json"
 	"net/http"
 	"os"
@@ -11,10 +10,11 @@ import (
 
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/joho/godotenv"
-	_ "github.com/lib/pq"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
-func RefreshUserTestData(sqlFileData []byte, deleteTableNames []string, t *testing.T) {
+func RefreshUserTestData(sqlFileData []byte, deleteTableNames []string, t *testing.T) *gorm.DB {
 	if errFileEnvTest := godotenv.Load(".env.test"); errFileEnvTest != nil {
 		t.Fatal(".env.test file not found")
 	}
@@ -22,21 +22,17 @@ func RefreshUserTestData(sqlFileData []byte, deleteTableNames []string, t *testi
 	if dsnTest == "" {
 		t.Fatal("environment variable 'DSN' not found")
 	}
-	db, errOpen := sql.Open("postgres", dsnTest)
-	defer func() {
-		if errClose := db.Close(); errClose != nil {
-			t.Fatal("failed to close sql driver")
-		}
-	}()
+	db, errOpen := gorm.Open(postgres.Open(dsnTest))
 	if errOpen != nil {
 		t.Fatal("failed to connect PostgreSQL: ", errOpen)
 	}
-	if _, errDelete := db.Exec("TRUNCATE " + strings.Join(deleteTableNames, ",")); errDelete != nil {
+	if errDelete := db.Exec("TRUNCATE " + strings.Join(deleteTableNames, ",")).Error; errDelete != nil {
 		t.Fatal("failed to delete old data: ", errDelete)
 	}
-	if _, errLoad := db.Exec(string(sqlFileData)); errLoad != nil {
+	if errLoad := db.Exec(string(sqlFileData)).Error; errLoad != nil {
 		t.Fatal("failed to load new data: ", errLoad)
 	}
+	return db
 }
 
 type TestResponse[T any] struct {

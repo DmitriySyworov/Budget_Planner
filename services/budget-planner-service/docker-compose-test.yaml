@@ -1,5 +1,5 @@
 services:
-  postgres-test:
+  postgres-planner-test:
     container_name: postgres-budget-planner-test
     image: postgres:latest
     ports:
@@ -13,7 +13,7 @@ services:
       timeout: 5s
       interval: 5s
       retries: 5
-  migration-test:
+  migration-planner-test:
     container_name: migration-budget-planner-test
     build:
       context: ../../
@@ -23,5 +23,5 @@ services:
       DSN : ${DSN_TEST_MIGRATION}
     restart: "no"
     depends_on:
-      postgres-test:
+      postgres-planner-test:
         condition: service_healthy

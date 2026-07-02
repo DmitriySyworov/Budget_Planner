@@ -9,7 +9,7 @@ CREATE TABLE budgets(
     finish      date NOT NULL,
     description text,
     budget_uuid uuid PRIMARY KEY,
-    user_uuid  uuid
+    user_uuid  uuid,
     CONSTRAINT check_date CHECK (start < finish),
     CONSTRAINT no_overlapping_budgets EXCLUDE USING gist (
         user_uuid WITH =,
@@ -25,24 +25,20 @@ CREATE TABLE expenses(
     investments numeric(15, 2) DEFAULT  0.0,
     savings numeric(15, 2) DEFAULT  0.0,
     other numeric(15, 2) DEFAULT  0.0,
-    budget_uuid uuid UNIQUE NOT NULL REFERENCES  budgets(budget_uuid) ON DELETE CASCADE,
+    budget_uuid uuid NOT NULL UNIQUE REFERENCES budgets(budget_uuid) ON DELETE CASCADE,
     expense_uuid uuid  PRIMARY KEY
 );
+CREATE TYPE expense_category AS ENUM ('health', 'sport', 'supermarket', 'restaurant', 'leisure','investments', 'savings', 'other');
 CREATE TABLE description_expenses (
     created_at date,
-    category varchar(20),
+    category expense_category,
     expense numeric(15, 2) DEFAULT  0.0,
     description text,
     description_expense_uuid uuid PRIMARY KEY,
     expense_uuid uuid REFERENCES  expenses(expense_uuid) ON DELETE CASCADE
  );
-CREATE INDEX idx_budget_uuid ON budgets(budget_uuid);
-CREATE INDEX idx_budget_user_uuid ON budgets(user_uuid);
-CREATE INDEX idx_expense_budget_uuid ON expenses(budget_uuid);
-CREATE INDEX idx_expense_uuid ON expenses(expense_uuid);
-CREATE INDEX idx_description_expense_expense_uuid ON description_expenses(expense_uuid);
-CREATE INDEX idx_description_expense_uuid ON description_expenses(description_expense_uuid);
-CREATE INDEX idx_budget_deleted_at ON budgets(deleted_at);
+CREATE INDEX idx_expenses ON description_expenses(expense_uuid);
+CREATE INDEX idx_budget_deleted_at ON budgets(user_uuid) WHERE deleted_at IS NULL;
 -- +goose Down
 DROP TABLE IF EXISTS description_expense;
 DROP TABLE IF EXISTS expense;

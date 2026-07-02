@@ -3,6 +3,7 @@ package expense
 import (
 	"app/budget-planner/internal/custom_errors"
 	"app/budget-planner/internal/model"
+	"fmt"
 	"shared/loggers"
 	"shared/open_db"
 
@@ -30,6 +31,7 @@ func (r *RepositoryExpense) UpsertExpense(descriptionExpense *model.DescriptionE
 				ON CONFLICT (expense_uuid)
 				DO UPDATE SET health = expenses.health + excluded.health
 				`, descriptionExpense.Expense, budgetUUID, expenseUUID).Error; errUpsertExpense != nil {
+				r.Logger.Error("failed to upsert expense: " + errUpsertExpense.Error())
 				return errUpsertExpense
 			}
 		case "sport":
@@ -38,6 +40,7 @@ func (r *RepositoryExpense) UpsertExpense(descriptionExpense *model.DescriptionE
 				ON CONFLICT (expense_uuid)
 				DO UPDATE SET sport = expenses.sport + excluded.sport
 				`, descriptionExpense.Expense, budgetUUID, expenseUUID).Error; errUpsertExpense != nil {
+				r.Logger.Error("failed to upsert expense: " + errUpsertExpense.Error())
 				return errUpsertExpense
 			}
 		case "supermarket":
@@ -46,6 +49,7 @@ func (r *RepositoryExpense) UpsertExpense(descriptionExpense *model.DescriptionE
 				ON CONFLICT (expense_uuid)
 				DO UPDATE SET supermarket = expenses.supermarket + excluded.supermarket
 				`, descriptionExpense.Expense, budgetUUID, expenseUUID).Error; errUpsertExpense != nil {
+				r.Logger.Error("failed to upsert expense: " + errUpsertExpense.Error())
 				return errUpsertExpense
 			}
 		case "restaurant":
@@ -54,6 +58,7 @@ func (r *RepositoryExpense) UpsertExpense(descriptionExpense *model.DescriptionE
 				ON CONFLICT (expense_uuid)
 				DO UPDATE SET restaurant = expenses.restaurant + excluded.restaurant
 				`, descriptionExpense.Expense, budgetUUID, expenseUUID).Error; errUpsertExpense != nil {
+				r.Logger.Error("failed to upsert expense: " + errUpsertExpense.Error())
 				return errUpsertExpense
 			}
 		case "leisure":
@@ -62,6 +67,7 @@ func (r *RepositoryExpense) UpsertExpense(descriptionExpense *model.DescriptionE
 				ON CONFLICT (expense_uuid)
 				DO UPDATE SET leisure = expenses.leisure + excluded.leisure
 				`, descriptionExpense.Expense, budgetUUID, expenseUUID).Error; errUpsertExpense != nil {
+				r.Logger.Error("failed to upsert expense: " + errUpsertExpense.Error())
 				return errUpsertExpense
 			}
 		case "investments":
@@ -70,6 +76,7 @@ func (r *RepositoryExpense) UpsertExpense(descriptionExpense *model.DescriptionE
 				ON CONFLICT (expense_uuid)
 				DO UPDATE SET investments = expenses.investments + excluded.investments
 				`, descriptionExpense.Expense, budgetUUID, expenseUUID).Error; errUpsertExpense != nil {
+				r.Logger.Error("failed to upsert expense: " + errUpsertExpense.Error())
 				return errUpsertExpense
 			}
 		case "savings":
@@ -78,18 +85,21 @@ func (r *RepositoryExpense) UpsertExpense(descriptionExpense *model.DescriptionE
 				ON CONFLICT (expense_uuid)
 				DO UPDATE SET savings = expenses.savings + excluded.savings
 				`, descriptionExpense.Expense, budgetUUID, expenseUUID).Error; errUpsertExpense != nil {
+				r.Logger.Error("failed to upsert expense: " + errUpsertExpense.Error())
 				return errUpsertExpense
 			}
 		case "other":
-			if errUpsertExpense := tx.Raw(`INSERT INTO expenses(health, sport, supermarket, restaurant, leisure, investments, savings, other, budget_uuid, expense_uuid) 
+			if errUpsertExpense := tx.Raw(`INSERT INTO  expenses(health, sport, supermarket, restaurant, leisure, investments, savings, other, budget_uuid, expense_uuid) 
 				VALUES (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, ?, ?, ?)
 				ON CONFLICT (expense_uuid)
 				DO UPDATE SET other = expenses.other + excluded.other
 				`, descriptionExpense.Expense, budgetUUID, expenseUUID).Error; errUpsertExpense != nil {
+				r.Logger.Error("failed to upsert expense: " + errUpsertExpense.Error())
 				return errUpsertExpense
 			}
 		}
 		if errCreateDescExp := tx.Create(&descriptionExpense).Error; errCreateDescExp != nil {
+			r.Logger.Error("failed to create description_expense: " + errCreateDescExp.Error())
 			return errCreateDescExp
 		}
 		return nil
@@ -140,7 +150,7 @@ func (r *RepositoryExpense) UpdateExpenseTransaction(descriptionExpense *model.D
 		if errUpdate := r.Postgres.Model(&model.Expenses{}).
 			Where("expense_uuid = ? AND budget_uuid = ?", expenseUUID, budgetUUID).
 			Update(descriptionExpense.Category,
-				gorm.Expr("? - ? + ?", descriptionExpense.Category, oldExpense, descriptionExpense.Expense)).
+				gorm.Expr(fmt.Sprintf("%s ::numeric - %s ::numeric + %s ::numeric", descriptionExpense.Category, oldExpense, descriptionExpense.Expense))).
 			Error; errUpdate != nil {
 			r.Logger.Error("failed to add expense: " + errUpdate.Error())
 			return errUpdate
@@ -158,6 +168,12 @@ type deleteExpenseParams struct {
 }
 
 func (r *RepositoryExpense) DeleteExpense(params *deleteExpenseParams) error {
+	fmt.Println(r.Postgres.ToSQL(func(tx *gorm.DB) *gorm.DB {
+		tx.Model(&model.Expenses{}).
+			Where("expense_uuid = ? AND budget_uuid = ?", params.expenseUUID, params.budgetUUID).
+			Update(params.categoryExpense, gorm.Expr(fmt.Sprintf("%s ::numeric - %s ::numeric", params.categoryExpense, params.expense)))
+		return tx
+	}))
 	return r.Postgres.Transaction(func(tx *gorm.DB) error {
 		if errDelete := r.Postgres.Where("expense_uuid = ? AND description_expense_uuid = ?", params.expenseUUID, params.descriptionExpenseUUID).
 			Delete(&model.DescriptionExpenses{}).Error; errDelete != nil {
@@ -166,7 +182,7 @@ func (r *RepositoryExpense) DeleteExpense(params *deleteExpenseParams) error {
 		}
 		if errUpdate := r.Postgres.Model(&model.Expenses{}).
 			Where("expense_uuid = ? AND budget_uuid = ?", params.expenseUUID, params.budgetUUID).
-			Update(params.categoryExpense, gorm.Expr("? - ?", params.categoryExpense, params.expense)).
+			Update(params.categoryExpense, gorm.Expr(fmt.Sprintf("%s ::numeric - %s ::numeric", params.categoryExpense, params.expense))).
 			Error; errUpdate != nil {
 			r.Logger.Error("failed to update expense: " + errUpdate.Error())
 			return errUpdate
@@ -182,7 +198,7 @@ func (r *RepositoryExpense) ListExpense(expenseUUID string, limit, offset int) (
 		Limit(limit).
 		Offset(offset).
 		Order("created_at").
-		Scan(sliceDescriptionExpense).Error; errList != nil {
+		Scan(&sliceDescriptionExpense).Error; errList != nil {
 		r.Logger.Error("failed to list description_expense: " + errList.Error())
 		return nil, errList
 	}
