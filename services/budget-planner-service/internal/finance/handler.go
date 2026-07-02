@@ -62,6 +62,7 @@ func (h HandlerFinance) Finance() http.HandlerFunc {
 				resp.Error["finance"] = errGetFinance.Error()
 				h.ResponseSend(writer, resp, http.StatusInternalServerError)
 			}
+			return
 		}
 		resp.Success = true
 		resp.Data = finance

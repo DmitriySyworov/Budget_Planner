@@ -5,6 +5,7 @@ import (
 	"app/budget-planner/internal/model"
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -16,8 +17,8 @@ import (
 
 func TestCreateExpenseSuccessful(t *testing.T) {
 	const (
-		budgetCreateUUID = "1a2b3c4d-5e6f-47a8-b9c0-1d2e3f4a5b6c"
-		userCreateUUID   = "4a5b6c7d-8e9f-40a1-b2c3-d4e5f6a7b8c9"
+		budgetCreateUUID = "db0e2a3c-5014-416b-a8f2-8ef96bc752a7"
+		userCreateUUID   = "26f50b4d-389d-4de3-85f5-46bd8ecb1d03"
 	)
 	conf, _, router := App()
 	accessToken := shared_testing.CreateTestAccessToken(userCreateUUID, conf.Signature, t)
@@ -28,7 +29,7 @@ func TestCreateExpenseSuccessful(t *testing.T) {
 		t.Fatal("failed to read file sql: ", errReadFileSql)
 	}
 	shared_testing.RefreshUserTestData(dataQuery, []string{"budgets", "expenses", "description_expenses"}, t)
-	bodyCreateExpense := expense.CreateAndUpdateExpense{
+	bodyCreateExpense := expense.RequestCreateDescriptionExpense{
 		Category:    "health",
 		Expense:     "234.78",
 		Description: "buy pills",
@@ -47,8 +48,70 @@ func TestCreateExpenseSuccessful(t *testing.T) {
 		t.Fatal("failed to get response: ", errRespCreate)
 	}
 	dataRespCreate := shared_testing.HelperHandleResponse[model.DescriptionExpenses](respCreate, http.StatusCreated, t)
-	if _, errUUID := uuid.Parse(dataRespCreate.Expense); errUUID != nil {
+	fmt.Println(dataRespCreate)
+	if _, errUUID := uuid.Parse(dataRespCreate.ExpenseUUID); errUUID != nil {
 		t.Fatal("incorrect expense_uuid: ", errUUID)
+	}
+}
+
+var CaseUpdateDescriptionExpenseData = []expense.RequestUpdateDescriptionExpense{
+	{Category: "sport", Expense: "1230.00", Description: "new update expense"},
+	{Category: "sport", Description: "new update expense"},
+	{Expense: "1230.00", Description: "new update expense"},
+	{Expense: "1230.00", Description: "new update expense"},
+	{Expense: "1230.00"},
+	{Description: "new update expense"},
+}
+
+func TestUpdateDescriptionExpenseSuccessful(t *testing.T) {
+	const (
+		budgetUUID             = "dd6049ad-8422-44af-aa6f-8de18f2f64d0"
+		expenseUUID            = "28df9dc1-be18-4da5-9bd9-f9c3fc88f4ef"
+		descriptionExpenseUUID = "a51052ab-9cf4-4b55-b46f-c1dcdeec21a2"
+		userUUID               = "941865fb-cde7-456b-a25e-de8159b9bd14"
+	)
+	conf, _, router := App()
+	testServer := httptest.NewServer(router)
+	defer testServer.Close()
+	dataQuery, errReadFileSql := os.ReadFile("load-mock-budget-data.sql")
+	if errReadFileSql != nil {
+		t.Fatal("failed to read file sql: ", errReadFileSql)
+	}
+	for _, test := range CaseUpdateDescriptionExpenseData {
+		accessToken := shared_testing.CreateTestAccessToken(userUUID, conf.Signature, t)
+		db := shared_testing.RefreshUserTestData(dataQuery, []string{"budgets", "expenses", "description_expenses"}, t)
+		data, errMarshal := json.Marshal(test)
+		if errMarshal != nil {
+			t.Fatal("failed to prepare request: ", errMarshal)
+		}
+		requestGet, errReqGet := http.NewRequest(http.MethodPatch, testServer.URL+"/api/v1/expense/"+budgetUUID+"/"+descriptionExpenseUUID, bytes.NewBuffer(data))
+		if errReqGet != nil {
+			t.Fatal("failed to prepare request: ", errReqGet)
+		}
+		requestGet.Header.Set("Authorization", "Bearer "+accessToken)
+		respRemove, errRespGet := http.DefaultClient.Do(requestGet)
+		if errRespGet != nil {
+			t.Fatal("failed to get response: ", errRespGet)
+		}
+		dataRespGet := shared_testing.HelperHandleResponse[model.DescriptionExpenses](respRemove, http.StatusOK, t)
+		if _, errUUID := uuid.Parse(dataRespGet.DescriptionExpenseUUID); errUUID != nil {
+			t.Fatal("incorrect description_expenses_uuid: ", errUUID)
+		}
+		if dataRespGet.DescriptionExpenseUUID != descriptionExpenseUUID {
+			t.Fatalf("expected description_expenses_uuid %s got %s", descriptionExpenseUUID, dataRespGet.DescriptionExpenseUUID)
+		}
+		if _, errUUID := uuid.Parse(dataRespGet.ExpenseUUID); errUUID != nil {
+			t.Fatal("incorrect expenses_uuid: ", errUUID)
+		}
+		if dataRespGet.ExpenseUUID != expenseUUID {
+			t.Fatalf("expected expenses_uuid %s got %s", expenseUUID, dataRespGet.ExpenseUUID)
+		}
+		expenses := &model.Expenses{}
+		if errGet := db.Where("expense_uuid = ? AND budget_uuid = ?", expenseUUID, budgetUUID).
+			Take(&expenses).Error; errGet != nil {
+			t.Fatal("failed to get update expense: ", errGet)
+		}
+		t.Log(expenses)
 	}
 }
 func TestGetDescriptionExpenseSuccessful(t *testing.T) {
@@ -81,13 +144,52 @@ func TestGetDescriptionExpenseSuccessful(t *testing.T) {
 		t.Fatal("incorrect description_expenses_uuid: ", errUUID)
 	}
 	if dataRespGet.DescriptionExpenseUUID != descriptionExpenseUUID {
-		t.Fatalf("expected description-expenses_uuid %s got %s", descriptionExpenseUUID, dataRespGet.DescriptionExpenseUUID)
+		t.Fatalf("expected description_expenses_uuid %s got %s", descriptionExpenseUUID, dataRespGet.DescriptionExpenseUUID)
 	}
 	if _, errUUID := uuid.Parse(dataRespGet.ExpenseUUID); errUUID != nil {
 		t.Fatal("incorrect expenses_uuid: ", errUUID)
 	}
 	if dataRespGet.ExpenseUUID != expenseUUID {
 		t.Fatalf("expected expenses_uuid %s got %s", expenseUUID, dataRespGet.ExpenseUUID)
+	}
+}
+func TestDeleteDescriptionExpenseSuccessful(t *testing.T) {
+	const (
+		budgetUUID             = "e7d4a215-ca89-4ec4-bcde-51dcbaf642bd"
+		expenseUUID            = "82baf21b-beec-48cb-8db1-cb5d0e2c39d8"
+		descriptionExpenseUUID = "3047d8b5-0c14-41cf-a0e2-63b7ad6ab6cd"
+		userUUID               = "6e917dcb-94ad-4cd6-b3de-857e2c943dfc"
+	)
+	conf, _, router := App()
+	accessToken := shared_testing.CreateTestAccessToken(userUUID, conf.Signature, t)
+	testServer := httptest.NewServer(router)
+	defer testServer.Close()
+	dataQuery, errReadFileSql := os.ReadFile("load-mock-budget-data.sql")
+	if errReadFileSql != nil {
+		t.Fatal("failed to read file sql: ", errReadFileSql)
+	}
+	db := shared_testing.RefreshUserTestData(dataQuery, []string{"budgets", "expenses", "description_expenses"}, t)
+	requestGet, errReqGet := http.NewRequest(http.MethodDelete, testServer.URL+"/api/v1/expense/"+budgetUUID+"/"+descriptionExpenseUUID, nil)
+	if errReqGet != nil {
+		t.Fatal("failed to prepare request: ", errReqGet)
+	}
+	requestGet.Header.Set("Authorization", "Bearer "+accessToken)
+	respRemove, errRespGet := http.DefaultClient.Do(requestGet)
+	if errRespGet != nil {
+		t.Fatal("failed to get response: ", errRespGet)
+	}
+	shared_testing.HelperHandleResponse[struct{}](respRemove, http.StatusNoContent, t)
+	if db.Where("expense_uuid = ? AND description_expense_uuid = ?", expenseUUID, descriptionExpenseUUID).
+		Take(&model.DescriptionExpenses{}).Error == nil {
+		t.Fatal("failed to delete description_expenses")
+	}
+	var amount string
+	if errCheckExpense := db.Raw("SELECT sport FROM expenses WHERE expense_uuid = ? AND budget_uuid = ?", expenseUUID, budgetUUID).
+		Scan(&amount).Error; errCheckExpense != nil {
+		t.Fatal("failed to check result expenses: ", errCheckExpense)
+	}
+	if amount != "1.00" {
+		t.Fatalf("expected 1.00 got %s amount", amount)
 	}
 }
 func TestListDescriptionExpenseSuccessful(t *testing.T) {

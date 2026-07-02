@@ -46,7 +46,7 @@ func (h *HandlerExpense) CreateExpense() http.HandlerFunc {
 			h.ResponseSend(writer, resp, http.StatusInternalServerError)
 			return
 		}
-		body, errBody := handler_request.HandlerRequest[CreateAndUpdateExpense](request.Body)
+		body, errBody := handler_request.HandlerRequest[RequestCreateDescriptionExpense](request.Body)
 		if errBody != nil {
 			mapError := shared_errors.MapError{Map: make(map[string]string, 3)}
 			if errValidate, isErrValid := errBody.(validator.ValidationErrors); isErrValid {
@@ -108,7 +108,7 @@ func (h *HandlerExpense) UpdateExpense() http.HandlerFunc {
 			h.ResponseSend(writer, resp, http.StatusInternalServerError)
 			return
 		}
-		body, errBody := handler_request.HandlerRequest[CreateAndUpdateExpense](request.Body)
+		body, errBody := handler_request.HandlerRequest[RequestUpdateDescriptionExpense](request.Body)
 		if errBody != nil {
 			mapError := shared_errors.MapError{Map: make(map[string]string, 3)}
 			if errValidate, isErrValid := errBody.(validator.ValidationErrors); isErrValid {
@@ -133,7 +133,7 @@ func (h *HandlerExpense) UpdateExpense() http.HandlerFunc {
 			h.ResponseSend(writer, resp, http.StatusBadRequest)
 			return
 		}
-		budgetUUID := request.PathValue("budget_uid")
+		budgetUUID := request.PathValue("budget_uuid")
 		values.DataLog.MapLog["budget_uuid"] = budgetUUID
 		descriptionExpenseUUID := request.PathValue("description_expense_uuid")
 		values.DataLog.MapLog["description_expense_uuid"] = descriptionExpenseUUID
@@ -212,7 +212,7 @@ func (h *HandlerExpense) DeleteExpense() http.HandlerFunc {
 			h.ResponseSend(writer, resp, http.StatusInternalServerError)
 			return
 		}
-		budgetUUID := request.PathValue("budget_uid")
+		budgetUUID := request.PathValue("budget_uuid")
 		values.DataLog.MapLog["budget_uuid"] = budgetUUID
 		descriptionExpenseUUID := request.PathValue("description_expense_uuid")
 		values.DataLog.MapLog["description_expense_uuid"] = descriptionExpenseUUID
