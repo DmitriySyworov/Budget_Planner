@@ -1,0 +1,52 @@
+{{- range .Values.statefulServices }}
+{{- $outside := . }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .name }}
+  namespace: default
+spec:
+  serviceName: {{ .name }}-service
+  replicas: {{ .replicas }}
+  selector:
+    matchLabels:
+      app: {{ .name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .name }}
+    spec:
+      containers:
+        - name: {{ .name }}-container
+          image: {{ .image }}
+           {{- if .isRedis }}
+          command: ["redis-server"]
+          args: ["--requirepass", "$(REDIS_PASSWORD)", "--appendonly", "yes"]
+          {{- end }}
+          ports:
+            - containerPort: {{ .port }}
+          env:
+            {{- range $.Values.secrets }}
+            {{- if eq .secretName $outside.secretName}}
+            {{- range .envSecrets}}
+            - name: {{ .name }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $outside.secretName }}
+                  key: {{ .key }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
+          volumeMounts:
+            - name: data-volume
+              mountPath: {{ .mountPath }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data-volume
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: {{ .storageSize }}
+---
+{{- end }}

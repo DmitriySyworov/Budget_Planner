@@ -1,0 +1,120 @@
+microservices:
+  - name : app-auth-user
+    replicas : 5
+    image : dmitriysyworov/auth-user-service:v1
+    port : 8080
+    ingressPaths:
+      - /api/v1/register
+      - /api/v1/login
+      - /api/v1/recovery
+      - /api/v1/refresh
+      - /api/v1/confirm
+      - /api/v1/user
+    service:
+      type: NodePort
+      port: 80
+      nodePort: 32001
+    secretName: "auth-user-all-secrets"
+  - name : app-budget-planner
+    replicas: 5
+    image: dmitriysyworov/budget-planner-service:v1
+    port: 8080
+    ingressPaths:
+      - /api/v1/budget
+      - /api/v1/expense
+      - /api/v1/description-expense
+      - /api/v1/finance
+    service:
+      type: NodePort
+      port: 80
+      nodePort: 32000
+    secretName: "budget-planner-all-secrets"
+statefulServices:
+  - name: postgres-user
+    image: "postgres:18-alpine"
+    port: 5432
+    replicas: 1
+    storageSize: "1Gi"
+    mountPath: "/var/lib/postgresql/18/data"
+    secretName: "auth-user-all-secrets"
+  - name : redis-auth
+    image: "redis:8-alpine"
+    port: 6379
+    replicas: 1
+    storageSize: "1Gi"
+    mountPath: "/data"
+    isRedis : true
+    secretName: "auth-user-all-secrets"
+  - name: postgres-budget
+    image: "postgres:18-alpine"
+    port: 5432
+    replicas: 1
+    storageSize: "1Gi"
+    mountPath: "/var/lib/postgresql/18/data"
+    secretName: "budget-planner-all-secrets"
+jobServices:
+  - name: migrations-budget-planner
+    image: "dmitriysyworov/budget-planner-service:v1"
+    command: [ "./migrator" ]
+    dbHost: "postgres-budget-service"
+    dbPort: 5432
+    secretName: "budget-planner-all-secrets"
+  - name: migrations-user
+    image: "dmitriysyworov/auth-user-service:v1"
+    command: [ "./migrator" ]
+    dbHost: "postgres-user-service"
+    dbPort: 5432
+    secretName: "auth-user-all-secrets"
+secrets:
+  - secretName: "auth-user-all-secrets"
+    envSecrets:
+      - name: DSN
+        key: dsn
+        value: 'host=postgres-user-service user=example_user password=example_password dbname=example_db port=5432 sslmode=disable'
+      - name: JWT_SIGNATURE
+        key: jwt-signature
+        value: 'O{uG{wrN,a2>|<zFul[&@zbv9siTKw]lZu|y@[tV:>^'
+      - name: API_EMAIL
+        key: api-email
+        value: 'exampleemail@gmail.com'
+      - name: API_PASSWORD
+        key: api-password
+        value: 'example_password'
+      - name: SMTP_ADDRESS
+        key: smtp-address
+        value: 'smtp.gmail.com'
+      - name: SMTP_ADDRESS_HOST
+        key: smtp-address-host
+        value: 'smtp.gmail.com:587'
+      - name: POSTGRES_USER
+        key: postgres-user
+        value: 'example_user'
+      - name: POSTGRES_PASSWORD
+        key: postgres-password
+        value: 'example_password'
+      - name: POSTGRES_DB
+        key: postgres-db
+        value: 'example_db'
+      - name: REDIS_ADDRESS
+        key: redis-address
+        value: 'redis-auth-service:6379'
+      - name: REDIS_PASSWORD
+        key: redis-password
+        value: 'example_password'
+  - secretName: "budget-planner-all-secrets"
+    envSecrets:
+      - name: DSN
+        key: dsn
+        value: 'host=postgres-budget-service user=example_user password=example_password dbname=example_db port=5432 sslmode=disable'
+      - name: JWT_SIGNATURE
+        key: jwt-signature
+        value: 'O{uG{wrN,a2>|<zFul[&@zbv9siTKw]lZu|y@[tV:>^'
+      - name: POSTGRES_USER
+        key: postgres-budget
+        value: 'example_user'
+      - name: POSTGRES_PASSWORD
+        key: postgres-password
+        value: 'example_password'
+      - name: POSTGRES_DB
+        key: postgres-db
+        value: 'example_db'

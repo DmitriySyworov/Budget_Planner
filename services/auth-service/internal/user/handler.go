@@ -85,6 +85,9 @@ func (h *HandlerUser) UpdateUser() http.HandlerFunc {
 			case errors.Is(errUpdateAuth, custom_errors.ErrNotFoundUser):
 				resp.Error["user"] = errUpdateAuth.Error()
 				h.ResponseSend(writer, resp, http.StatusNotFound)
+			case errors.Is(errUpdateAuth, ErrNewPasswordContainEmail), errors.Is(errUpdateAuth, custom_errors.ErrPasswordIsNotStrong):
+				resp.Error["new_password"] = errUpdateAuth.Error()
+				h.ResponseSend(writer, resp, http.StatusBadRequest)
 			case errors.Is(errUpdateAuth, custom_errors.ErrIncorrectPasswordOrEmail):
 				resp.Error["auth"] = errUpdateAuth.Error()
 				h.ResponseSend(writer, resp, http.StatusUnauthorized)

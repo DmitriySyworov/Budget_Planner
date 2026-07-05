@@ -5,6 +5,7 @@ import (
 	"app/budget-planner/internal/di"
 	"app/budget-planner/internal/model"
 	"errors"
+	"fmt"
 	"shared/shared_common"
 	"shared/shared_errors"
 
@@ -22,7 +23,7 @@ func NewServiceExpense(repo *RepositoryExpense, serviceBudget di.IServiceBudget)
 		IServiceBudget: serviceBudget,
 	}
 }
-func (s *ServiceExpense) CreateExpense(body *RequestCreateDescriptionExpense, userUUID, budgetUUID string) (*model.DescriptionExpenses, error) {
+func (s *ServiceExpense) CreateExpense(body *RequestCreateDescriptionExpense, userUUID, budgetUUID string) (*ResponseCreateAndUpdateExpense, error) {
 	_, errValidate := s.IServiceBudget.HelperValidateBudget(userUUID, budgetUUID)
 	if errValidate != nil {
 		return nil, errValidate
@@ -32,8 +33,8 @@ func (s *ServiceExpense) CreateExpense(body *RequestCreateDescriptionExpense, us
 		Expense:     body.Expense,
 		Description: body.Description,
 	}
-	expenseUUID, errGetExpense := s.Repo.GetExpenseUUID(budgetUUID)
-	if errGetExpense != nil {
+	expenseUUID, errGetExpenseUUID := s.Repo.GetExpenseUUID(budgetUUID)
+	if errGetExpenseUUID != nil {
 		newExpenseUUID := uuid.New().String()
 		descriptionExpense.ExpenseUUID = newExpenseUUID
 		descriptionExpense.DescriptionExpenseUUID = uuid.New().String()
@@ -47,9 +48,16 @@ func (s *ServiceExpense) CreateExpense(body *RequestCreateDescriptionExpense, us
 			return nil, ErrFailedCreateExpense
 		}
 	}
-	return descriptionExpense, nil
+	expense, errGetExpense := s.Repo.GetExpense(budgetUUID)
+	if errGetExpense != nil {
+		return nil, custom_errors.ErrNotFoundExpense
+	}
+	return &ResponseCreateAndUpdateExpense{
+		Expenses:            expense,
+		DescriptionExpenses: descriptionExpense,
+	}, nil
 }
-func (s *ServiceExpense) UpdateExpense(body *RequestUpdateDescriptionExpense, userUUID, budgetUUID string, descriptionExpenseUUID string) (*model.DescriptionExpenses, error) {
+func (s *ServiceExpense) UpdateExpense(body *RequestUpdateDescriptionExpense, userUUID, budgetUUID string, descriptionExpenseUUID string) (*ResponseCreateAndUpdateExpense, error) {
 	_, errValidate := s.IServiceBudget.HelperValidateBudget(userUUID, budgetUUID)
 	if errValidate != nil {
 		return nil, errValidate
@@ -59,31 +67,35 @@ func (s *ServiceExpense) UpdateExpense(body *RequestUpdateDescriptionExpense, us
 		return nil, custom_errors.ErrNotFoundExpense
 	}
 	descriptionExpense, errGetDescriptionExpense := s.Repo.GetDescriptionExpense(expenseUUID, descriptionExpenseUUID)
-	var oldExpense string
 	if errGetDescriptionExpense != nil {
 		return nil, ErrNotFoundDescriptionExpense
-	} else {
-		oldExpense = descriptionExpense.Expense
 	}
-	if body.Category != "" {
+	if body.Description != "" && body.Expense == "" && body.Category == "" {
+		fmt.Println(body.Description)
+		if s.Repo.UpdateDescriptionExpense(descriptionExpense) != nil {
+			return nil, ErrFailedUpdateExpense
+		}
+		fmt.Println(descriptionExpense.Description)
+	} else {
+		oldExpense := descriptionExpense.Expense
+		oldCategory := descriptionExpense.Category
 		descriptionExpense.Category = body.Category
-	}
-	if body.Description != "" {
 		descriptionExpense.Description = body.Description
-	}
-	if body.Expense != "" {
 		descriptionExpense.Expense = body.Expense
-		if s.Repo.UpdateDescriptionExpense(descriptionExpense, expenseUUID, descriptionExpenseUUID) != nil {
-			return nil, ErrFailedUpdateExpense
-		}
-	} else {
-		if s.Repo.UpdateExpenseTransaction(descriptionExpense, oldExpense, budgetUUID, expenseUUID) != nil {
+		if s.Repo.UpdateExpenseTransaction(descriptionExpense, oldExpense, oldCategory, budgetUUID, expenseUUID) != nil {
 			return nil, ErrFailedUpdateExpense
 		}
 	}
-	return descriptionExpense, nil
+	expense, errGetExpense := s.Repo.GetExpense(budgetUUID)
+	if errGetExpense != nil {
+		return nil, custom_errors.ErrNotFoundExpense
+	}
+	return &ResponseCreateAndUpdateExpense{
+		Expenses:            expense,
+		DescriptionExpenses: descriptionExpense,
+	}, nil
 }
-func (s *ServiceExpense) GetExpense(userUUID, budgetUUID, descriptionExpenseUUID string) (*model.DescriptionExpenses, error) {
+func (s *ServiceExpense) GetDescriptionExpense(userUUID, budgetUUID, descriptionExpenseUUID string) (*model.DescriptionExpenses, error) {
 	_, errValidate := s.IServiceBudget.HelperValidateBudget(userUUID, budgetUUID)
 	if errValidate != nil {
 		return nil, errValidate
@@ -98,7 +110,7 @@ func (s *ServiceExpense) GetExpense(userUUID, budgetUUID, descriptionExpenseUUID
 	}
 	return descriptionExpense, nil
 }
-func (s *ServiceExpense) DeleteExpense(userUUID, budgetUUID, descriptionExpenseUUID string) error {
+func (s *ServiceExpense) DeleteDescriptionExpense(userUUID, budgetUUID, descriptionExpenseUUID string) error {
 	mapError := shared_errors.MapError{Map: make(map[string]string, 3)}
 	_, errValidate := s.IServiceBudget.HelperValidateBudget(userUUID, budgetUUID)
 	if errValidate != nil {
@@ -115,7 +127,7 @@ func (s *ServiceExpense) DeleteExpense(userUUID, budgetUUID, descriptionExpenseU
 	if len(mapError.Map) != 0 || errDescExpense != nil {
 		return mapError
 	}
-	if s.Repo.DeleteExpense(&deleteExpenseParams{
+	if s.Repo.DeleteDescriptionExpense(&deleteExpenseParams{
 		categoryExpense:        descriptionExpense.Category,
 		expense:                descriptionExpense.Expense,
 		budgetUUID:             budgetUUID,
@@ -126,7 +138,7 @@ func (s *ServiceExpense) DeleteExpense(userUUID, budgetUUID, descriptionExpenseU
 	}
 	return nil
 }
-func (s *ServiceExpense) ListExpense(budgetUUID, limitStr, offsetStr string) ([]model.DescriptionExpenses, error) {
+func (s *ServiceExpense) ListDescriptionExpense(budgetUUID, limitStr, offsetStr string) ([]model.DescriptionExpenses, error) {
 	mapError := shared_errors.MapError{Map: make(map[string]string, 3)}
 	limit, offset, errPagination := shared_common.PaginationHelper(limitStr, offsetStr)
 	if len(errPagination) != 0 {
@@ -146,9 +158,19 @@ func (s *ServiceExpense) ListExpense(budgetUUID, limitStr, offsetStr string) ([]
 	if len(mapError.Map) != 0 {
 		return nil, mapError
 	}
-	descriptionExpenseList, errList := s.Repo.ListExpense(expenseUUID, limit, offset)
+	descriptionExpenseList, errList := s.Repo.ListDescriptionExpense(expenseUUID, limit, offset)
 	if errList != nil {
 		return nil, ErrNotFoundDescriptionExpense
 	}
 	return descriptionExpenseList, nil
+}
+func (s *ServiceExpense) GetExpense(budgetUUID string) (*model.Expenses, error) {
+	if _, errUUID := uuid.Parse(budgetUUID); errUUID != nil {
+		return nil, custom_errors.ErrIncorrectFormatBudgetUUID
+	}
+	expense, errGetExpense := s.Repo.GetExpense(budgetUUID)
+	if errGetExpense != nil {
+		return nil, custom_errors.ErrNotFoundExpense
+	}
+	return expense, nil
 }

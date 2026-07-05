@@ -11,9 +11,19 @@ INSERT INTO budgets (created_at, updated_at, deleted_at, amount, start, finish, 
     ('2026-06-12', '2026-05-12', null, '88888678.07', '2026-11-01', '2027-12-23', 'delete budget', '671127d2-15d9-43a5-956c-5266f72204d0', 'c6ccc482-9187-4baa-8925-0c60780627fe');
 INSERT INTO budgets (created_at, updated_at, deleted_at, amount, start, finish, description, budget_uuid, user_uuid) VALUES
     ('2026-06-12', '2026-05-12', null, '88888678.07', '2025-11-01', '2025-12-23', 'update budget', '859c7a21-dc20-410a-ba54-2c11fb6db2a8', '1b272de3-9827-4c47-8a60-2da8e80556f8');
+
 --testing expense
+
+--create
 INSERT INTO budgets (created_at, updated_at, deleted_at, amount, start, finish, description, budget_uuid, user_uuid) VALUES
     ('2026-06-12', '2026-05-12', null, '88888678.07', '2025-11-01', '2025-12-23', 'budget for create expense', 'db0e2a3c-5014-416b-a8f2-8ef96bc752a7', '26f50b4d-389d-4de3-85f5-46bd8ecb1d03');
+
+INSERT INTO budgets (created_at, updated_at, deleted_at, amount, start, finish, description, budget_uuid, user_uuid) VALUES
+    ('2026-06-12', '2026-05-12', null, '88888678.07', '2026-11-01', '2026-12-23', 'budget for create 2 expense', 'f47ac10b-58cc-4372-a567-0e02b2c3d479', '26f50b4d-389d-4de3-85f5-46bd8ecb1d03');
+INSERT INTO  expenses (health, sport, supermarket, restaurant, leisure, investments, savings, other, budget_uuid, expense_uuid)  VALUES
+    ('100.00', '0.00', '0.00', '0.00', '0.00', '0.00', '0.00', '0.00', 'f47ac10b-58cc-4372-a567-0e02b2c3d479', '6b8b4567-e89b-41d3-a456-426614174000');
+INSERT INTO description_expenses (created_at, expense, category, description, description_expense_uuid, expense_uuid) VALUES
+    ('2026-06-12', '100.00', 'health', 'buy pills', '9c824f11-3e4b-4a55-b6d3-2f819446f2c3', '6b8b4567-e89b-41d3-a456-426614174000');
 --update
 INSERT INTO budgets (created_at, updated_at, deleted_at, amount, start, finish, description, budget_uuid, user_uuid) VALUES
     ('2026-06-12', '2026-05-12', null, '88888678.07', '2025-11-01', '2025-12-23', 'budget for update expense', 'dd6049ad-8422-44af-aa6f-8de18f2f64d0', '941865fb-cde7-456b-a25e-de8159b9bd14');

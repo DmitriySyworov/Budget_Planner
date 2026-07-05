@@ -6,6 +6,7 @@ import (
 	"app/auth-service/internal/custom_errors"
 	"app/auth-service/internal/di"
 	"app/auth-service/internal/model"
+	"errors"
 	"fmt"
 	"shared/shared_common"
 	"shared/shared_errors"
@@ -41,15 +42,30 @@ func (s *ServiceUser) UpdateUser(userUUID string, body *RequestUpdateUser) (*mod
 		}
 		return user, nil, nil
 	}
-	origPassword, errGetUser := s.Repo.GetPasswordByUUID(userUUID)
+	user, errGetUser := s.Repo.GetUserByUUID(userUUID)
 	if errGetUser != nil {
 		return nil, nil, custom_errors.ErrIncorrectPasswordOrEmail
 	}
-	if bcrypt.CompareHashAndPassword([]byte(origPassword), []byte(body.Password)) != nil {
+	if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(body.Password)) != nil {
 		return nil, nil, custom_errors.ErrIncorrectPasswordOrEmail
 	}
 	var newHashedPassword string
 	if body.NewPassword != "" {
+		if body.NewEmail != "" {
+			if errNewPassword := common.ValidatePassword(body.NewPassword, body.NewEmail, []string{body.NewName, user.Name}); errNewPassword != nil {
+				if errors.Is(errNewPassword, custom_errors.ErrPasswordIsNotStrong) {
+					return nil, nil, errNewPassword
+				}
+				return nil, nil, ErrNewPasswordContainEmail
+			}
+		} else {
+			if errNewPassword := common.ValidatePassword(body.NewPassword, user.Email, []string{body.NewName, user.Name}); errNewPassword != nil {
+				if errors.Is(errNewPassword, custom_errors.ErrPasswordIsNotStrong) {
+					return nil, nil, errNewPassword
+				}
+				return nil, nil, ErrNewPasswordContainEmail
+			}
+		}
 		password, errHash := bcrypt.GenerateFromPassword([]byte(body.NewPassword), bcrypt.DefaultCost)
 		if errHash != nil {
 			return nil, nil, custom_errors.ErrFailedSecurity

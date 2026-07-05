@@ -1,4 +1,4 @@
 *.idea/
 *.env
-**/secret.yaml
-**/secret.yml
+**/values.yaml
+**/values.yml

@@ -72,11 +72,13 @@ func (h *HandlerAuth) Register() http.HandlerFunc {
 		respAuth, errAuth := h.ServiceAuth.Register(body)
 		if errAuth != nil {
 			values.DataLog.Errors = errAuth.Error()
-			switch {
-			case errors.Is(errAuth, ErrUserAlreadyExist):
-				resp.Error["user"] = errAuth.Error()
+			var mapError shared_errors.MapError
+			if errors.As(errAuth, &mapError) {
+				resp.Error = mapError.Map
 				h.ResponseSend(writer, resp, http.StatusBadRequest)
-			default:
+				return
+			}
+			if errors.Is(errAuth, custom_errors.ErrFailedSecurity) {
 				resp.Error["global"] = errAuth.Error()
 				h.ResponseSend(writer, resp, http.StatusInternalServerError)
 			}

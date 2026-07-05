@@ -1,0 +1,37 @@
+{{- range .Values.microservices }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .name }}-service
+  namespace: default
+spec:
+  selector:
+    app: {{ .name }}
+  ports:
+    - protocol: TCP
+      port: {{ .service.port | default .port }}
+      targetPort: {{ .port }}
+      {{- if and .service .service.nodePort }}
+      nodePort: {{ .service.nodePort }}
+      {{- end }}
+  type: {{ .service.type | default "ClusterIP" }}
+---
+{{- end }}
+
+{{- range .Values.statefulServices }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .name }}-service
+  namespace: default
+spec:
+  clusterIP: None
+  selector:
+    app: {{ .name }}
+  ports:
+    - protocol: TCP
+      port: {{ .port }}
+      targetPort: {{ .port }}
+  type: ClusterIP
+---
+{{- end }}
