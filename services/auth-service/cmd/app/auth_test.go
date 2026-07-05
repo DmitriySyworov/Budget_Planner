@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	testPassword = "test_password123##@"
+	testPassword = "te@*^&SGAYrd123##@"
 )
 
 func TestRegisterSuccessful(t *testing.T) {

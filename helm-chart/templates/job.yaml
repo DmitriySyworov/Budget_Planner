@@ -1,0 +1,66 @@
+{{- range .Values.jobServices }}
+{{- $outside := . }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .name }}-job
+  namespace: default
+spec:
+  completions: 1
+  backoffLimit: 2
+  activeDeadlineSeconds: 200
+  template:
+    metadata:
+      name: {{ .name }}-pod
+    spec:
+      restartPolicy: Never
+      initContainers:
+        {{- if .isTopicCreator }}
+        - name: wait-for-kafka
+          image: busybox:latest
+          command:
+            - "sh"
+            - "-c"
+            - "until nc -z -v -w3 {{ .dbHost }} {{ .dbPort }}; do echo 'Waiting for Kafka broker...'; sleep 2; done"
+        {{- else }}
+        - name: wait-for-db
+          image: busybox:latest
+          command:
+            - "sh"
+            - "-c"
+            - "until nc -z -v -w3 {{ .dbHost }} {{ .dbPort }}; do echo 'Waiting for Database...'; sleep 2; done"
+        {{- end }}
+      containers:
+        - name: {{ .name }}-tool
+          image: {{ .image }}
+          {{- if .isTopicCreator }}
+          command:
+            - "sh"
+            - "-c"
+            - |
+              {{- range .topics }}
+              kafka-topics.sh --bootstrap-server {{ $outside.bootstrapServer }} \
+                --create --if-not-exists \
+                --topic {{ .name }} \
+                --partitions {{ .partitions }} \
+                --replication-factor 1
+              {{- end }}
+          {{- else }}
+          command: {{ .command }}
+          {{- end }}
+          {{- if not .isTopicCreator }}
+          env:
+            {{- range $.Values.secrets }}
+            {{- if eq .secretName $outside.secretName}}
+            {{- range .envSecrets}}
+            - name: {{ .name }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $outside.secretName }}
+                  key: {{ .key }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
+---
+{{- end }}

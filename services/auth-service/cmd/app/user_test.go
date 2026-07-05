@@ -43,7 +43,7 @@ func TestGetUserSuccessful(t *testing.T) {
 const (
 	NewName     = "newName"
 	NewEmail    = "newemail@gmail.com"
-	NewPassword = "newpassword234Qw2"
+	NewPassword = "n(&*^)word234Qw2"
 	Email       = "exampleupdate@gmail.com"
 )
 
@@ -119,12 +119,13 @@ func TestUpdateUserSuccessful(t *testing.T) {
 }
 
 var CaseDataRemove = []struct {
+	Name     string
 	Type     string
 	UserUUID string
 	user.RequestRemoveUser
 }{
-	{RequestRemoveUser: user.RequestRemoveUser{Email: "exampledelete@gmail.com", Password: testPassword}, Type: shared_common.TypeHardDelete, UserUUID: "5a1f4b3e-2c7d-491c-a3f5-6b2d8e1c9a4f"},
-	{RequestRemoveUser: user.RequestRemoveUser{Email: "exampleremove@gmail.com", Password: testPassword}, Type: shared_common.TypeSoftDelete, UserUUID: "9f8e7d6c-5b4a-4321-a1b2-c3d4e5f6a7b8"},
+	{Name: "hard-delete user - ", RequestRemoveUser: user.RequestRemoveUser{Email: "exampledelete@gmail.com", Password: testPassword}, Type: shared_common.TypeHardDelete, UserUUID: "5a1f4b3e-2c7d-491c-a3f5-6b2d8e1c9a4f"},
+	{Name: "soft-delete user - ", RequestRemoveUser: user.RequestRemoveUser{Email: "exampleremove@gmail.com", Password: testPassword}, Type: shared_common.TypeSoftDelete, UserUUID: "9f8e7d6c-5b4a-4321-a1b2-c3d4e5f6a7b8"},
 }
 
 func TestRemoveUserSuccessful(t *testing.T) {
@@ -142,20 +143,20 @@ func TestRemoveUserSuccessful(t *testing.T) {
 		accessToken := shared_testing.CreateTestAccessToken(test.UserUUID, confApi.Signature, t)
 		data, errMarshalRemove := json.Marshal(test.RequestRemoveUser)
 		if errMarshalRemove != nil {
-			t.Fatal("failed to prepare request: ", errMarshalRemove)
+			t.Fatal(test.Name+"failed to prepare request: ", errMarshalRemove)
 		}
 		request, errReq := http.NewRequest(http.MethodDelete, testServer.URL+"/api/v1/user?type="+test.Type, bytes.NewBuffer(data))
 		if errReq != nil {
-			t.Fatal("failed to prepare request: ", errReq)
+			t.Fatal(test.Name+"failed to prepare request: ", errReq)
 		}
 		request.Header.Set("Authorization", "Bearer "+accessToken)
 		respDelete, errRespDelete := http.DefaultClient.Do(request)
 		if errRespDelete != nil {
-			t.Fatal("failed to get response: ", errRespDelete)
+			t.Fatal(test.Name+"failed to get response: ", errRespDelete)
 		}
 		dataResp := shared_testing.HelperHandleResponse[common.ResponseAuth](respDelete, http.StatusAccepted, t)
 		if dataResp.SessionJwt == "" {
-			t.Fatal("sessionJwt is empty")
+			t.Fatal(test.Name + "sessionJwt is empty")
 		}
 		code := helperExtractCode(t)
 		bodyConfirm := user.RequestConfirm{
@@ -163,28 +164,28 @@ func TestRemoveUserSuccessful(t *testing.T) {
 		}
 		dataConfirm, errMarshalConfirm := json.Marshal(bodyConfirm)
 		if errMarshalConfirm != nil {
-			t.Fatal("failed to prepare request Confirm: ", errMarshalConfirm)
+			t.Fatal(test.Name+"failed to prepare request Confirm: ", errMarshalConfirm)
 		}
 		requestConfirm, errReqConfirm := http.NewRequest(http.MethodPost, testServer.URL+"/api/v1/user/confirm?action="+test.Type, bytes.NewBuffer(dataConfirm))
 		if errReqConfirm != nil {
-			t.Fatal("failed to prepare request: ", errReqConfirm)
+			t.Fatal(test.Name+"failed to prepare request: ", errReqConfirm)
 		}
 		requestConfirm.Header.Set("X-Session-Token", "Bearer "+dataResp.SessionJwt)
 		requestConfirm.Header.Set("Authorization", "Bearer "+accessToken)
 		respConfirm, errRespConfirm := http.DefaultClient.Do(requestConfirm)
 		if errRespConfirm != nil {
-			t.Fatal("failed to get response confirm: ", errRespConfirm)
+			t.Fatal(test.Name+"failed to get response confirm: ", errRespConfirm)
 		}
 		shared_testing.HelperHandleResponse[struct{}](respConfirm, http.StatusNoContent, t)
 		if test.Type == shared_common.TypeSoftDelete {
 			if db.Where("user_uuid = ?", test.UserUUID).
 				Take(&model.Users{}).Error == nil {
-				t.Fatal("failed to remove user")
+				t.Fatal(test.Name + "failed to remove user")
 			}
 		} else if test.Type == shared_common.TypeHardDelete {
 			if db.Unscoped().Where("user_uuid = ?", test.UserUUID).
 				Take(&model.Users{}).Error == nil {
-				t.Fatal("failed to delete user")
+				t.Fatal(test.Name + "failed to delete user")
 			}
 		}
 	}

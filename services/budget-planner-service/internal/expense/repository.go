@@ -26,7 +26,7 @@ func (r *RepositoryExpense) UpsertExpense(descriptionExpense *model.DescriptionE
 	return r.Postgres.Transaction(func(tx *gorm.DB) error {
 		switch descriptionExpense.Category {
 		case "health":
-			if errUpsertExpense := tx.Raw(`INSERT INTO expenses(health, sport, supermarket, restaurant, leisure, investments, savings, other, budget_uuid, expense_uuid) 
+			if errUpsertExpense := tx.Exec(`INSERT INTO expenses(health, sport, supermarket, restaurant, leisure, investments, savings, other, budget_uuid, expense_uuid) 
 				VALUES (?, 0.0, 0.0 , 0.0, 0.0, 0.0, 0.0, 0.0, ?, ?)
 				ON CONFLICT (expense_uuid)
 				DO UPDATE SET health = expenses.health + excluded.health
@@ -35,7 +35,7 @@ func (r *RepositoryExpense) UpsertExpense(descriptionExpense *model.DescriptionE
 				return errUpsertExpense
 			}
 		case "sport":
-			if errUpsertExpense := tx.Raw(`INSERT INTO expenses(health, sport, supermarket, restaurant, leisure, investments, savings, other, budget_uuid, expense_uuid) 
+			if errUpsertExpense := tx.Exec(`INSERT INTO expenses(health, sport, supermarket, restaurant, leisure, investments, savings, other, budget_uuid, expense_uuid) 
 				VALUES (0.0, ?, 0.0 , 0.0, 0.0, 0.0, 0.0, 0.0, ?, ?)
 				ON CONFLICT (expense_uuid)
 				DO UPDATE SET sport = expenses.sport + excluded.sport
@@ -44,7 +44,7 @@ func (r *RepositoryExpense) UpsertExpense(descriptionExpense *model.DescriptionE
 				return errUpsertExpense
 			}
 		case "supermarket":
-			if errUpsertExpense := tx.Raw(`INSERT INTO expenses(health, sport, supermarket, restaurant, leisure, investments, savings, other, budget_uuid, expense_uuid) 
+			if errUpsertExpense := tx.Exec(`INSERT INTO expenses(health, sport, supermarket, restaurant, leisure, investments, savings, other, budget_uuid, expense_uuid) 
 				VALUES (0.0, 0.0, ? , 0.0, 0.0, 0.0, 0.0, 0.0, ?, ?)
 				ON CONFLICT (expense_uuid)
 				DO UPDATE SET supermarket = expenses.supermarket + excluded.supermarket
@@ -53,7 +53,7 @@ func (r *RepositoryExpense) UpsertExpense(descriptionExpense *model.DescriptionE
 				return errUpsertExpense
 			}
 		case "restaurant":
-			if errUpsertExpense := tx.Raw(`INSERT INTO expenses(health, sport, supermarket, restaurant, leisure, investments, savings, other, budget_uuid, expense_uuid) 
+			if errUpsertExpense := tx.Exec(`INSERT INTO expenses(health, sport, supermarket, restaurant, leisure, investments, savings, other, budget_uuid, expense_uuid) 
 				VALUES (0.0, 0.0, 0.0, ?, 0.0, 0.0, 0.0, 0.0, ?, ?)
 				ON CONFLICT (expense_uuid)
 				DO UPDATE SET restaurant = expenses.restaurant + excluded.restaurant
@@ -62,7 +62,7 @@ func (r *RepositoryExpense) UpsertExpense(descriptionExpense *model.DescriptionE
 				return errUpsertExpense
 			}
 		case "leisure":
-			if errUpsertExpense := tx.Raw(`INSERT INTO expenses(health, sport, supermarket, restaurant, leisure, investments, savings, other, budget_uuid, expense_uuid) 
+			if errUpsertExpense := tx.Exec(`INSERT INTO expenses(health, sport, supermarket, restaurant, leisure, investments, savings, other, budget_uuid, expense_uuid) 
 				VALUES (0.0, 0.0, 0.0, 0.0, ?, 0.0, 0.0, 0.0, ?, ?)
 				ON CONFLICT (expense_uuid)
 				DO UPDATE SET leisure = expenses.leisure + excluded.leisure
@@ -71,7 +71,7 @@ func (r *RepositoryExpense) UpsertExpense(descriptionExpense *model.DescriptionE
 				return errUpsertExpense
 			}
 		case "investments":
-			if errUpsertExpense := tx.Raw(`INSERT INTO expenses(health, sport, supermarket, restaurant, leisure, investments, savings, other, budget_uuid, expense_uuid) 
+			if errUpsertExpense := tx.Exec(`INSERT INTO expenses(health, sport, supermarket, restaurant, leisure, investments, savings, other, budget_uuid, expense_uuid) 
 				VALUES (0.0, 0.0, 0.0, 0.0, 0.0, ?, 0.0, 0.0, ?, ?)
 				ON CONFLICT (expense_uuid)
 				DO UPDATE SET investments = expenses.investments + excluded.investments
@@ -80,7 +80,7 @@ func (r *RepositoryExpense) UpsertExpense(descriptionExpense *model.DescriptionE
 				return errUpsertExpense
 			}
 		case "savings":
-			if errUpsertExpense := tx.Raw(`INSERT INTO expenses(health, sport, supermarket, restaurant, leisure, investments, savings, other, budget_uuid, expense_uuid) 
+			if errUpsertExpense := tx.Exec(`INSERT INTO expenses(health, sport, supermarket, restaurant, leisure, investments, savings, other, budget_uuid, expense_uuid) 
 				VALUES (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, ?, 0.0, ?, ?)
 				ON CONFLICT (expense_uuid)
 				DO UPDATE SET savings = expenses.savings + excluded.savings
@@ -89,7 +89,7 @@ func (r *RepositoryExpense) UpsertExpense(descriptionExpense *model.DescriptionE
 				return errUpsertExpense
 			}
 		case "other":
-			if errUpsertExpense := tx.Raw(`INSERT INTO  expenses(health, sport, supermarket, restaurant, leisure, investments, savings, other, budget_uuid, expense_uuid) 
+			if errUpsertExpense := tx.Exec(`INSERT INTO  expenses(health, sport, supermarket, restaurant, leisure, investments, savings, other, budget_uuid, expense_uuid) 
 				VALUES (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, ?, ?, ?)
 				ON CONFLICT (expense_uuid)
 				DO UPDATE SET other = expenses.other + excluded.other
@@ -106,9 +106,19 @@ func (r *RepositoryExpense) UpsertExpense(descriptionExpense *model.DescriptionE
 	})
 }
 func (r *RepositoryExpense) GetDescriptionExpense(expenseUUID, descriptionExpenseUUID string) (*model.DescriptionExpenses, error) {
-	expense := &model.DescriptionExpenses{}
+	descriptionExpense := &model.DescriptionExpenses{}
 	errGet := r.Postgres.
-		Where("expense_uuid = ? AND description_expense_uuid = ?", expenseUUID, descriptionExpenseUUID).Take(expense).Error
+		Where("expense_uuid = ? AND description_expense_uuid = ?", expenseUUID, descriptionExpenseUUID).
+		Take(descriptionExpense).Error
+	if errGet != nil {
+		return nil, errGet
+	}
+	return descriptionExpense, nil
+}
+func (r *RepositoryExpense) GetExpense(budgetUUID string) (*model.Expenses, error) {
+	expense := &model.Expenses{}
+	errGet := r.Postgres.
+		Where("budget_uuid = ?", budgetUUID).Take(expense).Error
 	if errGet != nil {
 		return nil, errGet
 	}
@@ -127,10 +137,10 @@ func (r *RepositoryExpense) GetExpenseUUID(budgetUUID string) (string, error) {
 	return expenseUUID, nil
 }
 
-func (r *RepositoryExpense) UpdateDescriptionExpense(expense *model.DescriptionExpenses, expenseUUID, descriptionExpenseUUID string) error {
+func (r *RepositoryExpense) UpdateDescriptionExpense(expense *model.DescriptionExpenses) error {
 	if errUpdate := r.Postgres.
 		Clauses(&clause.Returning{}).
-		Where("expense_uuid = ? AND description_expense_uuid = ?", expenseUUID, descriptionExpenseUUID).
+		Where("expense_uuid = ? AND description_expense_uuid = ?", expense.ExpenseUUID, expense.DescriptionExpenseUUID).
 		Updates(expense).Error; errUpdate != nil {
 		r.Logger.Error("failed to update description expense: " + errUpdate.Error())
 		return errUpdate
@@ -138,22 +148,32 @@ func (r *RepositoryExpense) UpdateDescriptionExpense(expense *model.DescriptionE
 	return nil
 }
 
-func (r *RepositoryExpense) UpdateExpenseTransaction(descriptionExpense *model.DescriptionExpenses, oldExpense, budgetUUID, expenseUUID string) error {
+func (r *RepositoryExpense) UpdateExpenseTransaction(descriptionExpense *model.DescriptionExpenses, oldExpense, oldCategory, budgetUUID, expenseUUID string) error {
 	return r.Postgres.Transaction(func(tx *gorm.DB) error {
 		if errUpdateDescription := r.Postgres.
 			Clauses(&clause.Returning{}).
 			Where("expense_uuid = ? AND description_expense_uuid = ?", expenseUUID, descriptionExpense.DescriptionExpenseUUID).
 			Updates(descriptionExpense).Error; errUpdateDescription != nil {
-			r.Logger.Error("failed to update description: " + errUpdateDescription.Error())
+			r.Logger.Error("failed to update description_expense: " + errUpdateDescription.Error())
 			return errUpdateDescription
 		}
-		if errUpdate := r.Postgres.Model(&model.Expenses{}).
-			Where("expense_uuid = ? AND budget_uuid = ?", expenseUUID, budgetUUID).
-			Update(descriptionExpense.Category,
-				gorm.Expr(fmt.Sprintf("%s ::numeric - %s ::numeric + %s ::numeric", descriptionExpense.Category, oldExpense, descriptionExpense.Expense))).
-			Error; errUpdate != nil {
-			r.Logger.Error("failed to add expense: " + errUpdate.Error())
-			return errUpdate
+		var queryUpdateExpense string
+		if descriptionExpense.Category != "" && descriptionExpense.Category != oldCategory {
+			queryUpdateExpense = fmt.Sprintf(`UPDATE expenses
+		SET %s = %s :: numeric - %s ::numeric,
+		%s = %s ::numeric + %s ::numeric`,
+				oldCategory, oldCategory, oldExpense,
+				descriptionExpense.Category, descriptionExpense.Category, descriptionExpense.Expense)
+		} else {
+			queryUpdateExpense = fmt.Sprintf(`UPDATE expenses
+		SET %s = %s ::numeric - %s ::numeric + %s ::numeric`,
+				oldCategory, oldCategory, oldExpense, descriptionExpense.Expense)
+		}
+		queryUpdateExpense += fmt.Sprintf(" WHERE expense_uuid = '%s' AND budget_uuid = '%s'",
+			descriptionExpense.ExpenseUUID, budgetUUID)
+		if errUpdateExpense := tx.Exec(queryUpdateExpense).Error; errUpdateExpense != nil {
+			r.Logger.Error("failed to update expense: " + errUpdateExpense.Error())
+			return errUpdateExpense
 		}
 		return nil
 	})
@@ -167,7 +187,7 @@ type deleteExpenseParams struct {
 	descriptionExpenseUUID string
 }
 
-func (r *RepositoryExpense) DeleteExpense(params *deleteExpenseParams) error {
+func (r *RepositoryExpense) DeleteDescriptionExpense(params *deleteExpenseParams) error {
 	fmt.Println(r.Postgres.ToSQL(func(tx *gorm.DB) *gorm.DB {
 		tx.Model(&model.Expenses{}).
 			Where("expense_uuid = ? AND budget_uuid = ?", params.expenseUUID, params.budgetUUID).
@@ -190,7 +210,7 @@ func (r *RepositoryExpense) DeleteExpense(params *deleteExpenseParams) error {
 		return nil
 	})
 }
-func (r *RepositoryExpense) ListExpense(expenseUUID string, limit, offset int) ([]model.DescriptionExpenses, error) {
+func (r *RepositoryExpense) ListDescriptionExpense(expenseUUID string, limit, offset int) ([]model.DescriptionExpenses, error) {
 	sliceDescriptionExpense := make([]model.DescriptionExpenses, 0, 50)
 	if errList := r.Postgres.
 		Model(&model.DescriptionExpenses{}).

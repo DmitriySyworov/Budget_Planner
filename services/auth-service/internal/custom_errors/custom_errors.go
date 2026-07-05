@@ -14,4 +14,6 @@ var (
 	ErrIncorrectCode             = errors.New("incorrect code")
 	ErrIncorrectEnterNewPassword = errors.New("new password must be between 8 and 24 characters")
 	ErrInvalidSessionToken       = errors.New("invalid session token")
+	ErrPasswordIsNotStrong       = errors.New("the password is not strong")
+	ErrPasswordContainEmail      = errors.New("the password cannot contain your email")
 )

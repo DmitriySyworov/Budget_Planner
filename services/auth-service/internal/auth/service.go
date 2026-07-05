@@ -32,8 +32,16 @@ func NewServiceAuth(repo *RepositoryAuth, repoUser di.IRepoUser, conf *authconfi
 	}
 }
 func (s *ServiceAuth) Register(body *RequestRegister) (*common.ResponseAuth, error) {
+	mapError := shared_errors.MapError{Map: make(map[string]string, 2)}
+	errValidatePassword := common.ValidatePassword(body.Password, body.Email, []string{body.Name})
+	if errValidatePassword != nil {
+		mapError.Map["password"] = errValidatePassword.Error()
+	}
 	if s.IRepoUser.UserExistsByEmail(body.Email) {
-		return nil, ErrUserAlreadyExist
+		mapError.Map["user"] = ErrUserAlreadyExist.Error()
+	}
+	if len(mapError.Map) != 0 {
+		return nil, mapError
 	}
 	hashPassword, errGeneratePassword := bcrypt.GenerateFromPassword([]byte(body.Password), bcrypt.DefaultCost)
 	if errGeneratePassword != nil {
