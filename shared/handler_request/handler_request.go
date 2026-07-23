@@ -12,14 +12,13 @@ var (
 	ErrIncorrectFormatBody = errors.New("incorrect format body")
 )
 
-func HandlerRequest[T any](body io.ReadCloser) (*T, error) {
+func HandlerRequest[T any](body io.ReadCloser, validate *validator.Validate) (*T, error) {
 	var payload T
 	errDecode := json.NewDecoder(body).Decode(&payload)
 	if errDecode != nil {
 		return nil, ErrIncorrectFormatBody
 	}
-	errValidate := validator.New().Struct(&payload)
-	if errValidate != nil {
+	if errValidate := validate.Struct(&payload); errValidate != nil {
 		return &payload, errValidate
 	}
 	return &payload, nil

@@ -15,9 +15,9 @@ func TestFinanceSuccessful(t *testing.T) {
 		expenseUUID = "3b8d4e9a-7c21-4f51-863a-2a1d4f6c90bc"
 		userUUID    = "f20a1bc3-5819-4a92-bdde-62fa9c671b2e"
 	)
-	conf, _, router := App()
-	accessToken := shared_testing.CreateTestAccessToken(userUUID, conf.Signature, t)
-	testServer := httptest.NewServer(router)
+	appVariable := App()
+	accessToken := shared_testing.CreateTestAccessToken(userUUID, appVariable.Conf.Signature, t)
+	testServer := httptest.NewServer(appVariable.HandlerApp)
 	defer testServer.Close()
 	dataQuery, errReadFileSql := os.ReadFile("load-mock-budget-data.sql")
 	if errReadFileSql != nil {

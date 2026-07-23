@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"shared/shared_common"
+	"shared/shared_constant"
 	"shared/shared_testing"
 	"testing"
 )
@@ -21,9 +21,9 @@ func TestGetUserSuccessful(t *testing.T) {
 		t.Fatal("failed to read sql file: ", errReadFile)
 	}
 	shared_testing.RefreshUserTestData(dataSqlFile, []string{"users"}, t)
-	confApi, _, app := App()
-	accessToken := shared_testing.CreateTestAccessToken(userGetUUID, confApi.Signature, t)
-	testServer := httptest.NewServer(app)
+	appVariable := App()
+	accessToken := shared_testing.CreateTestAccessToken(userGetUUID, appVariable.Conf.Signature, t)
+	testServer := httptest.NewServer(appVariable.HandlerApp)
 	defer testServer.Close()
 	request, errReq := http.NewRequest(http.MethodGet, testServer.URL+"/api/v1/user", nil)
 	if errReq != nil {
@@ -57,8 +57,8 @@ var CaseDataUpdate = []user.RequestUpdateUser{
 
 func TestUpdateUserSuccessful(t *testing.T) {
 	const userUpdateUUID = "f7b3a4c1-8d2e-4b9a-9e1c-5f6a7b8c9d0e"
-	confApi, _, app := App()
-	testServer := httptest.NewServer(app)
+	appVariable := App()
+	testServer := httptest.NewServer(appVariable.HandlerApp)
 	defer testServer.Close()
 	dataSqlFile, errReadFile := os.ReadFile("load_mock_users.sql")
 	if errReadFile != nil {
@@ -68,7 +68,7 @@ func TestUpdateUserSuccessful(t *testing.T) {
 		shared_testing.RefreshUserTestData(dataSqlFile, []string{"users"}, t)
 		deleteRedisData(t)
 		deleteMailPitMessages(t)
-		accessToken := shared_testing.CreateTestAccessToken(userUpdateUUID, confApi.Signature, t)
+		accessToken := shared_testing.CreateTestAccessToken(userUpdateUUID, appVariable.Conf.Signature, t)
 		data, errMarshalUpdate := json.Marshal(test)
 		if errMarshalUpdate != nil {
 			t.Fatal("failed to prepare request: ", errMarshalUpdate)
@@ -124,13 +124,13 @@ var CaseDataRemove = []struct {
 	UserUUID string
 	user.RequestRemoveUser
 }{
-	{Name: "hard-delete user - ", RequestRemoveUser: user.RequestRemoveUser{Email: "exampledelete@gmail.com", Password: testPassword}, Type: shared_common.TypeHardDelete, UserUUID: "5a1f4b3e-2c7d-491c-a3f5-6b2d8e1c9a4f"},
-	{Name: "soft-delete user - ", RequestRemoveUser: user.RequestRemoveUser{Email: "exampleremove@gmail.com", Password: testPassword}, Type: shared_common.TypeSoftDelete, UserUUID: "9f8e7d6c-5b4a-4321-a1b2-c3d4e5f6a7b8"},
+	{Name: "hard-delete user - ", RequestRemoveUser: user.RequestRemoveUser{Email: "exampledelete@gmail.com", Password: testPassword}, Type: shared_constant.TypeHardDelete, UserUUID: "5a1f4b3e-2c7d-491c-a3f5-6b2d8e1c9a4f"},
+	{Name: "soft-delete user - ", RequestRemoveUser: user.RequestRemoveUser{Email: "exampleremove@gmail.com", Password: testPassword}, Type: shared_constant.TypeSoftDelete, UserUUID: "9f8e7d6c-5b4a-4321-a1b2-c3d4e5f6a7b8"},
 }
 
 func TestRemoveUserSuccessful(t *testing.T) {
-	confApi, _, app := App()
-	testServer := httptest.NewServer(app)
+	appVariable := App()
+	testServer := httptest.NewServer(appVariable.HandlerApp)
 	defer testServer.Close()
 	dataSqlFile, errReadFile := os.ReadFile("load_mock_users.sql")
 	if errReadFile != nil {
@@ -140,7 +140,7 @@ func TestRemoveUserSuccessful(t *testing.T) {
 		db := shared_testing.RefreshUserTestData(dataSqlFile, []string{"users"}, t)
 		deleteRedisData(t)
 		deleteMailPitMessages(t)
-		accessToken := shared_testing.CreateTestAccessToken(test.UserUUID, confApi.Signature, t)
+		accessToken := shared_testing.CreateTestAccessToken(test.UserUUID, appVariable.Conf.Signature, t)
 		data, errMarshalRemove := json.Marshal(test.RequestRemoveUser)
 		if errMarshalRemove != nil {
 			t.Fatal(test.Name+"failed to prepare request: ", errMarshalRemove)
@@ -177,12 +177,12 @@ func TestRemoveUserSuccessful(t *testing.T) {
 			t.Fatal(test.Name+"failed to get response confirm: ", errRespConfirm)
 		}
 		shared_testing.HelperHandleResponse[struct{}](respConfirm, http.StatusNoContent, t)
-		if test.Type == shared_common.TypeSoftDelete {
+		if test.Type == shared_constant.TypeSoftDelete {
 			if db.Where("user_uuid = ?", test.UserUUID).
 				Take(&model.Users{}).Error == nil {
 				t.Fatal(test.Name + "failed to remove user")
 			}
-		} else if test.Type == shared_common.TypeHardDelete {
+		} else if test.Type == shared_constant.TypeHardDelete {
 			if db.Unscoped().Where("user_uuid = ?", test.UserUUID).
 				Take(&model.Users{}).Error == nil {
 				t.Fatal(test.Name + "failed to delete user")

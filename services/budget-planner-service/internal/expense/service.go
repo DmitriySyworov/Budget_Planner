@@ -4,20 +4,18 @@ import (
 	"app/budget-planner/internal/custom_errors"
 	"app/budget-planner/internal/di"
 	"app/budget-planner/internal/model"
-	"errors"
-	"fmt"
-	"shared/shared_common"
+	"shared/pagination"
 	"shared/shared_errors"
 
 	"github.com/google/uuid"
 )
 
 type ServiceExpense struct {
-	Repo           *RepositoryExpense
+	Repo           IRepositoryExpense
 	IServiceBudget di.IServiceBudget
 }
 
-func NewServiceExpense(repo *RepositoryExpense, serviceBudget di.IServiceBudget) *ServiceExpense {
+func NewServiceExpense(repo IRepositoryExpense, serviceBudget di.IServiceBudget) *ServiceExpense {
 	return &ServiceExpense{
 		Repo:           repo,
 		IServiceBudget: serviceBudget,
@@ -71,11 +69,9 @@ func (s *ServiceExpense) UpdateExpense(body *RequestUpdateDescriptionExpense, us
 		return nil, ErrNotFoundDescriptionExpense
 	}
 	if body.Description != "" && body.Expense == "" && body.Category == "" {
-		fmt.Println(body.Description)
 		if s.Repo.UpdateDescriptionExpense(descriptionExpense) != nil {
 			return nil, ErrFailedUpdateExpense
 		}
-		fmt.Println(descriptionExpense.Description)
 	} else {
 		oldExpense := descriptionExpense.Expense
 		oldCategory := descriptionExpense.Category
@@ -139,18 +135,8 @@ func (s *ServiceExpense) DeleteDescriptionExpense(userUUID, budgetUUID, descript
 	return nil
 }
 func (s *ServiceExpense) ListDescriptionExpense(budgetUUID, limitStr, offsetStr string) ([]model.DescriptionExpenses, error) {
-	mapError := shared_errors.MapError{Map: make(map[string]string, 3)}
-	limit, offset, errPagination := shared_common.PaginationHelper(limitStr, offsetStr)
-	if len(errPagination) != 0 {
-		for _, err := range errPagination {
-			switch {
-			case errors.Is(err, shared_errors.ErrIncorrectLimit):
-				mapError.Map["limit"] = shared_errors.ErrIncorrectLimit.Error()
-			case errors.Is(err, shared_errors.ErrIncorrectOffset):
-				mapError.Map["offset"] = shared_errors.ErrIncorrectOffset.Error()
-			}
-		}
-	}
+	mapError := &shared_errors.MapError{Map: make(map[string]string, 3)}
+	limit, offset := pagination.HelperPagination(limitStr, offsetStr, mapError)
 	expenseUUID, errGetExpense := s.Repo.GetExpenseUUID(budgetUUID)
 	if errGetExpense != nil {
 		mapError.Map["expense"] = custom_errors.ErrNotFoundExpense.Error()

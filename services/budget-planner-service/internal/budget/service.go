@@ -3,8 +3,12 @@ package budget
 import (
 	"app/budget-planner/internal/custom_errors"
 	"app/budget-planner/internal/model"
+	"encoding/json"
 	"errors"
-	"shared/shared_common"
+	"fmt"
+	"shared/loggers"
+	"shared/pagination"
+	"shared/shared_constant"
 	"shared/shared_errors"
 	"time"
 
@@ -12,12 +16,14 @@ import (
 )
 
 type ServiceBudget struct {
-	Repo *RepositoryBudget
+	Repo   IRepositoryBudget
+	Logger *loggers.Logger
 }
 
-func NewServiceBudget(repo *RepositoryBudget) *ServiceBudget {
+func NewServiceBudget(repo IRepositoryBudget, logger *loggers.Logger) *ServiceBudget {
 	return &ServiceBudget{
-		Repo: repo,
+		Repo:   repo,
+		Logger: logger,
 	}
 }
 func (s *ServiceBudget) CreateBudget(body *RequestCreateBudget, userUUID string) (*model.Budgets, error) {
@@ -121,19 +127,19 @@ func (s *ServiceBudget) RemoveBudget(userUUID, budgetUUID, typeRemove string) er
 	if errValidate != nil {
 		mapError.Map["budget"] = errValidate.Error()
 	}
-	if typeRemove != shared_common.TypeSoftDelete && typeRemove != shared_common.TypeHardDelete && typeRemove != "" {
+	if typeRemove != shared_constant.TypeSoftDelete && typeRemove != shared_constant.TypeHardDelete && typeRemove != "" {
 		mapError.Map["type"] = shared_errors.ErrIncorrectTypeRemove.Error()
 	}
 
 	if len(mapError.Map) != 0 {
 		return mapError
 	}
-	if typeRemove == shared_common.TypeSoftDelete || typeRemove == "" {
+	if typeRemove == shared_constant.TypeSoftDelete || typeRemove == "" {
 		errRemove := s.Repo.RemoveBudget(userUUID, budgetUUID)
 		if errRemove != nil {
 			return ErrFailedRemoveBudget
 		}
-	} else if typeRemove == shared_common.TypeHardDelete {
+	} else if typeRemove == shared_constant.TypeHardDelete {
 		errDelete := s.Repo.DeleteBudget(userUUID, budgetUUID)
 		if errDelete != nil {
 			return ErrFailedDeleteBudget
@@ -155,17 +161,9 @@ func (s *ServiceBudget) HelperValidateBudget(userUUID, budgetUUID string) (*mode
 }
 
 func (s *ServiceBudget) ListBudget(userUUID, limitStr, offsetStr string) ([]model.Budgets, error) {
-	limit, offset, errPagination := shared_common.PaginationHelper(limitStr, offsetStr)
-	if len(errPagination) != 0 {
-		mapError := shared_errors.MapError{Map: make(map[string]string, 2)}
-		for _, err := range errPagination {
-			switch {
-			case errors.Is(err, shared_errors.ErrIncorrectLimit):
-				mapError.Map["limit"] = shared_errors.ErrIncorrectLimit.Error()
-			case errors.Is(err, shared_errors.ErrIncorrectOffset):
-				mapError.Map["offset"] = shared_errors.ErrIncorrectOffset.Error()
-			}
-		}
+	mapError := &shared_errors.MapError{Map: make(map[string]string, 2)}
+	limit, offset := pagination.HelperPagination(limitStr, offsetStr, mapError)
+	if len(mapError.Map) != 0 {
 		return nil, mapError
 	}
 	listBudget, errList := s.Repo.ListBudget(userUUID, limit, offset)
@@ -173,4 +171,17 @@ func (s *ServiceBudget) ListBudget(userUUID, limitStr, offsetStr string) ([]mode
 		return nil, custom_errors.ErrNotFoundBudget
 	}
 	return listBudget, nil
+}
+func (s *ServiceBudget) DeleteDataDeletingUser(data []byte) error {
+	event := make(map[string]any, 1)
+	if errUnmarshal := json.Unmarshal(data, &event); errUnmarshal != nil {
+		return errUnmarshal
+	}
+	deleteDataEvent := event[shared_constant.EventDeletedUserUUID]
+	deletedUserUUID, ok := deleteDataEvent.(string)
+	if !ok {
+		return errors.New(fmt.Sprint("failed to assertion type deleted_user_uuid got ", deleteDataEvent))
+	}
+	s.Repo.DeleteAllUserBudgets(deletedUserUUID)
+	return nil
 }

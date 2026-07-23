@@ -12,12 +12,20 @@ spec:
       app: {{ .name }}
   template:
     metadata:
+      annotations:
+        timestamp: {{ now | date "20060102150405" | quote }}
       labels:
         app: {{ .name }}
     spec:
       containers:
         - name: {{ .name }}
-          image: {{ .image }}
+          {{- $version := $.Values.versions.defaultVersion }}
+          {{- if contains "user" .name }}
+          {{- $version = $.Values.versions.authUserVersion }}
+          {{- else if contains "budget-planner" .name }}
+          {{- $version = $.Values.versions.budgetPlannerVersion }}
+          {{- end }}
+          image: "{{ .image }}:{{ $version }}"
           imagePullPolicy: Always
           ports:
             - containerPort: {{ .port }}

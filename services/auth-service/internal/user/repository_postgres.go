@@ -3,18 +3,34 @@ package user
 import (
 	"app/auth-service/internal/custom_errors"
 	"app/auth-service/internal/model"
+	"errors"
 	"shared/loggers"
 	"shared/open_db"
 
 	"gorm.io/gorm/clause"
 )
 
+type IRepositoryUser interface {
+	CreateUser(user *model.Users) error
+	UpdateUser(user *model.Users, userUUID string) error
+	UserExistsByEmail(email string) (bool, error)
+	UserExistsByUserUUID(userUUID string) (bool, error)
+	GetResponseUserByUUID(userUUID string) (*ResponseUser, error)
+	GetUserByUUID(userUUID string) (*model.Users, error)
+	GetUserByEmail(email string) (*model.Users, error)
+	GetPasswordByEmail(email string) (string, error)
+	GetUserUUIDByEmail(email string) (string, error)
+	RemoveUser(userUUID string) error
+	DeleteUser(userUUID string) error
+	RecoveryUser(userUUID string) error
+	deleteUsersByTimer() ([]string, error)
+}
 type RepositoryUser struct {
 	*open_db.Postgres
 	*loggers.Logger
 }
 
-func NewRepositoryUser(postgres *open_db.Postgres, logger *loggers.Logger) *RepositoryUser {
+func NewRepositoryUser(postgres *open_db.Postgres, logger *loggers.Logger) IRepositoryUser {
 	return &RepositoryUser{
 		Postgres: postgres,
 		Logger:   logger,
@@ -37,33 +53,27 @@ func (r *RepositoryUser) UpdateUser(user *model.Users, userUUID string) error {
 	}
 	return nil
 }
-func (r *RepositoryUser) UserExistsByEmail(email string) bool {
+func (r *RepositoryUser) UserExistsByEmail(email string) (bool, error) {
 	var isExist bool
-	if errQuery := r.Postgres.
+	if errCheckUser := r.Postgres.
 		Raw(`SELECT EXISTS(
 				 SELECT FROM users
-				 WHERE email = ?)`, email).Scan(&isExist).Error; errQuery != nil {
-		r.Logger.Error("failed to check if the user exists by email: ", errQuery)
-		return false
+				 WHERE email = ?)`, email).Scan(&isExist).Error; errCheckUser != nil {
+		r.Logger.Error("failed to check if the user exists by email: ", errCheckUser)
+		return false, errCheckUser
 	}
-	if !isExist {
-		return false
-	}
-	return true
+	return isExist, nil
 }
-func (r *RepositoryUser) UserExistsByUserUUID(userUUID string) bool {
+func (r *RepositoryUser) UserExistsByUserUUID(userUUID string) (bool, error) {
 	var isExist bool
-	if errQuery := r.Postgres.
+	if errCheckUser := r.Postgres.
 		Raw(`SELECT EXISTS(
 				 SELECT FROM users
-				 WHERE user_uuid = ?)`, userUUID).Scan(&isExist).Error; errQuery != nil {
-		r.Logger.Error("failed to check if the user exists by user_uuid: ", errQuery)
-		return false
+				 WHERE user_uuid = ?)`, userUUID).Scan(&isExist).Error; errCheckUser != nil {
+		r.Logger.Error("failed to check if the user exists by user_uuid: ", errCheckUser)
+		return false, errCheckUser
 	}
-	if !isExist {
-		return false
-	}
-	return true
+	return isExist, nil
 }
 func (r *RepositoryUser) GetResponseUserByUUID(userUUID string) (*ResponseUser, error) {
 	user := &ResponseUser{}
@@ -143,4 +153,19 @@ func (r *RepositoryUser) RecoveryUser(userUUID string) error {
 		return errRecovery
 	}
 	return nil
+}
+func (r *RepositoryUser) deleteUsersByTimer() ([]string, error) {
+	var sliceDeleteUserUUID []string
+	if errDelete := r.Postgres.Raw(`DELETE FROM users
+						WHERE now()::date - deleted_at >= 30
+						RETURNING user_uuid`).Scan(sliceDeleteUserUUID).
+		Error; errDelete != nil {
+		r.Logger.Error("failed to delete users by timer: " + errDelete.Error())
+		return nil, errDelete
+	}
+	if len(sliceDeleteUserUUID) == 0 {
+		r.Logger.Warn("not found soft-deleting users")
+		return nil, errors.New("not found soft-deleting users")
+	}
+	return sliceDeleteUserUUID, nil
 }

@@ -10,14 +10,16 @@ import (
 type Config struct {
 	*API
 	*Db
-	*VerifyEmail
+	*Kafka
+	*SMTP
+	*SharedRedis
 }
 
 type API struct {
 	ApiPort   string
 	Signature string
 }
-type VerifyEmail struct {
+type SMTP struct {
 	ApiEmail        string
 	ApiPassword     string
 	SmtpAddress     string
@@ -27,6 +29,16 @@ type Db struct {
 	DSN           string
 	RedisAddress  string
 	RedisPassword string
+}
+type SharedRedis struct {
+	SharedRedisAddress  string
+	SharedRedisPassword string
+}
+type Kafka struct {
+	Broker            string
+	KafkaUser         string
+	KafkaPassword     string
+	DeletedUsersTopic string
 }
 
 func NewConfig(logger *loggers.Logger) *Config {
@@ -45,6 +57,12 @@ func NewConfig(logger *loggers.Logger) *Config {
 	apiPassword := os.Getenv("API_PASSWORD")
 	smtpAddress := os.Getenv("SMTP_ADDRESS")
 	smtpAddressHost := os.Getenv("SMTP_ADDRESS_HOST")
+	broker := os.Getenv("KAFKA_BOOTSTRAP")
+	kafkaUser := os.Getenv("KAFKA_CLIENT_USER")
+	kafkaPassword := os.Getenv("KAFKA_CLIENT_PASSWORD")
+	deletedUsersTopic := os.Getenv("DELETED_USERS_TOPIC")
+	sharedRedisAddress := os.Getenv("SHARED_REDIS_ADDRESS")
+	sharedRedisPassword := os.Getenv("SHARED_REDIS_PASSWORD")
 	var counterEmptyVariables int
 	if apiPort == "" {
 		apiPort = "8080"
@@ -61,6 +79,22 @@ func NewConfig(logger *loggers.Logger) *Config {
 	if redisPassword == "" {
 		counterEmptyVariables++
 		logger.Error("environment variable 'REDIS_PASSWORD' not found")
+	}
+	if broker == "" {
+		counterEmptyVariables++
+		logger.Error("environment variable 'KAFKA_BOOTSTRAP' not found")
+	}
+	if kafkaUser == "" {
+		counterEmptyVariables++
+		logger.Error("environment variable 'KAFKA_CLIENT_USER' not found")
+	}
+	if kafkaPassword == "" {
+		counterEmptyVariables++
+		logger.Error("environment variable 'KAFKA_CLIENT_PASSWORD' not found")
+	}
+	if deletedUsersTopic == "" {
+		counterEmptyVariables++
+		logger.Error("environment variable 'DELETED_USERS_TOPIC' not found")
 	}
 	if signature == "" {
 		counterEmptyVariables++
@@ -82,6 +116,14 @@ func NewConfig(logger *loggers.Logger) *Config {
 		counterEmptyVariables++
 		logger.Error("environment variable 'SMTP_ADDRESS_HOST' not found")
 	}
+	if sharedRedisAddress == "" {
+		counterEmptyVariables++
+		logger.Error("environment variable 'SHARED_REDIS_ADDRESS' not found")
+	}
+	if sharedRedisPassword == "" {
+		counterEmptyVariables++
+		logger.Error("environment variable 'SHARED_REDIS_PASSWORD' not found")
+	}
 	if counterEmptyVariables != 0 {
 		os.Exit(1)
 	}
@@ -95,11 +137,21 @@ func NewConfig(logger *loggers.Logger) *Config {
 			ApiPort:   apiPort,
 			Signature: signature,
 		},
-		VerifyEmail: &VerifyEmail{
+		SMTP: &SMTP{
 			ApiEmail:        apiEmail,
 			ApiPassword:     apiPassword,
 			SmtpAddress:     smtpAddress,
 			SmtpAddressHost: smtpAddressHost,
+		},
+		Kafka: &Kafka{
+			Broker:            broker,
+			KafkaUser:         kafkaUser,
+			KafkaPassword:     kafkaPassword,
+			DeletedUsersTopic: deletedUsersTopic,
+		},
+		SharedRedis: &SharedRedis{
+			SharedRedisAddress:  sharedRedisAddress,
+			SharedRedisPassword: sharedRedisPassword,
 		},
 	}
 }

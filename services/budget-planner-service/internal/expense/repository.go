@@ -11,12 +11,24 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+type IRepositoryExpense interface {
+	UpsertExpense(descriptionExpense *model.DescriptionExpenses, budgetUUID, expenseUUID string) error
+	GetDescriptionExpense(expenseUUID, descriptionExpenseUUID string) (*model.DescriptionExpenses, error)
+	GetExpense(budgetUUID string) (*model.Expenses, error)
+	GetExpenseUUID(budgetUUID string) (string, error)
+	UpdateDescriptionExpense(expense *model.DescriptionExpenses) error
+	UpdateExpenseTransaction(descriptionExpense *model.DescriptionExpenses, oldExpense, oldCategory, budgetUUID, expenseUUID string) error
+	DeleteDescriptionExpense(params *deleteExpenseParams) error
+	ListDescriptionExpense(expenseUUID string, limit, offset int) ([]model.DescriptionExpenses, error)
+	ExpenseExist(budgetUUID, expenseUUID string) bool
+}
+
 type RepositoryExpense struct {
 	*open_db.Postgres
 	*loggers.Logger
 }
 
-func NewRepositoryExpense(postgres *open_db.Postgres, logger *loggers.Logger) *RepositoryExpense {
+func NewRepositoryExpense(postgres *open_db.Postgres, logger *loggers.Logger) IRepositoryExpense {
 	return &RepositoryExpense{
 		Postgres: postgres,
 		Logger:   logger,

@@ -17,12 +17,14 @@ type HandlerBudget struct {
 	*ServiceBudget
 	*loggers.Logger
 	*response.HandlerResponse
+	*validator.Validate
 }
 
-func NewHandlerBudget(router *http.ServeMux, service *ServiceBudget, logger *loggers.Logger, responseHandler *response.HandlerResponse, mv *shared_middleware.ManagerSharedMiddleware) {
+func NewHandlerBudget(router *http.ServeMux, service *ServiceBudget, logger *loggers.Logger, responseHandler *response.HandlerResponse, validate *validator.Validate, mv *shared_middleware.ManagerSharedMiddleware) {
 	budget := &HandlerBudget{
 		ServiceBudget:   service,
 		Logger:          logger,
+		Validate:        validate,
 		HandlerResponse: responseHandler,
 	}
 	router.Handle("POST /api/v1/budget", mv.HandlerAccessToken(budget.CreateBudget()))
@@ -44,7 +46,7 @@ func (h *HandlerBudget) CreateBudget() http.HandlerFunc {
 			h.ResponseSend(writer, resp, http.StatusInternalServerError)
 			return
 		}
-		body, errBody := handler_request.HandlerRequest[RequestCreateBudget](request.Body)
+		body, errBody := handler_request.HandlerRequest[RequestCreateBudget](request.Body, h.Validate)
 		if errBody != nil {
 			mapError := shared_errors.MapError{Map: make(map[string]string, 3)}
 			if errValidate, isErrValid := errBody.(validator.ValidationErrors); isErrValid {
@@ -101,7 +103,7 @@ func (h *HandlerBudget) UpdateBudget() http.HandlerFunc {
 			h.ResponseSend(writer, resp, http.StatusInternalServerError)
 			return
 		}
-		body, errBody := handler_request.HandlerRequest[RequestUpdateBudget](request.Body)
+		body, errBody := handler_request.HandlerRequest[RequestUpdateBudget](request.Body, h.Validate)
 		if errBody != nil {
 			mapError := shared_errors.MapError{Map: make(map[string]string, 3)}
 			if errValidate, isErrValid := errBody.(validator.ValidationErrors); isErrValid {

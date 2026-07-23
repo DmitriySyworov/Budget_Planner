@@ -15,17 +15,32 @@ services:
       retries: 5
     volumes:
       - ${PATH_VOLUMES}/postgres-data:/var/lib/postgresql/18/data
+  redis-shared:
+    container_name: redis-shared
+    image: redis:8.10-rc2-alpine3.23
+    ports:
+      - "${EXTERNAL_SHARED_REDIS_PORT}:6379"
+    command: redis-server --requirepass ${SHARED_REDIS_PASSWORD}
+    healthcheck:
+      test: [ "CMD", "redis-cli", "-a", "${SHARED_REDIS_PASSWORD}", "ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    volumes:
+      - ${PATH_VOLUMES}/shared-redis-data:/data
   redis-auth:
     container_name: redis-auth
-    image: redis:latest
+    image: redis:8.10-rc2-alpine3.23
     ports:
       - "${EXTERNAL_REDIS_PORT}:6379"
     command: redis-server --requirepass ${REDIS_PASSWORD}
     healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
+      test: [ "CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping" ]
       interval: 5s
       timeout: 5s
       retries: 5
+      start_period: 15s
     volumes:
       - ${PATH_VOLUMES}/redis-data:/data
   migration-user:
@@ -57,12 +72,21 @@ services:
       API_PASSWORD : ${API_PASSWORD}
       SMTP_ADDRESS : ${SMTP_ADDRESS}
       SMTP_ADDRESS_HOST : ${SMTP_ADDRESS_HOST}
+      KAFKA_BOOTSTRAP : ${KAFKA_BOOTSTRAP}
+      KAFKA_CLIENT_USER : ${KAFKA_CLIENT_USER}
+      KAFKA_CLIENT_PASSWORD : ${KAFKA_CLIENT_PASSWORD}
+      DELETED_USERS_TOPIC : ${DELETED_USERS_TOPIC}
+      SHARED_REDIS_ADDRESS : ${SHARED_REDIS_ADDRESS}
+      SHARED_REDIS_PASSWORD : ${SHARED_REDIS_PASSWORD}
     depends_on:
       migration-user:
         condition: service_completed_successfully
       redis-auth:
         condition: service_healthy
+      redis-shared:
+        condition: service_healthy
 
 volumes:
   postgres-data:
   redis-data:
+  shared-redis-data:

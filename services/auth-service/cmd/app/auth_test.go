@@ -32,8 +32,8 @@ func TestRegisterSuccessful(t *testing.T) {
 	shared_testing.RefreshUserTestData(dataSqlFile, []string{"users"}, t)
 	deleteRedisData(t)
 	deleteMailPitMessages(t)
-	_, _, app := App()
-	testServer := httptest.NewServer(app)
+	appVariable := App()
+	testServer := httptest.NewServer(appVariable.HandlerApp)
 	defer testServer.Close()
 	bodyRegisterUser := &auth.RequestRegister{
 		Name:     "example_name",
@@ -58,8 +58,8 @@ func TestLoginSuccessful(t *testing.T) {
 	shared_testing.RefreshUserTestData(dataSqlFile, []string{"users"}, t)
 	deleteRedisData(t)
 	deleteMailPitMessages(t)
-	_, _, app := App()
-	testServer := httptest.NewServer(app)
+	appVariable := App()
+	testServer := httptest.NewServer(appVariable.HandlerApp)
 	defer testServer.Close()
 	RequestRegisterUser := &auth.RequestLogin{
 		Email:    "examplelogin@gmail.com",
@@ -86,8 +86,8 @@ var CaseActionRecovery = []struct {
 }
 
 func TestRecoverySuccess(t *testing.T) {
-	_, _, app := App()
-	testServer := httptest.NewServer(app)
+	appVariable := App()
+	testServer := httptest.NewServer(appVariable.HandlerApp)
 	for _, testCase := range CaseActionRecovery {
 		dataSqlFile, errReadFile := os.ReadFile("load_mock_users.sql")
 		if errReadFile != nil {
@@ -179,7 +179,7 @@ func helperTestConfirmAndRefresh(resp *http.Response, action, newPassword string
 		t.Fatal("failed to get response confirm: ", errRespConfirm)
 	}
 	resultDataConfirm := shared_testing.HelperHandleResponse[auth.ResponseConfirm](respConfirm, expectedStatusCode, t)
-	bodyRefresh := auth.RequestRefresh{
+	bodyRefresh := auth.RequestRefreshLogout{
 		RefreshJwt: resultDataConfirm.RefreshJwt,
 	}
 	dataRefresh, errMarshalRefresh := json.Marshal(bodyRefresh)
