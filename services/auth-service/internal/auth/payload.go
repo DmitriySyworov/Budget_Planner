@@ -17,7 +17,7 @@ type ResponseConfirm struct {
 	AccessJwt  string `json:"access_jwt"`
 	RefreshJwt string `json:"refresh_jwt"`
 }
-type RequestRefresh struct {
+type RequestRefreshLogout struct {
 	RefreshJwt string `json:"refresh_jwt" validate:"required"`
 }
 type RequestConfirm struct {

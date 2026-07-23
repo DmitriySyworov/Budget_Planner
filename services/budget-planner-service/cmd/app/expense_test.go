@@ -27,9 +27,9 @@ func TestCreateExpenseSuccessful(t *testing.T) {
 	const (
 		userCreateUUID = "26f50b4d-389d-4de3-85f5-46bd8ecb1d03"
 	)
-	conf, _, router := App()
-	accessToken := shared_testing.CreateTestAccessToken(userCreateUUID, conf.Signature, t)
-	testServer := httptest.NewServer(router)
+	appVariable := App()
+	accessToken := shared_testing.CreateTestAccessToken(userCreateUUID, appVariable.Conf.Signature, t)
+	testServer := httptest.NewServer(appVariable.HandlerApp)
 	defer testServer.Close()
 	dataQuery, errReadFileSql := os.ReadFile("load-mock-budget-data.sql")
 	if errReadFileSql != nil {
@@ -88,15 +88,15 @@ func TestUpdateDescriptionExpenseSuccessful(t *testing.T) {
 		descriptionExpenseUUID = "a51052ab-9cf4-4b55-b46f-c1dcdeec21a2"
 		userUUID               = "941865fb-cde7-456b-a25e-de8159b9bd14"
 	)
-	conf, _, router := App()
-	testServer := httptest.NewServer(router)
+	appVariable := App()
+	testServer := httptest.NewServer(appVariable.HandlerApp)
 	defer testServer.Close()
 	dataQuery, errReadFileSql := os.ReadFile("load-mock-budget-data.sql")
 	if errReadFileSql != nil {
 		t.Fatal("failed to read file sql: ", errReadFileSql)
 	}
 	for _, test := range CaseUpdateDescriptionExpenseData {
-		accessToken := shared_testing.CreateTestAccessToken(userUUID, conf.Signature, t)
+		accessToken := shared_testing.CreateTestAccessToken(userUUID, appVariable.Conf.Signature, t)
 		shared_testing.RefreshUserTestData(dataQuery, []string{"budgets", "expenses", "description_expenses"}, t)
 		data, errMarshal := json.Marshal(test)
 		if errMarshal != nil {
@@ -135,9 +135,9 @@ func TestGetDescriptionExpenseSuccessful(t *testing.T) {
 		descriptionExpenseUUID = "5b8b9333-d922-4a00-bf86-53d368e734bc"
 		userUUID               = "4a5b6c7d-8e9f-40a1-b2c3-d4e5f6a7b8c9"
 	)
-	conf, _, router := App()
-	accessToken := shared_testing.CreateTestAccessToken(userUUID, conf.Signature, t)
-	testServer := httptest.NewServer(router)
+	appVariable := App()
+	accessToken := shared_testing.CreateTestAccessToken(userUUID, appVariable.Conf.Signature, t)
+	testServer := httptest.NewServer(appVariable.HandlerApp)
 	defer testServer.Close()
 	dataQuery, errReadFileSql := os.ReadFile("load-mock-budget-data.sql")
 	if errReadFileSql != nil {
@@ -173,9 +173,9 @@ func TestGetExpenseSuccessful(t *testing.T) {
 		expenseUUID = "9926d83a-4be4-4298-ba98-25081b29cc36"
 		userUUID    = "4a5b6c7d-8e9f-40a1-b2c3-d4e5f6a7b8c9"
 	)
-	conf, _, router := App()
-	accessToken := shared_testing.CreateTestAccessToken(userUUID, conf.Signature, t)
-	testServer := httptest.NewServer(router)
+	appVariable := App()
+	accessToken := shared_testing.CreateTestAccessToken(userUUID, appVariable.Conf.Signature, t)
+	testServer := httptest.NewServer(appVariable.HandlerApp)
 	defer testServer.Close()
 	dataQuery, errReadFileSql := os.ReadFile("load-mock-budget-data.sql")
 	if errReadFileSql != nil {
@@ -206,9 +206,9 @@ func TestDeleteDescriptionExpenseSuccessful(t *testing.T) {
 		descriptionExpenseUUID = "3047d8b5-0c14-41cf-a0e2-63b7ad6ab6cd"
 		userUUID               = "6e917dcb-94ad-4cd6-b3de-857e2c943dfc"
 	)
-	conf, _, router := App()
-	accessToken := shared_testing.CreateTestAccessToken(userUUID, conf.Signature, t)
-	testServer := httptest.NewServer(router)
+	appVariable := App()
+	accessToken := shared_testing.CreateTestAccessToken(userUUID, appVariable.Conf.Signature, t)
+	testServer := httptest.NewServer(appVariable.HandlerApp)
 	defer testServer.Close()
 	dataQuery, errReadFileSql := os.ReadFile("load-mock-budget-data.sql")
 	if errReadFileSql != nil {
@@ -255,9 +255,9 @@ func TestListDescriptionExpenseSuccessful(t *testing.T) {
 		budgetUUID = "1a2b3c4d-5e6f-47a8-b9c0-1d2e3f4a5b6c"
 		userUUID   = "4a5b6c7d-8e9f-40a1-b2c3-d4e5f6a7b8c9"
 	)
-	conf, _, router := App()
-	accessToken := shared_testing.CreateTestAccessToken(userUUID, conf.Signature, t)
-	testServer := httptest.NewServer(router)
+	appVariable := App()
+	accessToken := shared_testing.CreateTestAccessToken(userUUID, appVariable.Conf.Signature, t)
+	testServer := httptest.NewServer(appVariable.HandlerApp)
 	defer testServer.Close()
 	dataQuery, errReadFileSql := os.ReadFile("load-mock-budget-data.sql")
 	if errReadFileSql != nil {

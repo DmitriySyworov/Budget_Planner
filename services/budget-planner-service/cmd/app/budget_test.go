@@ -17,9 +17,9 @@ import (
 )
 
 func TestCreateBudgetSuccessful(t *testing.T) {
-	conf, _, router := App()
-	accessToken := shared_testing.CreateTestAccessToken("2e4b3c1d-8f9a-4c2b-b5e1-d3a7f8c9e0b2", conf.Signature, t)
-	testServer := httptest.NewServer(router)
+	appVariable := App()
+	accessToken := shared_testing.CreateTestAccessToken("2e4b3c1d-8f9a-4c2b-b5e1-d3a7f8c9e0b2", appVariable.Conf.Signature, t)
+	testServer := httptest.NewServer(appVariable.HandlerApp)
 	defer testServer.Close()
 	dataQuery, errReadFileSql := os.ReadFile("load-mock-budget-data.sql")
 	if errReadFileSql != nil {
@@ -73,8 +73,8 @@ var CaseDataUpdateBudget = []struct {
 }
 
 func TestUpdateBudgetSuccessful(t *testing.T) {
-	conf, _, router := App()
-	testServer := httptest.NewServer(router)
+	appVariable := App()
+	testServer := httptest.NewServer(appVariable.HandlerApp)
 	defer testServer.Close()
 	dataQuery, errReadFileSql := os.ReadFile("load-mock-budget-data.sql")
 	if errReadFileSql != nil {
@@ -85,7 +85,7 @@ func TestUpdateBudgetSuccessful(t *testing.T) {
 		budgetUpdateUUID = "859c7a21-dc20-410a-ba54-2c11fb6db2a8"
 		userUpdateUUID   = "1b272de3-9827-4c47-8a60-2da8e80556f8"
 	)
-	accessToken := shared_testing.CreateTestAccessToken(userUpdateUUID, conf.Signature, t)
+	accessToken := shared_testing.CreateTestAccessToken(userUpdateUUID, appVariable.Conf.Signature, t)
 
 	for _, test := range CaseDataUpdateBudget {
 		data, errMarshalUpdate := json.Marshal(test)
@@ -111,9 +111,9 @@ func TestUpdateBudgetSuccessful(t *testing.T) {
 	}
 }
 func TestGetBudgetSuccessful(t *testing.T) {
-	conf, _, router := App()
-	accessToken := shared_testing.CreateTestAccessToken("6e5f4a3b-2c1d-4e9f-8a7b-6c5d4e3f2a1b", conf.Signature, t)
-	testServer := httptest.NewServer(router)
+	appVariable := App()
+	accessToken := shared_testing.CreateTestAccessToken("6e5f4a3b-2c1d-4e9f-8a7b-6c5d4e3f2a1b", appVariable.Conf.Signature, t)
+	testServer := httptest.NewServer(appVariable.HandlerApp)
 	defer testServer.Close()
 	dataQuery, errReadFileSql := os.ReadFile("load-mock-budget-data.sql")
 	if errReadFileSql != nil {
@@ -142,13 +142,13 @@ var CaseDataRemoveBudget = []struct {
 	UserUUID   string
 	Type       string
 }{
-	{Name: "soft-delete budget - ", BudgetUUID: "b408d27c-19d8-42c4-8675-ae92166c8cf9", UserUUID: "3f9b95b0-e13e-4b44-bf46-75840e8fe52a", Type: shared_common.TypeSoftDelete},
-	{Name: "hard-delete budget - ", BudgetUUID: "671127d2-15d9-43a5-956c-5266f72204d0", UserUUID: "c6ccc482-9187-4baa-8925-0c60780627fe", Type: shared_common.TypeHardDelete},
+	{Name: "soft-delete budget - ", BudgetUUID: "b408d27c-19d8-42c4-8675-ae92166c8cf9", UserUUID: "3f9b95b0-e13e-4b44-bf46-75840e8fe52a", Type: shared_constant.TypeSoftDelete},
+	{Name: "hard-delete budget - ", BudgetUUID: "671127d2-15d9-43a5-956c-5266f72204d0", UserUUID: "c6ccc482-9187-4baa-8925-0c60780627fe", Type: shared_constant.TypeHardDelete},
 }
 
 func TestRemoveBudgetSuccessful(t *testing.T) {
-	conf, _, router := App()
-	testServer := httptest.NewServer(router)
+	appVariable := App()
+	testServer := httptest.NewServer(appVariable.HandlerApp)
 	defer testServer.Close()
 	dataQuery, errReadFileSql := os.ReadFile("load-mock-budget-data.sql")
 	if errReadFileSql != nil {
@@ -156,7 +156,7 @@ func TestRemoveBudgetSuccessful(t *testing.T) {
 	}
 	db := shared_testing.RefreshUserTestData(dataQuery, []string{"budgets", "expenses", "description_expenses"}, t)
 	for _, test := range CaseDataRemoveBudget {
-		accessToken := shared_testing.CreateTestAccessToken(test.UserUUID, conf.Signature, t)
+		accessToken := shared_testing.CreateTestAccessToken(test.UserUUID, appVariable.Conf.Signature, t)
 		requestGet, errReqGet := http.NewRequest(http.MethodDelete, testServer.URL+"/api/v1/budget/"+test.BudgetUUID+"?type="+test.Type, nil)
 		if errReqGet != nil {
 			t.Fatal(test.Name+"failed to prepare request: ", errReqGet)
@@ -168,12 +168,12 @@ func TestRemoveBudgetSuccessful(t *testing.T) {
 		}
 		shared_testing.HelperHandleResponse[model.Budgets](respGet, http.StatusNoContent, t)
 		budgets := &model.Budgets{}
-		if test.Type == shared_common.TypeSoftDelete {
+		if test.Type == shared_constant.TypeSoftDelete {
 			if db.Where("user_uuid = ? AND budget_uuid = ?", test.UserUUID, test.BudgetUUID).
 				Take(budgets).Error == nil {
 				t.Fatal(test.Name + "failed to remove user")
 			}
-		} else if test.Type == shared_common.TypeHardDelete {
+		} else if test.Type == shared_constant.TypeHardDelete {
 			if db.Unscoped().Where("user_uuid = ? AND budget_uuid = ?", test.UserUUID, test.BudgetUUID).
 				Take(budgets).Error == nil {
 				t.Fatal(test.Name + "failed to delete user")
@@ -194,10 +194,10 @@ var CaseListBudgetData = []struct {
 }
 
 func TestListBudgetSuccessful(t *testing.T) {
-	conf, _, router := App()
+	appVariable := App()
 	const userListUUID = "c9b8a7d6-e5f4-4321-890a-bcdef1234567"
-	accessToken := shared_testing.CreateTestAccessToken(userListUUID, conf.Signature, t)
-	testServer := httptest.NewServer(router)
+	accessToken := shared_testing.CreateTestAccessToken(userListUUID, appVariable.Conf.Signature, t)
+	testServer := httptest.NewServer(appVariable.HandlerApp)
 	defer testServer.Close()
 	dataQuery, errReadFileSql := os.ReadFile("load-mock-budget-data.sql")
 	if errReadFileSql != nil {

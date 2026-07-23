@@ -12,6 +12,7 @@ var (
 	ErrIncorrectTypeRemove          = errors.New("the type  must be a soft-delete or hard-delete")
 	ErrIncorrectLimit               = errors.New("the limit must be a positive integer not greater than 100")
 	ErrIncorrectOffset              = errors.New("the offset must be a positive integer")
+	ErrRateLimiting                 = errors.New("the limit for sending requests per minute has been exceeded")
 )
 
 type MapError struct {

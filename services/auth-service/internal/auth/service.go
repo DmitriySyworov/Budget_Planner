@@ -8,22 +8,24 @@ import (
 	"app/auth-service/internal/di"
 	"app/auth-service/internal/model"
 	"app/auth-service/internal/send_letter"
-	"fmt"
+	"app/auth-service/internal/validate_password"
+	"errors"
 	"shared/loggers"
 	"shared/shared_errors"
+	"strconv"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type ServiceAuth struct {
-	Repo      *RepositoryAuth
+	Repo      IRepositoryRedis
 	IRepoUser di.IRepoUser
 	Conf      *authconfig.Config
 	Logger    *loggers.Logger
 }
 
-func NewServiceAuth(repo *RepositoryAuth, repoUser di.IRepoUser, conf *authconfig.Config, logger *loggers.Logger) *ServiceAuth {
+func NewServiceAuth(repo IRepositoryRedis, repoUser di.IRepoUser, conf *authconfig.Config, logger *loggers.Logger) *ServiceAuth {
 	return &ServiceAuth{
 		Repo:      repo,
 		IRepoUser: repoUser,
@@ -31,13 +33,29 @@ func NewServiceAuth(repo *RepositoryAuth, repoUser di.IRepoUser, conf *authconfi
 		Logger:    logger,
 	}
 }
+
+// Register godoc
+// @Summary      Register a new user
+// @Description  Validates name length, strong password policy, and email uniqueness before triggering internal registration workflow.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body      RequestRegister  true  "Registration payload"
+// @Success      202      {object}  response.Response{data=common.ResponseAuth,errors=nil} "User registration process accepted"
+// @Failure      400      {object}  response.NegativeResponse "Client validation errors. Format: { \"errors\": { \"name\": \"name must be between 2 and 64 characters\" } } or { \"errors\": { \"email\": \"incorrect email\" } } or { \"errors\": { \"password\": \"password must be between 8 and 24 characters\" } } or { \"errors\": { \"user\": \"user already exist\" } }"
+// @Failure      429      {object}  response.NegativeResponse "Too many requests. Format: { \"errors\": { \"global\": \"the limit for sending requests per minute has been exceeded\" } }"
+// @Failure      500      {object}  response.NegativeResponse "Server errors. Format: { \"errors\": { \"global\": \"critical error on the server side\" } } or { \"errors\": { \"global\": \"failed to ensure security\" } }"
+// @Router       /register [post]
 func (s *ServiceAuth) Register(body *RequestRegister) (*common.ResponseAuth, error) {
 	mapError := shared_errors.MapError{Map: make(map[string]string, 2)}
-	errValidatePassword := common.ValidatePassword(body.Password, body.Email, []string{body.Name})
+	errValidatePassword := validate_password.ValidatePassword(body.Password, body.Email, []string{body.Name})
 	if errValidatePassword != nil {
 		mapError.Map["password"] = errValidatePassword.Error()
 	}
-	if s.IRepoUser.UserExistsByEmail(body.Email) {
+	userExist, errCheckUser := s.IRepoUser.UserExistsByEmail(body.Email)
+	if errCheckUser != nil {
+		mapError.Map["global"] = shared_errors.ErrCriticalServer.Error()
+	} else if userExist {
 		mapError.Map["user"] = ErrUserAlreadyExist.Error()
 	}
 	if len(mapError.Map) != 0 {
@@ -61,7 +79,6 @@ func (s *ServiceAuth) Register(body *RequestRegister) (*common.ResponseAuth, err
 }
 func (s *ServiceAuth) Login(body *RequestLogin) (*common.ResponseAuth, error) {
 	hashPassword, errGetPassword := s.IRepoUser.GetPasswordByEmail(body.Email)
-	fmt.Println(body.Email)
 	if errGetPassword != nil {
 		return nil, custom_errors.ErrIncorrectPasswordOrEmail
 	}
@@ -109,17 +126,18 @@ func (s *ServiceAuth) Recovery(body *RequestRecovery, action string) (*common.Re
 	return respAuth, nil
 }
 func (s *ServiceAuth) HelperAuth(action string, dataUser map[string]string) (*common.ResponseAuth, error) {
-	sender := send_letter.NewSendLetter(s.Conf.VerifyEmail, s.Logger)
+	sender := send_letter.NewSendLetter(s.Conf.SMTP, s.Logger)
 	sessionID := uuid.New().String()
+
 	code, errCode := send_letter.GenerateCode()
 	if errCode != nil {
-		s.Logger.Error("failed rand: ", errCode)
+		s.Logger.Error("failed create code: ", errCode)
 		return nil, custom_errors.ErrFailedSecurity
 	}
-	if sender.SendEmailLetter(dataUser[emailKey], code) != nil {
+	if sender.SendEmailLetter(common.ServiceName, dataUser[emailKey], code) != nil {
 		return nil, custom_errors.ErrFailedSecurity
 	}
-	dataUser[common.CodeKey] = fmt.Sprint(code)
+	dataUser[common.CodeKey] = strconv.Itoa(code)
 	if s.Repo.CreateUserSession(sessionID, action, dataUser) != nil {
 		return nil, custom_errors.ErrFailedSecurity
 	}
@@ -159,18 +177,24 @@ func (s *ServiceAuth) Confirm(body *RequestConfirm, sessionID, action, userAgent
 	if action == ActionRecoveryPassword && body.NewPassword == "" {
 		return nil, ErrNotSpecifiedNewPassword
 	}
-	dataUser, errGetCode := s.Repo.GetUserSession(sessionID, action)
-	if errGetCode != nil {
+	dataUser, errGetDataSession := s.Repo.GetUserSession(sessionID, action)
+	if errGetDataSession != nil {
 		return nil, custom_errors.ErrSessionExpired
 	}
-
-	if fmt.Sprint(body.Code) != dataUser[common.CodeKey] {
+	if len(dataUser) == 0 {
+		return nil, custom_errors.ErrSessionExpired
+	}
+	if strconv.Itoa(body.Code) != dataUser[common.CodeKey] {
 		return nil, custom_errors.ErrIncorrectCode
 	}
 	var userUUID string
 	switch action {
 	case ActionRegister:
-		if s.IRepoUser.UserExistsByEmail(dataUser[emailKey]) {
+		userExist, errCheckUser := s.IRepoUser.UserExistsByEmail(dataUser[emailKey])
+		if errCheckUser != nil {
+			return nil, shared_errors.ErrCriticalServer
+		}
+		if userExist {
 			return nil, ErrUserAlreadyExist
 		}
 		userUUID = uuid.New().String()
@@ -214,13 +238,17 @@ func (s *ServiceAuth) Confirm(body *RequestConfirm, sessionID, action, userAgent
 		}
 	}
 	refreshID := uuid.New().String()
-	respConfirm, errConfirm := s.helperConfirm(userUUID, refreshID)
+	respConfirm, errConfirm := s.helperCreateToken(userUUID, refreshID)
 	if errConfirm != nil {
 		return nil, custom_errors.ErrFailedSecurity
 	}
-	if errDeleteOldRefresh := s.Repo.DeleteOldRefresh(userUUID); errDeleteOldRefresh != nil {
-		if action != ActionRegister {
-			s.Logger.Warn(fmt.Sprintf("failed to delete old refreshID in action %s:", action) + errDeleteOldRefresh.Error())
+	if action != ActionRegister {
+		oldRefreshID, errGetRefreshID := s.Repo.GetRefreshID(userUUID)
+		if errGetRefreshID != nil {
+			s.Logger.Warn("failed to get old refreshID in action:" + action + " - " + errGetRefreshID.Error())
+		}
+		if errDeleteOldRefresh := s.Repo.DeleteRefresh(userUUID, oldRefreshID); errDeleteOldRefresh != nil {
+			s.Logger.Warn("failed to delete old refreshID in action:" + action + " - " + errDeleteOldRefresh.Error())
 		}
 	}
 	if s.Repo.CreateRefresh(refreshID, userUUID, userAgent) != nil {
@@ -234,24 +262,41 @@ func (s *ServiceAuth) Refresh(oldRefreshToken, userAgent string) (*ResponseConfi
 	if errParseRefresh != nil {
 		return nil, errParseRefresh
 	}
-	dtoRefresh, errGetRefresh := s.Repo.GetRefresh(oldRefreshID)
+	refreshValues, errGetRefresh := s.Repo.GetRefresh(oldRefreshID)
 	if errGetRefresh != nil {
 		return nil, ErrRenewalRefresh
 	}
-	if userAgent != dtoRefresh.UserAgent {
+	if userAgent != refreshValues.UserAgent {
 		return nil, ErrRenewalRefresh
 	}
 	newRefreshID := uuid.New().String()
-	respConfirm, errConfirm := s.helperConfirm(dtoRefresh.UserUUID, newRefreshID)
+	respConfirm, errConfirm := s.helperCreateToken(refreshValues.UserUUID, newRefreshID)
 	if errConfirm != nil {
 		return nil, custom_errors.ErrFailedSecurity
 	}
-	if s.Repo.RotationRefresh(newRefreshID, oldRefreshID, dtoRefresh.UserUUID, dtoRefresh.UserAgent) != nil {
+	if errRotation := s.Repo.RotationRefresh(refreshValues.UserUUID, newRefreshID, oldRefreshID, refreshValues.UserAgent); errRotation != nil {
+		if errors.Is(errRotation, ErrRefreshExpired) {
+			return nil, ErrRefreshExpired
+		}
 		return nil, custom_errors.ErrFailedSecurity
 	}
 	return respConfirm, nil
 }
-func (s *ServiceAuth) helperConfirm(userUUID, refreshID string) (*ResponseConfirm, error) {
+func (s *ServiceAuth) Logout(refreshToken string) {
+	j := JWT.NewJWT(s.Conf.Signature, s.Logger)
+	refreshID, errParseRefresh := j.ParseRefreshToken(refreshToken)
+	if errParseRefresh != nil {
+		return
+	}
+	refreshValues, errGetRefresh := s.Repo.GetRefresh(refreshID)
+	if errGetRefresh != nil {
+		return
+	}
+	if s.Repo.DeleteRefresh(refreshValues.UserUUID, refreshID) != nil {
+		return
+	}
+}
+func (s *ServiceAuth) helperCreateToken(userUUID, refreshID string) (*ResponseConfirm, error) {
 	j := JWT.NewJWT(s.Conf.Signature, s.Logger)
 	accessJwt, errCreateAccess := j.CreateAccessJWT(userUUID)
 	if errCreateAccess != nil {

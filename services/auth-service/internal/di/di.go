@@ -7,7 +7,7 @@ import (
 
 type IRepoUser interface {
 	CreateUser(user *model.Users) error
-	UserExistsByEmail(email string) bool
+	UserExistsByEmail(email string) (bool, error)
 	GetPasswordByEmail(email string) (string, error)
 	GetUserUUIDByEmail(email string) (string, error)
 	RecoveryUser(userUUID string) error
@@ -18,5 +18,7 @@ type IServiceAuth interface {
 	HelperAuth(action string, dataUser map[string]string) (*common.ResponseAuth, error)
 }
 type IRepoAuth interface {
+	DeleteRefresh(userUUID string, refreshID string) error
+	GetRefreshID(userUUID string) (string, error)
 	GetUserSession(sessionID, action string) (map[string]string, error)
 }

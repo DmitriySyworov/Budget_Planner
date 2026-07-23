@@ -7,8 +7,9 @@ metadata:
   namespace: default
 spec:
   completions: 1
-  backoffLimit: 2
+  backoffLimit: 5
   activeDeadlineSeconds: 200
+  ttlSecondsAfterFinished: 10
   template:
     metadata:
       name: {{ .name }}-pod
@@ -21,7 +22,7 @@ spec:
           command:
             - "sh"
             - "-c"
-            - "until nc -z -v -w3 {{ .dbHost }} {{ .dbPort }}; do echo 'Waiting for Kafka broker...'; sleep 2; done"
+            - "until nc -z -v -w3 my-kafka-chart 9092; do echo 'Waiting for Kafka secure port...'; sleep 2; done"
         {{- else }}
         - name: wait-for-db
           image: busybox:latest
@@ -32,23 +33,51 @@ spec:
         {{- end }}
       containers:
         - name: {{ .name }}-tool
-          image: {{ .image }}
+          {{- $resultImage := .image}}
+          {{- if contains "user" .name }}
+          {{- $resultImage = printf "%s:%s" .image $.Values.versions.authUserVersion }}
+          {{- else if contains "budget-planner" .name }}
+          {{- $resultImage = printf "%s:%s" .image $.Values.versions.budgetPlannerVersion }}
+          {{- end }}
+          image: {{ $resultImage | quote}}
           {{- if .isTopicCreator }}
           command:
             - "sh"
             - "-c"
             - |
+              kafka-configs.sh --bootstrap-server my-kafka-chart-controller-0.my-kafka-chart-headless:9094 \
+                --entity-type users --entity-name $KAFKA_CLIENT_USER --alter \
+                --add-config "SCRAM-SHA-512=[password=$KAFKA_CLIENT_PASSWORD]"
+
+              kafka-topics.sh --bootstrap-server my-kafka-chart-controller-0.my-kafka-chart-headless:9094 \
+                --create --if-not-exists \
+                --topic "__consumer_offsets" \
+                --partitions 1 \
+                --replication-factor 1 \
+                --config cleanup.policy=compact \
+                --config segment.bytes=104857600
+
+              echo "security.protocol=SASL_PLAINTEXT" > /tmp/client.properties
+              echo "sasl.mechanism=SCRAM-SHA-512" >> /tmp/client.properties
+              echo "sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username=\"$KAFKA_CLIENT_USER\" password=\"$KAFKA_CLIENT_PASSWORD\";" >> /tmp/client.properties
+
+              {{- $outsideJob := . }}
               {{- range .topics }}
-              kafka-topics.sh --bootstrap-server {{ $outside.bootstrapServer }} \
+              kafka-topics.sh --bootstrap-server {{ $outsideJob.bootstrapServer }} \
+                --command-config /tmp/client.properties \
                 --create --if-not-exists \
                 --topic {{ .name }} \
                 --partitions {{ .partitions }} \
                 --replication-factor 1
               {{- end }}
+              rm -f /tmp/client.properties
+          env:
+            {{- range .extraEnv }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
           {{- else }}
           command: {{ .command }}
-          {{- end }}
-          {{- if not .isTopicCreator }}
           env:
             {{- range $.Values.secrets }}
             {{- if eq .secretName $outside.secretName}}
@@ -61,6 +90,6 @@ spec:
             {{- end }}
             {{- end }}
             {{- end }}
-            {{- end }}
+          {{- end }}
 ---
 {{- end }}

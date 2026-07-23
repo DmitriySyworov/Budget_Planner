@@ -14,4 +14,5 @@ var (
 	ErrIncorrectActionRecovery = errors.New("action must be recovery_password or recovery_user")
 	ErrChangePassword          = errors.New("failed to change password")
 	ErrPasswordEmpty           = errors.New("password is empty")
+	ErrRefreshExpired           = errors.New("session has expired try again later")
 )

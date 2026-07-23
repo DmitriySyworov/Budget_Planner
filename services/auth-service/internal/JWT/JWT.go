@@ -25,6 +25,7 @@ func (j *JWT) CreateSessionJWT(sessionID string) (string, error) {
 	claim := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"type": "session",
 		"sub":  sessionID,
+		"iat":  time.Now().Unix(),
 		"exp":  time.Now().Add(time.Minute * 5).Unix(),
 	})
 	token, errToken := claim.SignedString(j.Signature)
@@ -38,7 +39,8 @@ func (j *JWT) CreateAccessJWT(userUUID string) (string, error) {
 	claim := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"type": "access",
 		"sub":  userUUID,
-		"exp":  time.Now().Add(time.Minute * 5).Unix(),
+		"iat":  time.Now().Unix(),
+		"exp":  time.Now().Add(common.TTLSessionJWT).Unix(),
 	})
 	token, errToken := claim.SignedString(j.Signature)
 	if errToken != nil {
@@ -51,7 +53,8 @@ func (j *JWT) CreateRefreshJWT(refreshID string) (string, error) {
 	claim := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"type": "refresh",
 		"sub":  refreshID,
-		"exp":  time.Now().Add(common.TimeMonth).Unix(),
+		"iat":  time.Now().Unix(),
+		"exp":  time.Now().Add(common.TTLRefreshKey).Unix(),
 	})
 	token, errToken := claim.SignedString(j.Signature)
 	if errToken != nil {

@@ -10,12 +10,25 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+type IRepositoryBudget interface {
+	CreateBudget(budget *model.Budgets) error
+	UpdateBudget(budget *model.Budgets, userUUID, budgetUUID string) error
+	GetBudget(userUUID, budgetUUID string) (*model.Budgets, error)
+	RemoveBudget(userUUID, budgetUUID string) error
+	DeleteBudget(userUUID, budgetUUID string) error
+	DeleteAllUserBudgets(userUUID string)
+	DateOverlapCreate(userUUID string, start, finish time.Time) bool
+	DateOverlapUpdate(userUUID, budgetUUID string, start, finish time.Time) bool
+	ListBudget(userUUID string, limit, offset int) ([]model.Budgets, error)
+	BudgetExist(userUUID, budgetUUID string) bool
+}
+
 type RepositoryBudget struct {
 	*open_db.Postgres
 	*loggers.Logger
 }
 
-func NewRepositoryBudget(db *open_db.Postgres, logger *loggers.Logger) *RepositoryBudget {
+func NewRepositoryBudget(db *open_db.Postgres, logger *loggers.Logger) IRepositoryBudget {
 	return &RepositoryBudget{
 		Postgres: db,
 		Logger:   logger,
@@ -68,6 +81,15 @@ func (r *RepositoryBudget) DeleteBudget(userUUID, budgetUUID string) error {
 		return errDelete
 	}
 	return nil
+}
+func (r *RepositoryBudget) DeleteAllUserBudgets(userUUID string) {
+	if errDelete := r.Postgres.
+		Unscoped().
+		Where("user_uuid = ?", userUUID).
+		Delete(&model.Budgets{}).
+		Error; errDelete != nil {
+		r.Logger.Warn("failed to delete user budgets maybe it was deleted earlier: " + errDelete.Error())
+	}
 }
 func (r *RepositoryBudget) DateOverlapCreate(userUUID string, start, finish time.Time) bool {
 	var isOverlap bool

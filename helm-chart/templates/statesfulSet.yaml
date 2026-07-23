@@ -23,6 +23,10 @@ spec:
           command: ["redis-server"]
           args: ["--requirepass", "$(REDIS_PASSWORD)", "--appendonly", "yes"]
           {{- end }}
+          {{- if .isSharedRedis }}
+          command: [ "redis-server" ]
+          args: [ "--requirepass", "$(SHARED_REDIS_PASSWORD)", "--appendonly", "yes" ]
+          {{- end }}
           ports:
             - containerPort: {{ .port }}
           env:

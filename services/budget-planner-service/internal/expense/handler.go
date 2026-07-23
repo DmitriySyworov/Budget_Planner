@@ -16,14 +16,16 @@ import (
 type HandlerExpense struct {
 	*ServiceExpense
 	*loggers.Logger
+	*validator.Validate
 	*response.HandlerResponse
 	*shared_middleware.ManagerSharedMiddleware
 }
 
-func NewHandlerExpense(router *http.ServeMux, service *ServiceExpense, logger *loggers.Logger, responseHandler *response.HandlerResponse, mv *shared_middleware.ManagerSharedMiddleware) {
+func NewHandlerExpense(router *http.ServeMux, service *ServiceExpense, logger *loggers.Logger, responseHandler *response.HandlerResponse, validate *validator.Validate, mv *shared_middleware.ManagerSharedMiddleware) {
 	expense := &HandlerExpense{
 		Logger:          logger,
 		ServiceExpense:  service,
+		Validate:        validate,
 		HandlerResponse: responseHandler,
 	}
 	router.Handle("POST /api/v1/description-expense/{budget_uuid}", mv.HandlerAccessToken(expense.CreateExpense()))
@@ -47,7 +49,7 @@ func (h *HandlerExpense) CreateExpense() http.HandlerFunc {
 			h.ResponseSend(writer, resp, http.StatusInternalServerError)
 			return
 		}
-		body, errBody := handler_request.HandlerRequest[RequestCreateDescriptionExpense](request.Body)
+		body, errBody := handler_request.HandlerRequest[RequestCreateDescriptionExpense](request.Body, h.Validate)
 		if errBody != nil {
 			mapError := shared_errors.MapError{Map: make(map[string]string, 3)}
 			if errValidate, isErrValid := errBody.(validator.ValidationErrors); isErrValid {
@@ -109,7 +111,7 @@ func (h *HandlerExpense) UpdateExpense() http.HandlerFunc {
 			h.ResponseSend(writer, resp, http.StatusInternalServerError)
 			return
 		}
-		body, errBody := handler_request.HandlerRequest[RequestUpdateDescriptionExpense](request.Body)
+		body, errBody := handler_request.HandlerRequest[RequestUpdateDescriptionExpense](request.Body, h.Validate)
 		if errBody != nil {
 			mapError := shared_errors.MapError{Map: make(map[string]string, 3)}
 			if errValidate, isErrValid := errBody.(validator.ValidationErrors); isErrValid {
