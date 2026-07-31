@@ -1,7 +1,8 @@
 go 1.25.7
 
 use (
-	./services/auth-service
-	./services/budget-planner-service
+	./services/auth
+	./services/budget
+	./services/notification
 	./shared
 )
