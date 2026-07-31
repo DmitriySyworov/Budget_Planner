@@ -1,10 +1,15 @@
 versions:
   authUserVersion: "v1"
   budgetPlannerVersion: "v1"
+  notificationVersion: "v1"
   defaultVersion: "v1"
+replicasCount:
+  authReplicas: 3
+  budgetReplicas: 3
+  notificationReplicas: 3
+  defaultReplicas: 3
 microservices:
   - name : app-auth-user
-    replicas : 3
     image : "dmitriysyworov/auth-user-service"
     port : 8080
     ingressPaths:
@@ -12,15 +17,17 @@ microservices:
       - /api/v1/login
       - /api/v1/recovery
       - /api/v1/refresh
+      - /api/v1/logout-
       - /api/v1/confirm
       - /api/v1/user
+    host: "budget-planner"
     service:
       type: NodePort
       port: 80
-      nodePort: 32001
+      nodePort: 32000
+    checkLivenessProbe: true
     secretName: "auth-user-all-secrets"
   - name : app-budget-planner
-    replicas: 3
     image: "dmitriysyworov/budget-planner-service"
     port: 8080
     ingressPaths:
@@ -28,11 +35,20 @@ microservices:
       - /api/v1/expense
       - /api/v1/description-expense
       - /api/v1/finance
+    host: "budget-planner"
     service:
       type: NodePort
       port: 80
-      nodePort: 32000
+      nodePort: 32001
+    checkLivenessProbe: true
     secretName: "budget-planner-all-secrets"
+  - name : notification
+    image : "dmitriysyworov/notification"
+    port : 8080
+    service:
+      type: ClusterIP
+      port: 80
+    secretName: "notification-all-secrets"
 statefulServices:
   - name: postgres-user
     image: "postgres:18-alpine"
@@ -85,11 +101,13 @@ jobServices:
     bootstrapServer: "my-kafka-chart:9092"
     extraEnv:
       - name: KAFKA_CLIENT_USER
-        value: "kafka_user"
+        value: "user1"
       - name: KAFKA_CLIENT_PASSWORD
-        value: "kafka_password"
+        value: "example_password"
     topics:
       - name: "deleted-users-topic"
+        partitions: 3
+      - name: "notification-topic"
         partitions: 3
 secrets:
   - secretName: "redis-shared-all-secrets"
@@ -99,83 +117,109 @@ secrets:
         value: 'redis-shared-service:6379'
       - name: SHARED_REDIS_PASSWORD
         key: shared-redis-password
-        value: 'shared_redis_password'
+        value: 'example_password'
   - secretName: "auth-user-all-secrets"
     envSecrets:
       - name: DSN
         key: dsn
-        value: 'host=postgres-user-service user=postgres_user password=postgres_password dbname=user port=5432 sslmode=disable'
+        value: 'host=postgres-user-service user=example_user password=example_password dbname=example_db port=5432 sslmode=disable'
       - name: JWT_SIGNATURE
         key: jwt-signature
         value: '*.01?Ue)p6]H=|C:o-.2z%5R^]@}:r9E_&k#4LC(bOR'
-      - name: API_EMAIL
-        key: api-email
-        value: 'example@gmail.com'
-      - name: API_PASSWORD
-        key: api-password
-        value: 'api_password'
-      - name: SMTP_ADDRESS
-        key: smtp-address
-        value: 'smtp.gmail.com'
-      - name: SMTP_ADDRESS_HOST
-        key: smtp-address-host
-        value: 'smtp.gmail.com:587'
       - name: POSTGRES_USER
         key: postgres-user
-        value: 'postgres_user'
+        value: 'example_user'
       - name: POSTGRES_PASSWORD
         key: postgres-password
-        value: 'postgres_password'
+        value: 'example_password'
       - name: POSTGRES_DB
         key: postgres-db
-        value: 'user'
+        value: 'example_db'
       - name: REDIS_ADDRESS
         key: redis-address
         value: 'redis-auth-service:6379'
       - name: REDIS_PASSWORD
         key: redis-password
-        value: 'redis_password'
+        value: 'example_password'
       - name: KAFKA_CLIENT_USER
         key: kafka-user
-        value: "kafka_user"
+        value: "user1"
       - name: KAFKA_CLIENT_PASSWORD
         key: kafka-password
-        value: "kafka_password"
+        value: "example_password"
       - name: KAFKA_BOOTSTRAP
         key: kafka-bootstrap
         value: "my-kafka-chart:9092"
       - name: DELETED_USERS_TOPIC
         key: deleted-users-topic
         value: "deleted-users-topic"
+      - name: NOTIFICATION_TOPIC
+        key: notification-topic
+        value: "notification-topic"
       - name: SHARED_REDIS_ADDRESS
         key: shared-redis-address
         value: 'redis-shared-service:6379'
       - name: SHARED_REDIS_PASSWORD
         key: shared-redis-password
-        value: 'shared_redis_password'
+        value: 'example_password'
+  - secretName: "notification-all-secrets"
+    envSecrets:
+      - name: API_EMAIL
+        key: api-email
+        value: 'example@gmail.com'
+      - name: API_PASSWORD
+        key: api-password
+        value: 'example_password'
+      - name: SMTP_ADDRESS
+        key: smtp-address
+        value: 'smtp.gmail.com'
+      - name: SMTP_ADDRESS_HOST
+        key: smtp-address-host
+        value: 'smtp.gmail.com:587'
+      - name: KAFKA_CLIENT_USER
+        key: kafka-user
+        value: "user1"
+      - name: KAFKA_CLIENT_PASSWORD
+        key: kafka-password
+        value: "example_password"
+      - name: KAFKA_BOOTSTRAP
+        key: kafka-bootstrap
+        value: "my-kafka-chart:9092"
+      - name: NOTIFICATION_TOPIC
+        key: notification-topic
+        value: "notification-topic"
+      - name: NOTIFICATION_GROUP_ID
+        key: notification-group-id
+        value: "notification-group-id"
+      - name: SHARED_REDIS_ADDRESS
+        key: shared-redis-address
+        value: 'redis-shared-service:6379'
+      - name: SHARED_REDIS_PASSWORD
+        key: shared-redis-password
+        value: 'example_password'
   - secretName: "budget-planner-all-secrets"
     envSecrets:
       - name: DSN
         key: dsn
-        value: 'host=postgres-budget-service user=postgres_user password=postgres_password dbname=planner port=5432 sslmode=disable'
+        value: 'host=postgres-budget-service user=example_user password=example_password dbname=example_db port=5432 sslmode=disable'
       - name: JWT_SIGNATURE
         key: jwt-signature
         value: '*.01?Ue)p6]H=|C:o-.2z%5R^]@}:r9E_&k#4LC(bOR'
       - name: POSTGRES_USER
         key: postgres-budget
-        value: 'postgres_user'
+        value: 'example_user'
       - name: POSTGRES_PASSWORD
         key: postgres-password
-        value: 'postgres_password'
+        value: 'example_password'
       - name: POSTGRES_DB
         key: postgres-db
-        value: 'planner'
+        value: 'example_db'
       - name: KAFKA_CLIENT_USER
         key: kafka-user
-        value: "user_kafka"
+        value: "user1"
       - name: KAFKA_CLIENT_PASSWORD
         key: kafka-password
-        value: "kafka_password"
+        value: "example_password"
       - name: KAFKA_BOOTSTRAP
         key: kafka-bootstrap
         value: "my-kafka-chart:9092"
@@ -190,21 +234,32 @@ secrets:
         value: 'redis-shared-service:6379'
       - name: SHARED_REDIS_PASSWORD
         key: shared-redis-password
-        value: 'shared_redis_pass'
+        value: 'example_password'
   - secretName: "kafka-all-secrets"
     envSecrets:
       - name: KAFKA_CLIENT_USER
         key: kafka-user
-        value: "kafka_user"
+        value: "user1"
       - name: KAFKA_CLIENT_PASSWORD
         key: kafka-password
-        value: "kafka_password"
+        value: "example_password"
       - name: KAFKA_BOOTSTRAP
         key: kafka-bootstrap
         value: "my-kafka-chart:9092"
-#Kafka options
+# Kafka options
 controller:
   replicaCount: 1
+
+resources:
+  requests:
+    memory: "768Mi"
+    cpu: "250m"
+  limits:
+    memory: "1536Mi"
+    cpu: "1"
+
+heapOpts: "-Xmx512m -Xms512m"
+
 listeners:
   client:
     protocol: SASL_PLAINTEXT
@@ -212,23 +267,28 @@ listeners:
     protocol: PLAINTEXT
   interbroker:
     protocol: PLAINTEXT
-client:
-  jaas:
-    clientUsers:
-      - "kafka_user"
-    clientPasswords:
-      - "kafka_password"
+sasl:
+  client:
+    users:
+      - "user1"
+    passwords:
+      - "example_password"
+
+extraEnvVars:
+  - name: KAFKA_HEALTHCHECK_PORT
+    value: "9094"
+
 extraConfig: |
   offsets.topic.replication.factor=1
   offsets.topic.num.partitions=1
-  transaction.state.log.replication.factor=1
-  transaction.state.log.min.isr=1
   default.replication.factor=1
   auto.create.topics.enable=true
-  group.initial.rebalance.delay.ms=0
-heapOpts: "-Xmx512m -Xms512m"
-resources:
-  requests:
-    memory: "512Mi"
-  limits:
-    memory: "2048Mi"
+  allow.everyone.if.no.acl.found=true
+  sasl.enabled.mechanisms=SCRAM-SHA-256
+  offsets.topic.min.insync.replicas=1
+  transaction.state.log.min.insync.replicas=1
+  transaction.state.log.replication.factor=1
+  transaction.state.log.num.partitions=1
+  group.initial.rebalance.delay.ms=15000
+  group.max.session.timeout.ms=60000
+  group.coordinator.min.rebalance.timeout.ms=10000

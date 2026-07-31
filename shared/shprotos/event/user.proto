@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+option go_package = "shared/shprotos/event;event";
+
+package event;
+
+message DeleteUserDataEvent {
+  string user_uuid = 1;
+}

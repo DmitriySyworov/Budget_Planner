@@ -2,7 +2,7 @@ package pagination_test
 
 import (
 	"shared/pagination"
-	"shared/shared_errors"
+	"shared/sherrors"
 	"testing"
 )
 
@@ -25,7 +25,7 @@ var CasePaginationDataSuccess = []struct {
 func TestHelperPaginationSuccess(t *testing.T) {
 	for _, test := range CasePaginationDataSuccess {
 		t.Run(test.TestName, func(t *testing.T) {
-			mapError := &shared_errors.MapError{Map: make(map[string]string, 2)}
+			mapError := &sherrors.MapError{Map: make(map[string]string, 2)}
 			limit, offset := pagination.HelperPagination(test.LimitStr, test.OffsetStr, mapError)
 			if len(mapError.Map) != 0 {
 				t.Fatalf("unexpected errors: limit error: %s, offset error: %s", mapError.Map["limit"], mapError.Map["offset"])
@@ -63,7 +63,7 @@ var CasePaginationDataNegative = []struct {
 func TestHelperPaginationNegative(t *testing.T) {
 	for _, test := range CasePaginationDataNegative {
 		t.Run(test.TestName, func(t *testing.T) {
-			mapError := &shared_errors.MapError{Map: make(map[string]string, 2)}
+			mapError := &sherrors.MapError{Map: make(map[string]string, 2)}
 			pagination.HelperPagination(test.LimitStr, test.OffsetStr, mapError)
 
 			if len(mapError.Map) == 0 {

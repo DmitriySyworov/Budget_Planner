@@ -6,7 +6,15 @@ metadata:
   name: {{ .name }}
   namespace: default
 spec:
-  replicas: {{ .replicas }}
+  {{- $replicas := $.Values.replicasCount.defaultReplicas }}
+  {{- if contains "user" .name }}
+  {{- $replicas = $.Values.replicasCount.authReplicas }}
+  {{- else if contains "budget-planner" .name }}
+  {{- $replicas = $.Values.replicasCount.budgetReplicas }}
+  {{- else if contains "notification" .name }}
+  {{- $replicas = $.Values.replicasCount.notificationReplicas }}
+  {{- end }}
+  replicas: {{ $replicas }}
   selector:
     matchLabels:
       app: {{ .name }}
@@ -24,6 +32,8 @@ spec:
           {{- $version = $.Values.versions.authUserVersion }}
           {{- else if contains "budget-planner" .name }}
           {{- $version = $.Values.versions.budgetPlannerVersion }}
+          {{- else if contains "notification" .name }}
+          {{- $version = $.Values.versions.notificationVersion}}
           {{- end }}
           image: "{{ .image }}:{{ $version }}"
           imagePullPolicy: Always
@@ -41,6 +51,7 @@ spec:
             {{- end }}
             {{- end }}
             {{- end }}
+          {{- if .checkLivenessProbe }}
           livenessProbe:
             httpGet:
               path: /health
@@ -56,5 +67,6 @@ spec:
             periodSeconds: 15
             timeoutSeconds: 3
             failureThreshold: 3
+            {{- end }}
 ---
 {{- end }}

@@ -45,21 +45,22 @@ spec:
             - "sh"
             - "-c"
             - |
-              kafka-configs.sh --bootstrap-server my-kafka-chart-controller-0.my-kafka-chart-headless:9094 \
-                --entity-type users --entity-name $KAFKA_CLIENT_USER --alter \
-                --add-config "SCRAM-SHA-512=[password=$KAFKA_CLIENT_PASSWORD]"
+              echo "=== Step 1: Generating client properties ==="
+              cat << 'EOF' > /tmp/client.properties
+              security.protocol=SASL_PLAINTEXT
+              sasl.mechanism=SCRAM-SHA-256
+              EOF
 
-              kafka-topics.sh --bootstrap-server my-kafka-chart-controller-0.my-kafka-chart-headless:9094 \
+              echo "sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username=\"$KAFKA_CLIENT_USER\" password=\"$KAFKA_CLIENT_PASSWORD\";" >> /tmp/client.properties
+
+              kafka-topics.sh --bootstrap-server {{ .bootstrapServer }} \
+                --command-config /tmp/client.properties \
                 --create --if-not-exists \
                 --topic "__consumer_offsets" \
                 --partitions 1 \
                 --replication-factor 1 \
                 --config cleanup.policy=compact \
                 --config segment.bytes=104857600
-
-              echo "security.protocol=SASL_PLAINTEXT" > /tmp/client.properties
-              echo "sasl.mechanism=SCRAM-SHA-512" >> /tmp/client.properties
-              echo "sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username=\"$KAFKA_CLIENT_USER\" password=\"$KAFKA_CLIENT_PASSWORD\";" >> /tmp/client.properties
 
               {{- $outsideJob := . }}
               {{- range .topics }}
@@ -71,6 +72,7 @@ spec:
                 --replication-factor 1
               {{- end }}
               rm -f /tmp/client.properties
+
           env:
             {{- range .extraEnv }}
             - name: {{ .name }}

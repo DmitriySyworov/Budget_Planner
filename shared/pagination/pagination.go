@@ -1,7 +1,7 @@
 package pagination
 
 import (
-	"shared/shared_errors"
+	"shared/sherrors"
 	"strconv"
 )
 
@@ -11,32 +11,32 @@ const (
 	DefaultOffset = 0
 )
 
-func HelperPagination(limitStr, offsetStr string, mapError *shared_errors.MapError) (int, int) {
+func HelperPagination(limitStr, offsetStr string, mapError *sherrors.MapError) (int, int) {
 	var limit, offset int
 	var errLimit, errOffset error
 	if limitStr != "" {
 		limit, errLimit = strconv.Atoi(limitStr)
 		if errLimit != nil {
-			mapError.Map["limit"] = shared_errors.ErrIncorrectLimit.Error()
+			mapError.Map["limit"] = sherrors.ErrIncorrectLimit.Error()
 		}
 	} else {
 		limit = DefaultLimit
 	}
 	if limit > MaxLimit {
-		mapError.Map["limit"] = shared_errors.ErrIncorrectLimit.Error()
+		mapError.Map["limit"] = sherrors.ErrIncorrectLimit.Error()
 	} else if limit <= 0 {
-		mapError.Map["limit"] = shared_errors.ErrIncorrectLimit.Error()
+		mapError.Map["limit"] = sherrors.ErrIncorrectLimit.Error()
 	}
 	if offsetStr != "" {
 		offset, errOffset = strconv.Atoi(offsetStr)
 		if errOffset != nil {
-			mapError.Map["offset"] = shared_errors.ErrIncorrectOffset.Error()
+			mapError.Map["offset"] = sherrors.ErrIncorrectOffset.Error()
 		}
 	} else {
 		offset = DefaultOffset
 	}
 	if offset < 0 {
-		mapError.Map["offset"] = shared_errors.ErrIncorrectOffset.Error()
+		mapError.Map["offset"] = sherrors.ErrIncorrectOffset.Error()
 	}
 	return limit, offset
 }
