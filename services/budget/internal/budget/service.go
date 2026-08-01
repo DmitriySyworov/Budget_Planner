@@ -3,6 +3,7 @@ package budget
 import (
 	"app/budget-planner/internal/apperrors"
 	"app/budget-planner/internal/model"
+	"context"
 	"errors"
 	"shared/loggers"
 	"shared/pagination"
@@ -26,7 +27,7 @@ func NewServiceBudget(repo IRepositoryBudget, logger *loggers.Logger) *ServiceBu
 		Logger: logger,
 	}
 }
-func (s *ServiceBudget) CreateBudget(body *RequestCreateBudget, userUUID string) (*model.Budgets, error) {
+func (s *ServiceBudget) CreateBudget(ctxRequest context.Context, body *RequestCreateBudget, userUUID string) (*model.Budgets, error) {
 	mapError := sherrors.MapError{Map: make(map[string]string, 3)}
 	start, errStart := time.Parse(time.DateOnly, body.Start)
 	if errStart != nil {
@@ -39,7 +40,7 @@ func (s *ServiceBudget) CreateBudget(body *RequestCreateBudget, userUUID string)
 	if errFinish == nil && errStart == nil && start.Unix() >= finish.Unix() {
 		mapError.Map["dates"] = ErrIncorrectDates.Error()
 	}
-	if s.Repo.DateOverlapCreate(userUUID, start, finish) {
+	if s.Repo.DateOverlapCreate(ctxRequest, userUUID, start, finish) {
 		mapError.Map["dates"] = ErrOverlapStartFinish.Error()
 	}
 	if len(mapError.Map) != 0 {
@@ -53,14 +54,14 @@ func (s *ServiceBudget) CreateBudget(body *RequestCreateBudget, userUUID string)
 		BudgetUUID:  uuid.New().String(),
 		UserUUID:    userUUID,
 	}
-	if errCreate := s.Repo.CreateBudget(budget); errCreate != nil {
+	if errCreate := s.Repo.CreateBudget(ctxRequest, budget); errCreate != nil {
 		return nil, ErrFailedCreateBudget
 	}
 	return budget, nil
 }
-func (s *ServiceBudget) UpdateBudget(body *RequestUpdateBudget, userUUID, budgetUUID string) (*model.Budgets, error) {
+func (s *ServiceBudget) UpdateBudget(ctxRequest context.Context, body *RequestUpdateBudget, userUUID, budgetUUID string) (*model.Budgets, error) {
 	mapError := sherrors.MapError{Map: make(map[string]string, 4)}
-	budget, errValidate := s.HelperValidateBudget(userUUID, budgetUUID)
+	budget, errValidate := s.HelperValidateBudget(ctxRequest, userUUID, budgetUUID)
 	if errValidate != nil {
 		mapError.Map["budget"] = errValidate.Error()
 	}
@@ -82,21 +83,21 @@ func (s *ServiceBudget) UpdateBudget(body *RequestUpdateBudget, userUUID, budget
 		if start.Unix() >= finish.Unix() {
 			mapError.Map["dates"] = ErrIncorrectDates.Error()
 		}
-		if s.Repo.DateOverlapUpdate(userUUID, budgetUUID, start, finish) {
+		if s.Repo.DateOverlapUpdate(ctxRequest, userUUID, budgetUUID, start, finish) {
 			mapError.Map["dates"] = ErrOverlapStartFinish.Error()
 		}
 	} else if body.Start != "" && body.Finish == "" && errStart == nil && errValidate == nil {
 		if start.Unix() >= budget.Finish.Unix() {
 			mapError.Map["dates"] = ErrIncorrectDates.Error()
 		}
-		if s.Repo.DateOverlapUpdate(userUUID, budgetUUID, start, budget.Finish) {
+		if s.Repo.DateOverlapUpdate(ctxRequest, userUUID, budgetUUID, start, budget.Finish) {
 			mapError.Map["dates"] = ErrOverlapStartFinish.Error()
 		}
 	} else if body.Start == "" && body.Finish != "" && errFinish == nil && errValidate == nil {
 		if budget.Start.Unix() >= finish.Unix() {
 			mapError.Map["dates"] = ErrIncorrectDates.Error()
 		}
-		if s.Repo.DateOverlapUpdate(userUUID, budgetUUID, budget.Start, finish) {
+		if s.Repo.DateOverlapUpdate(ctxRequest, userUUID, budgetUUID, budget.Start, finish) {
 			mapError.Map["dates"] = ErrOverlapStartFinish.Error()
 		}
 	}
@@ -107,23 +108,23 @@ func (s *ServiceBudget) UpdateBudget(body *RequestUpdateBudget, userUUID, budget
 	budget.Start = start
 	budget.Finish = finish
 	budget.Description = body.Description
-	errUpdate := s.Repo.UpdateBudget(budget, userUUID, budgetUUID)
+	errUpdate := s.Repo.UpdateBudget(ctxRequest, budget, userUUID, budgetUUID)
 	if errUpdate != nil {
 		return nil, ErrFailedUpdateBudget
 	}
 	return budget, nil
 }
-func (s *ServiceBudget) GetBudget(userUUID, budgetUUID string) (*model.Budgets, error) {
-	budget, errValidate := s.HelperValidateBudget(userUUID, budgetUUID)
+func (s *ServiceBudget) GetBudget(ctxRequest context.Context, userUUID, budgetUUID string) (*model.Budgets, error) {
+	budget, errValidate := s.HelperValidateBudget(ctxRequest, userUUID, budgetUUID)
 	if errValidate != nil {
 		return nil, errValidate
 	}
 	return budget, nil
 }
 
-func (s *ServiceBudget) RemoveBudget(userUUID, budgetUUID, typeRemove string) error {
+func (s *ServiceBudget) RemoveBudget(ctxRequest context.Context, userUUID, budgetUUID, typeRemove string) error {
 	mapError := sherrors.MapError{Map: make(map[string]string, 2)}
-	_, errValidate := s.HelperValidateBudget(userUUID, budgetUUID)
+	_, errValidate := s.HelperValidateBudget(ctxRequest, userUUID, budgetUUID)
 	if errValidate != nil {
 		mapError.Map["budget"] = errValidate.Error()
 	}
@@ -135,12 +136,12 @@ func (s *ServiceBudget) RemoveBudget(userUUID, budgetUUID, typeRemove string) er
 		return mapError
 	}
 	if typeRemove == shconstant.TypeSoftDelete || typeRemove == "" {
-		errRemove := s.Repo.RemoveBudget(userUUID, budgetUUID)
+		errRemove := s.Repo.RemoveBudget(ctxRequest, userUUID, budgetUUID)
 		if errRemove != nil {
 			return ErrFailedRemoveBudget
 		}
 	} else if typeRemove == shconstant.TypeHardDelete {
-		errDelete := s.Repo.DeleteBudget(userUUID, budgetUUID)
+		errDelete := s.Repo.DeleteBudget(ctxRequest, userUUID, budgetUUID)
 		if errDelete != nil {
 			return ErrFailedDeleteBudget
 		}
@@ -149,24 +150,24 @@ func (s *ServiceBudget) RemoveBudget(userUUID, budgetUUID, typeRemove string) er
 	}
 	return nil
 }
-func (s *ServiceBudget) HelperValidateBudget(userUUID, budgetUUID string) (*model.Budgets, error) {
+func (s *ServiceBudget) HelperValidateBudget(ctxRequest context.Context, userUUID, budgetUUID string) (*model.Budgets, error) {
 	if _, errBudgetUUID := uuid.Parse(budgetUUID); errBudgetUUID != nil {
 		return nil, apperrors.ErrIncorrectFormatBudgetUUID
 	}
-	budget, errGetBudget := s.Repo.GetBudget(userUUID, budgetUUID)
+	budget, errGetBudget := s.Repo.GetBudget(ctxRequest, userUUID, budgetUUID)
 	if errGetBudget != nil {
 		return nil, apperrors.ErrNotFoundBudget
 	}
 	return budget, nil
 }
 
-func (s *ServiceBudget) ListBudget(userUUID, limitStr, offsetStr string) ([]model.Budgets, error) {
+func (s *ServiceBudget) ListBudget(ctxRequest context.Context, userUUID, limitStr, offsetStr string) ([]model.Budgets, error) {
 	mapError := &sherrors.MapError{Map: make(map[string]string, 2)}
 	limit, offset := pagination.HelperPagination(limitStr, offsetStr, mapError)
 	if len(mapError.Map) != 0 {
 		return nil, mapError
 	}
-	listBudget, errList := s.Repo.ListBudget(userUUID, limit, offset)
+	listBudget, errList := s.Repo.ListBudget(ctxRequest, userUUID, limit, offset)
 	if errList != nil {
 		return nil, apperrors.ErrNotFoundBudget
 	}

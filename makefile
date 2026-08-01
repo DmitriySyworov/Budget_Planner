@@ -1,9 +1,11 @@
 VERSION_AUTH ?= v1
 VERSION_BUDGET ?= v1
 VERSION_NOTIFICATION ?= v1
+VERSION_DOCS ?= v1
 REPLICAS_AUTH ?= 3
 REPLICAS_BUDGET ?= 3
 REPLICAS_NOTIFICATION ?= 3
+REPLICAS_DOCS ?= 1
 TAIL ?=1000
 build-auth:
 	docker build -t dmitriysyworov/auth-user-service:$(VERSION_AUTH) -f ./services/auth/Dockerfile . && \
@@ -17,8 +19,12 @@ build-notification:
 	docker build -t dmitriysyworov/notification:$(VERSION_NOTIFICATION) -f ./services/notification/Dockerfile . && \
 	docker push dmitriysyworov/notification:$(VERSION_NOTIFICATION)
 
+build-docs:
+	docker build -t dmitriysyworov/gateway-docs:$(VERSION_DOCS) -f ./services/gatewaydocs/Dockerfile . && \
+	docker push dmitriysyworov/gateway-docs:$(VERSION_DOCS)
+
 build-all-images:
-	@$(MAKE) -j 3 build-auth build-budget build-notification
+	@$(MAKE) -j 4 build-auth build-budget build-notification build-docs
 
 rebuild-push-all-helm-hard-replace-all: build-all-images
 	-helm uninstall my
@@ -37,9 +43,11 @@ rebuild-push-all-helm-hard-replace-all: build-all-images
 		--set versions.authUserVersion="$(VERSION_AUTH)" \
 		--set versions.budgetPlannerVersion="$(VERSION_BUDGET)" \
 		--set versions.notificationVersion="$(VERSION_NOTIFICATION)" \
+		--set versions.gatewayDocsVersion="$(VERSION_DOCS)" \
 		--set replicasCount.authReplicas=0 \
 		--set replicasCount.budgetReplicas=0 \
-		--set replicasCount.notificationReplicas=0
+		--set replicasCount.notificationReplicas=0 \
+		--set replicasCount.docsReplicas=0
 	kubectl wait --namespace default --for=condition=complete job/kafka-create-topics-job --timeout=60s
 	helm upgrade budget-app ./helm-chart \
 		-f ./helm-chart/values.yaml \
@@ -48,9 +56,11 @@ rebuild-push-all-helm-hard-replace-all: build-all-images
 		--set versions.authUserVersion="$(VERSION_AUTH)" \
 		--set versions.budgetPlannerVersion="$(VERSION_BUDGET)" \
 		--set versions.notificationVersion="$(VERSION_NOTIFICATION)" \
+		--set versions.gatewayDocsVersion="$(VERSION_DOCS)" \
 		--set replicasCount.authReplicas="$(REPLICAS_AUTH)" \
 		--set replicasCount.budgetReplicas="$(REPLICAS_BUDGET)" \
-		--set replicasCount.notificationReplicas="$(REPLICAS_NOTIFICATION)"
+		--set replicasCount.notificationReplicas="$(REPLICAS_NOTIFICATION)" \
+		--set replicasCount.docsReplicas="$(REPLICAS_DOCS)"
 	helm template budget-app ./helm-chart -f ./helm-chart/values.yaml --show-only templates/ingress.yaml | kubectl apply -f -
 
 upgrade-helm-push-all: build-all-images
@@ -61,9 +71,11 @@ upgrade-helm-push-all: build-all-images
 		--set versions.authUserVersion="$(VERSION_AUTH)" \
 		--set versions.budgetPlannerVersion="$(VERSION_BUDGET)" \
 		--set versions.notificationVersion="$(VERSION_NOTIFICATION)" \
+		--set versions.gatewayDocsVersion="$(VERSION_DOCS)" \
 		--set replicasCount.authReplicas="$(REPLICAS_AUTH)" \
 		--set replicasCount.budgetReplicas="$(REPLICAS_BUDGET)" \
-		--set replicasCount.notificationReplicas="$(REPLICAS_NOTIFICATION)"
+		--set replicasCount.notificationReplicas="$(REPLICAS_NOTIFICATION)" \
+		--set replicasCount.docsReplicas="$(REPLICAS_DOCS)"
 	helm template budget-app ./helm-chart -f ./helm-chart/values.yaml --show-only templates/ingress.yaml | kubectl apply -f -
 get-services-port:
 	minikube service ingress-nginx-controller --namespace=ingress-nginx

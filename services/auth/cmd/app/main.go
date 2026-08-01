@@ -40,7 +40,7 @@ func main() {
 		Addr:    ":" + appVariable.Conf.ApiPort,
 		Handler: appVariable.HandlerApp,
 	}
-	ctxCancel, cancel := context.WithCancel(context.Background())
+	ctxCancel, cancelCancel := context.WithCancel(context.Background())
 	go appVariable.ServiceUser.DeleteExpiredUsers(ctxCancel)
 	serverError := make(chan error, 1)
 	stopSignal := make(chan os.Signal, 1)
@@ -61,7 +61,7 @@ func main() {
 	case err := <-serverError:
 		appVariable.Logger.Error("error on the server: " + err.Error())
 	}
-	cancel()
+	cancelCancel()
 	appVariable.KafkaProducerDelete.CloseProducer()
 	appVariable.KafkaProducerEmail.CloseProducer()
 	if errCloseRedis := appVariable.Redis.Close(); errCloseRedis != nil {
@@ -138,7 +138,7 @@ func App() *AppVariable {
 	serviceAuth := auth.NewServiceAuth(repoAuth, producerEmailEvent, repoUser, conf, logging)
 	serviceUser := user.NewServiceUser(repoUser, serviceAuth, repoAuth, producerDeleteEvent, conf.Signature, logging)
 	//
-	docs.SwaggerInfo.Host = "localhost:" + conf.ApiPort
+	docs.SwaggerInfo.Host = conf.ServiceIP + ":" + conf.ApiPort
 	router.Handle("GET /swagger/{any...}", httpSwagger.Handler(httpSwagger.URL("/swagger/doc.json")))
 	router.HandleFunc("GET /health", health(logging))
 	router.HandleFunc("GET /ready", ready(postgres, redis, sharedRedis, logging))

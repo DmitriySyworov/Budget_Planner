@@ -1,6 +1,7 @@
 package finance
 
 import (
+	"context"
 	"shared/loggers"
 	"shared/storage"
 )
@@ -39,9 +40,9 @@ type DTOFinance struct {
 	LeisureExpensePercent       string `gorm:"column:leisure_expense_percent"`
 }
 
-func (r *RepositoryFinance) Finance(budgetUUID, expenseUUID string) (*DTOFinance, error) {
+func (r *RepositoryFinance) Finance(ctxRequest context.Context, budgetUUID, expenseUUID string) (*DTOFinance, error) {
 	dtoFinance := &DTOFinance{}
-	if errQueryFinance := r.Postgres.Raw(`WITH calculation_expense as (
+	if errQueryFinance := r.Postgres.WithContext(ctxRequest).Raw(`WITH calculation_expense as (
 SELECT  expenses.other + expenses.supermarket +  expenses.restaurant + expenses.health + expenses.sport + expenses.savings + expenses.investments + expenses.leisure  as sum_expsense,
     expenses.*  FROM expenses
     WHERE budget_uuid = ? AND expense_uuid = ?

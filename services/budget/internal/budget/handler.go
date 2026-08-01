@@ -71,7 +71,7 @@ func (h *HandlerBudget) CreateBudget() http.HandlerFunc {
 			h.HandlerResponse.ResponseSend(writer, resp, http.StatusBadRequest)
 			return
 		}
-		budgetCreate, errCreate := h.ServiceBudget.CreateBudget(body, values.DataAuth.UserUUID)
+		budgetCreate, errCreate := h.ServiceBudget.CreateBudget(request.Context(), body, values.DataAuth.UserUUID)
 		if errCreate != nil {
 			values.DataLog.Errors = errCreate.Error()
 			var mapError sherrors.MapError
@@ -130,7 +130,7 @@ func (h *HandlerBudget) UpdateBudget() http.HandlerFunc {
 		}
 		budgetUUID := request.PathValue("uuid")
 		values.DataLog.MapLog["budget_uuid"] = budgetUUID
-		budgetUpdate, errUpdate := h.ServiceBudget.UpdateBudget(body, values.DataAuth.UserUUID, budgetUUID)
+		budgetUpdate, errUpdate := h.ServiceBudget.UpdateBudget(request.Context(), body, values.DataAuth.UserUUID, budgetUUID)
 		if errUpdate != nil {
 			values.DataLog.Errors = errUpdate.Error()
 			var mapError sherrors.MapError
@@ -168,7 +168,7 @@ func (h *HandlerBudget) GetBudget() http.HandlerFunc {
 		}
 		budgetUUID := request.PathValue("uuid")
 		values.DataLog.MapLog["budget_uuid"] = budgetUUID
-		budget, errGetBudget := h.ServiceBudget.GetBudget(values.DataAuth.UserUUID, budgetUUID)
+		budget, errGetBudget := h.ServiceBudget.GetBudget(request.Context(), values.DataAuth.UserUUID, budgetUUID)
 		if errGetBudget != nil {
 			values.DataLog.Errors = errGetBudget.Error()
 			resp.Error["budget"] = errGetBudget.Error()
@@ -202,7 +202,7 @@ func (h *HandlerBudget) RemoveBudget() http.HandlerFunc {
 		values.DataLog.MapLog["budget_uuid"] = budgetUUID
 		typeRemove := request.URL.Query().Get("type")
 		values.DataLog.MapLog["type"] = typeRemove
-		errRemoveBudget := h.ServiceBudget.RemoveBudget(values.DataAuth.UserUUID, budgetUUID, typeRemove)
+		errRemoveBudget := h.ServiceBudget.RemoveBudget(request.Context(), values.DataAuth.UserUUID, budgetUUID, typeRemove)
 		if errRemoveBudget != nil {
 			values.DataLog.Errors = errRemoveBudget.Error()
 			var mapError sherrors.MapError
@@ -246,7 +246,7 @@ func (h *HandlerBudget) ListBudget() http.HandlerFunc {
 		offset := request.URL.Query().Get("offset")
 		values.DataLog.MapLog["limit"] = limit
 		values.DataLog.MapLog["offset"] = offset
-		budgetList, errList := h.ServiceBudget.ListBudget(values.DataAuth.UserUUID, limit, offset)
+		budgetList, errList := h.ServiceBudget.ListBudget(request.Context(), values.DataAuth.UserUUID, limit, offset)
 		if errList != nil {
 			values.DataLog.Errors = errList.Error()
 			var mapError sherrors.MapError
