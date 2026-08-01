@@ -41,7 +41,7 @@ func (h HandlerFinance) Finance() http.HandlerFunc {
 		expenseUUID := request.PathValue("expense_uuid")
 		values.DataLog.MapLog["budget_uuid"] = budgetUUID
 		values.DataLog.MapLog["expense_uuid"] = expenseUUID
-		finance, errGetFinance := h.ServiceFinance.Finance(values.DataAuth.UserUUID, budgetUUID, expenseUUID)
+		finance, errGetFinance := h.ServiceFinance.Finance(request.Context(), values.DataAuth.UserUUID, budgetUUID, expenseUUID)
 		if errGetFinance != nil {
 			values.DataLog.Errors = errGetFinance.Error()
 			var mapError sherrors.MapError

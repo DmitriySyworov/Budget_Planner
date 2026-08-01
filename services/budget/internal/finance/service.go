@@ -3,6 +3,7 @@ package finance
 import (
 	"app/budget-planner/internal/apperrors"
 	"app/budget-planner/internal/di"
+	"context"
 	"errors"
 	"shared/sherrors"
 
@@ -25,7 +26,7 @@ func NewServiceFinance(repoFinance *RepositoryFinance, repoBudget di.IRepoBudget
 
 var ErrFailedGetFinance = errors.New("failed to get finance")
 
-func (s *ServiceFinance) Finance(userUUID, budgetUUID, expenseUUID string) (*Finance, error) {
+func (s *ServiceFinance) Finance(ctxRequest context.Context, userUUID, budgetUUID, expenseUUID string) (*Finance, error) {
 	mapError := sherrors.MapError{Map: make(map[string]string, 2)}
 	if _, errBudgetUUID := uuid.Parse(budgetUUID); errBudgetUUID != nil {
 		mapError.Map["budget"] = apperrors.ErrIncorrectFormatBudgetUUID.Error()
@@ -36,13 +37,13 @@ func (s *ServiceFinance) Finance(userUUID, budgetUUID, expenseUUID string) (*Fin
 	if len(mapError.Map) != 0 {
 		return nil, mapError
 	}
-	if !s.IRepoBudget.BudgetExist(userUUID, budgetUUID) {
+	if !s.IRepoBudget.BudgetExist(ctxRequest, userUUID, budgetUUID) {
 		return nil, apperrors.ErrNotFoundBudget
 	}
-	if !s.IRepoExpense.ExpenseExist(budgetUUID, expenseUUID) {
+	if !s.IRepoExpense.ExpenseExist(ctxRequest, budgetUUID, expenseUUID) {
 		return nil, apperrors.ErrNotFoundExpense
 	}
-	dtoFinance, errGetFinance := s.Repo.Finance(budgetUUID, expenseUUID)
+	dtoFinance, errGetFinance := s.Repo.Finance(ctxRequest, budgetUUID, expenseUUID)
 	if errGetFinance != nil {
 		return nil, ErrFailedGetFinance
 	}

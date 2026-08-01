@@ -13,6 +13,8 @@ spec:
   {{- $replicas = $.Values.replicasCount.budgetReplicas }}
   {{- else if contains "notification" .name }}
   {{- $replicas = $.Values.replicasCount.notificationReplicas }}
+  {{- else if contains "docs" .name }}
+  {{- $replicas = $.Values.replicasCount.docsReplicas }}
   {{- end }}
   replicas: {{ $replicas }}
   selector:
@@ -30,15 +32,27 @@ spec:
           {{- $version := $.Values.versions.defaultVersion }}
           {{- if contains "user" .name }}
           {{- $version = $.Values.versions.authUserVersion }}
-          {{- else if contains "budget-planner" .name }}
+          {{- else if contains "budget" .name }}
           {{- $version = $.Values.versions.budgetPlannerVersion }}
           {{- else if contains "notification" .name }}
           {{- $version = $.Values.versions.notificationVersion}}
+          {{- else if contains "docs" .name }}
+          {{- $version = $.Values.versions.gatewayDocsVersion}}
           {{- end }}
           image: "{{ .image }}:{{ $version }}"
           imagePullPolicy: Always
+          {{- $port := 8080 }}
+          {{- range $.Values.secrets }}
+            {{- if eq .secretName $outside.secretName}}
+            {{- range .envSecrets}}
+            {{- if eq .name "EXTERNAL_API_PORT"}}
+            {{- $port = .value}}
+            {{- end }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
           ports:
-            - containerPort: {{ .port }}
+            - containerPort: {{ $port }}
           env:
             {{- range $.Values.secrets }}
             {{- if eq .secretName $outside.secretName}}
@@ -55,14 +69,14 @@ spec:
           livenessProbe:
             httpGet:
               path: /health
-              port: {{ .port }}
+              port: {{ $port }}
             initialDelaySeconds: 3
             periodSeconds: 5
             timeoutSeconds: 1
           readinessProbe:
             httpGet:
               path: /ready
-              port: {{ .port }}
+              port: {{ $port }}
             initialDelaySeconds: 5
             periodSeconds: 15
             timeoutSeconds: 3

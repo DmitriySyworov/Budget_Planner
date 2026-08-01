@@ -1,7 +1,9 @@
-*.idea/
-.git
-*.gitignore
-*.env
-**/*.yaml
-**/*.yml
+**/*
+!go.mod
+!go.sum
+!cmd/
+!config/
+!internal/
+!docs/
+
 

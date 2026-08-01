@@ -16,6 +16,7 @@ type Config struct {
 
 type API struct {
 	ApiPort   string
+	ServiceIP string
 	Signature string
 }
 type Db struct {
@@ -43,6 +44,7 @@ func NewConfig(logger *loggers.Logger) *Config {
 		}
 	}
 	apiPort := os.Getenv("EXTERNAL_API_PORT")
+	serviceIP := os.Getenv("SERVICE_IP")
 	signature := os.Getenv("JWT_SIGNATURE")
 	dsn := os.Getenv("DSN")
 	redisAddress := os.Getenv("REDIS_ADDRESS")
@@ -58,6 +60,10 @@ func NewConfig(logger *loggers.Logger) *Config {
 	if apiPort == "" {
 		apiPort = "8080"
 		logger.Warn("environment variable 'EXTERNAL_API_PORT' not found. Default value = 8080")
+	}
+	if serviceIP == "" {
+		apiPort = "localhost"
+		logger.Warn("environment variable 'SERVICE_IP' not found. Default value = localhost")
 	}
 	if dsn == "" {
 		counterEmptyVariables++
@@ -113,6 +119,7 @@ func NewConfig(logger *loggers.Logger) *Config {
 			RedisAddress:  redisAddress,
 		},
 		API: &API{
+			ServiceIP: serviceIP,
 			ApiPort:   apiPort,
 			Signature: signature,
 		},

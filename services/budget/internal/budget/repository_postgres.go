@@ -3,6 +3,7 @@ package budget
 import (
 	"app/budget-planner/internal/apperrors"
 	"app/budget-planner/internal/model"
+	"context"
 	"shared/loggers"
 	"shared/storage"
 	"time"
@@ -11,16 +12,16 @@ import (
 )
 
 type IRepositoryBudget interface {
-	CreateBudget(budget *model.Budgets) error
-	UpdateBudget(budget *model.Budgets, userUUID, budgetUUID string) error
-	GetBudget(userUUID, budgetUUID string) (*model.Budgets, error)
-	RemoveBudget(userUUID, budgetUUID string) error
-	DeleteBudget(userUUID, budgetUUID string) error
+	CreateBudget(ctxRequest context.Context, budget *model.Budgets) error
+	UpdateBudget(ctxRequest context.Context, budget *model.Budgets, userUUID, budgetUUID string) error
+	GetBudget(ctxRequest context.Context, userUUID, budgetUUID string) (*model.Budgets, error)
+	RemoveBudget(ctxRequest context.Context, userUUID, budgetUUID string) error
+	DeleteBudget(ctxRequest context.Context, userUUID, budgetUUID string) error
 	DeleteAllUserBudgets(userUUID string) error
-	DateOverlapCreate(userUUID string, start, finish time.Time) bool
-	DateOverlapUpdate(userUUID, budgetUUID string, start, finish time.Time) bool
-	ListBudget(userUUID string, limit, offset int) ([]model.Budgets, error)
-	BudgetExist(userUUID, budgetUUID string) bool
+	DateOverlapCreate(ctxRequest context.Context, userUUID string, start, finish time.Time) bool
+	DateOverlapUpdate(ctxRequest context.Context, userUUID, budgetUUID string, start, finish time.Time) bool
+	ListBudget(ctxRequest context.Context, userUUID string, limit, offset int) ([]model.Budgets, error)
+	BudgetExist(ctxRequest context.Context, userUUID, budgetUUID string) bool
 }
 
 type RepositoryBudget struct {
@@ -35,15 +36,19 @@ func NewRepositoryBudget(db *storage.Postgres, logger *loggers.Logger) IReposito
 	}
 }
 
-func (r *RepositoryBudget) CreateBudget(budget *model.Budgets) error {
-	if errCreate := r.Postgres.Create(&budget).Error; errCreate != nil {
+func (r *RepositoryBudget) CreateBudget(ctxRequest context.Context, budget *model.Budgets) error {
+	if errCreate := r.Postgres.
+		WithContext(ctxRequest).
+		Create(&budget).Error; errCreate != nil {
 		r.Logger.Error("failed to create budget: " + errCreate.Error())
 		return errCreate
 	}
 	return nil
 }
-func (r *RepositoryBudget) UpdateBudget(budget *model.Budgets, userUUID, budgetUUID string) error {
-	errUpdate := r.Postgres.Clauses(clause.Returning{}).
+func (r *RepositoryBudget) UpdateBudget(ctxRequest context.Context, budget *model.Budgets, userUUID, budgetUUID string) error {
+	errUpdate := r.Postgres.
+		WithContext(ctxRequest).
+		Clauses(clause.Returning{}).
 		Where("user_uuid = ? AND budget_uuid = ?", userUUID, budgetUUID).
 		Updates(budget).Error
 	if errUpdate != nil {
@@ -52,17 +57,19 @@ func (r *RepositoryBudget) UpdateBudget(budget *model.Budgets, userUUID, budgetU
 	}
 	return nil
 }
-func (r *RepositoryBudget) GetBudget(userUUID, budgetUUID string) (*model.Budgets, error) {
+func (r *RepositoryBudget) GetBudget(ctxRequest context.Context, userUUID, budgetUUID string) (*model.Budgets, error) {
 	budget := &model.Budgets{}
 	if errGet := r.Postgres.
+		WithContext(ctxRequest).
 		Where("user_uuid = ? AND  budget_uuid = ?", userUUID, budgetUUID).
 		Take(budget).Error; errGet != nil {
 		return nil, errGet
 	}
 	return budget, nil
 }
-func (r *RepositoryBudget) RemoveBudget(userUUID, budgetUUID string) error {
+func (r *RepositoryBudget) RemoveBudget(ctxRequest context.Context, userUUID, budgetUUID string) error {
 	errRemove := r.Postgres.
+		WithContext(ctxRequest).
 		Where("user_uuid = ? AND budget_uuid = ?", userUUID, budgetUUID).
 		Delete(&model.Budgets{}).Error
 	if errRemove != nil {
@@ -71,8 +78,9 @@ func (r *RepositoryBudget) RemoveBudget(userUUID, budgetUUID string) error {
 	}
 	return nil
 }
-func (r *RepositoryBudget) DeleteBudget(userUUID, budgetUUID string) error {
+func (r *RepositoryBudget) DeleteBudget(ctxRequest context.Context, userUUID, budgetUUID string) error {
 	errDelete := r.Postgres.
+		WithContext(ctxRequest).
 		Unscoped().
 		Where("user_uuid = ? AND budget_uuid = ?", userUUID, budgetUUID).
 		Delete(&model.Budgets{}).Error
@@ -89,27 +97,32 @@ func (r *RepositoryBudget) DeleteAllUserBudgets(userUUID string) error {
 		Delete(&model.Budgets{}).
 		Error
 }
-func (r *RepositoryBudget) DateOverlapCreate(userUUID string, start, finish time.Time) bool {
+func (r *RepositoryBudget) DateOverlapCreate(ctxRequest context.Context, userUUID string, start, finish time.Time) bool {
 	var isOverlap bool
-	if errQuery := r.Raw(`SELECT EXISTS(SELECT  FROM budgets
+	if errQuery := r.
+		WithContext(ctxRequest).
+		Raw(`SELECT EXISTS(SELECT  FROM budgets
 WHERE user_uuid = ? AND (start, finish) OVERLAPS (?, ?))`, userUUID, start, finish).Scan(&isOverlap).Error; errQuery != nil {
 		r.Logger.Error("failed to check overlap dates: " + errQuery.Error())
 		return true
 	}
 	return isOverlap
 }
-func (r *RepositoryBudget) DateOverlapUpdate(userUUID, budgetUUID string, start, finish time.Time) bool {
+func (r *RepositoryBudget) DateOverlapUpdate(ctxRequest context.Context, userUUID, budgetUUID string, start, finish time.Time) bool {
 	var isOverlap bool
-	if errQuery := r.Raw(`SELECT EXISTS(SELECT  FROM budgets
+	if errQuery := r.
+		WithContext(ctxRequest).
+		Raw(`SELECT EXISTS(SELECT  FROM budgets
 WHERE user_uuid = ? AND budget_uuid != ? AND (start, finish) OVERLAPS (?, ?))`, userUUID, budgetUUID, start, finish).Scan(&isOverlap).Error; errQuery != nil {
 		r.Logger.Error("failed to check overlap dates: " + errQuery.Error())
 		return true
 	}
 	return isOverlap
 }
-func (r *RepositoryBudget) ListBudget(userUUID string, limit, offset int) ([]model.Budgets, error) {
+func (r *RepositoryBudget) ListBudget(ctxRequest context.Context, userUUID string, limit, offset int) ([]model.Budgets, error) {
 	sliceBudget := make([]model.Budgets, 0, limit)
 	if erList := r.Postgres.
+		WithContext(ctxRequest).
 		Model(&model.Budgets{}).
 		Where("user_uuid = ?", userUUID).
 		Order("start").
@@ -124,9 +137,10 @@ func (r *RepositoryBudget) ListBudget(userUUID string, limit, offset int) ([]mod
 	}
 	return sliceBudget, nil
 }
-func (r *RepositoryBudget) BudgetExist(userUUID, budgetUUID string) bool {
+func (r *RepositoryBudget) BudgetExist(ctxRequest context.Context, userUUID, budgetUUID string) bool {
 	var exist bool
 	if errQuery := r.Postgres.
+		WithContext(ctxRequest).
 		Raw(`SELECT EXISTS(
 	SELECT FROM budgets
 	WHERE user_uuid = ? AND budget_uuid = ?)`, userUUID, budgetUUID).Scan(&exist).Error; errQuery != nil {

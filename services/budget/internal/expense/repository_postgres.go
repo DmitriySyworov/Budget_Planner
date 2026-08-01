@@ -3,7 +3,7 @@ package expense
 import (
 	"app/budget-planner/internal/apperrors"
 	"app/budget-planner/internal/model"
-	"fmt"
+	"context"
 	"shared/loggers"
 	"shared/storage"
 
@@ -12,15 +12,15 @@ import (
 )
 
 type IRepositoryExpense interface {
-	UpsertExpense(descriptionExpense *model.DescriptionExpenses, budgetUUID, expenseUUID string) error
-	GetDescriptionExpense(expenseUUID, descriptionExpenseUUID string) (*model.DescriptionExpenses, error)
-	GetExpense(budgetUUID string) (*model.Expenses, error)
-	GetExpenseUUID(budgetUUID string) (string, error)
-	UpdateDescriptionExpense(expense *model.DescriptionExpenses) error
-	UpdateExpenseTransaction(descriptionExpense *model.DescriptionExpenses, oldExpense, oldCategory, budgetUUID, expenseUUID string) error
-	DeleteDescriptionExpense(params *deleteExpenseParams) error
-	ListDescriptionExpense(expenseUUID string, limit, offset int) ([]model.DescriptionExpenses, error)
-	ExpenseExist(budgetUUID, expenseUUID string) bool
+	UpsertExpense(ctxRequest context.Context, descriptionExpense *model.DescriptionExpenses, budgetUUID, expenseUUID string) error
+	GetDescriptionExpense(ctxRequest context.Context, expenseUUID, descriptionExpenseUUID string) (*model.DescriptionExpenses, error)
+	GetExpense(ctxRequest context.Context, budgetUUID string) (*model.Expenses, error)
+	GetExpenseUUID(ctxRequest context.Context, budgetUUID string) (string, error)
+	UpdateDescriptionExpense(ctxRequest context.Context, expense *model.DescriptionExpenses) error
+	UpdateExpenseTransaction(ctxRequest context.Context, descriptionExpense *model.DescriptionExpenses, oldExpense, oldCategory, budgetUUID, expenseUUID string) error
+	DeleteDescriptionExpense(ctxRequest context.Context, params *deleteExpenseParams) error
+	ListDescriptionExpense(ctxRequest context.Context, expenseUUID string, limit, offset int) ([]model.DescriptionExpenses, error)
+	ExpenseExist(ctxRequest context.Context, budgetUUID, expenseUUID string) bool
 }
 
 type RepositoryExpense struct {
@@ -34,7 +34,7 @@ func NewRepositoryExpense(postgres *storage.Postgres, logger *loggers.Logger) IR
 		Logger:   logger,
 	}
 }
-func (r *RepositoryExpense) UpsertExpense(descriptionExpense *model.DescriptionExpenses, budgetUUID, expenseUUID string) error {
+func (r *RepositoryExpense) UpsertExpense(ctxRequest context.Context, descriptionExpense *model.DescriptionExpenses, budgetUUID, expenseUUID string) error {
 	return r.Postgres.Transaction(func(tx *gorm.DB) error {
 		switch descriptionExpense.Category {
 		case "health":
@@ -110,16 +110,17 @@ func (r *RepositoryExpense) UpsertExpense(descriptionExpense *model.DescriptionE
 				return errUpsertExpense
 			}
 		}
-		if errCreateDescExp := tx.Create(&descriptionExpense).Error; errCreateDescExp != nil {
+		if errCreateDescExp := tx.WithContext(ctxRequest).Create(&descriptionExpense).Error; errCreateDescExp != nil {
 			r.Logger.Error("failed to create description_expense: " + errCreateDescExp.Error())
 			return errCreateDescExp
 		}
 		return nil
 	})
 }
-func (r *RepositoryExpense) GetDescriptionExpense(expenseUUID, descriptionExpenseUUID string) (*model.DescriptionExpenses, error) {
+func (r *RepositoryExpense) GetDescriptionExpense(ctxRequest context.Context, expenseUUID, descriptionExpenseUUID string) (*model.DescriptionExpenses, error) {
 	descriptionExpense := &model.DescriptionExpenses{}
 	errGet := r.Postgres.
+		WithContext(ctxRequest).
 		Where("expense_uuid = ? AND description_expense_uuid = ?", expenseUUID, descriptionExpenseUUID).
 		Take(descriptionExpense).Error
 	if errGet != nil {
@@ -127,19 +128,22 @@ func (r *RepositoryExpense) GetDescriptionExpense(expenseUUID, descriptionExpens
 	}
 	return descriptionExpense, nil
 }
-func (r *RepositoryExpense) GetExpense(budgetUUID string) (*model.Expenses, error) {
+func (r *RepositoryExpense) GetExpense(ctxRequest context.Context, budgetUUID string) (*model.Expenses, error) {
 	expense := &model.Expenses{}
 	errGet := r.Postgres.
+		WithContext(ctxRequest).
 		Where("budget_uuid = ?", budgetUUID).Take(expense).Error
 	if errGet != nil {
 		return nil, errGet
 	}
 	return expense, nil
 }
-func (r *RepositoryExpense) GetExpenseUUID(budgetUUID string) (string, error) {
+func (r *RepositoryExpense) GetExpenseUUID(ctxRequest context.Context, budgetUUID string) (string, error) {
 	var expenseUUID string
-	if errGet := r.Postgres.Raw(`SELECT expense_uuid FROM expenses
-                                   WHERE budget_uuid = ?`, budgetUUID).Scan(&expenseUUID).Error; errGet != nil {
+	if errGet := r.Postgres.
+		WithContext(ctxRequest).
+		Raw(`SELECT expense_uuid FROM expenses
+				  WHERE budget_uuid = ?`, budgetUUID).Scan(&expenseUUID).Error; errGet != nil {
 		r.Logger.Error("failed to get expense_uuid: " + errGet.Error())
 		return "", errGet
 	}
@@ -149,8 +153,9 @@ func (r *RepositoryExpense) GetExpenseUUID(budgetUUID string) (string, error) {
 	return expenseUUID, nil
 }
 
-func (r *RepositoryExpense) UpdateDescriptionExpense(expense *model.DescriptionExpenses) error {
+func (r *RepositoryExpense) UpdateDescriptionExpense(ctxRequest context.Context, expense *model.DescriptionExpenses) error {
 	if errUpdate := r.Postgres.
+		WithContext(ctxRequest).
 		Clauses(&clause.Returning{}).
 		Where("expense_uuid = ? AND description_expense_uuid = ?", expense.ExpenseUUID, expense.DescriptionExpenseUUID).
 		Updates(expense).Error; errUpdate != nil {
@@ -160,9 +165,9 @@ func (r *RepositoryExpense) UpdateDescriptionExpense(expense *model.DescriptionE
 	return nil
 }
 
-func (r *RepositoryExpense) UpdateExpenseTransaction(descriptionExpense *model.DescriptionExpenses, oldExpense, oldCategory, budgetUUID, expenseUUID string) error {
-	return r.Postgres.Transaction(func(tx *gorm.DB) error {
-		if errUpdateDescription := r.Postgres.
+func (r *RepositoryExpense) UpdateExpenseTransaction(ctxRequest context.Context, descriptionExpense *model.DescriptionExpenses, oldExpense, oldCategory, budgetUUID, expenseUUID string) error {
+	return r.Postgres.WithContext(ctxRequest).Transaction(func(tx *gorm.DB) error {
+		if errUpdateDescription := tx.
 			Clauses(&clause.Returning{}).
 			Where("expense_uuid = ? AND description_expense_uuid = ?", expenseUUID, descriptionExpense.DescriptionExpenseUUID).
 			Updates(descriptionExpense).Error; errUpdateDescription != nil {
@@ -171,18 +176,15 @@ func (r *RepositoryExpense) UpdateExpenseTransaction(descriptionExpense *model.D
 		}
 		var queryUpdateExpense string
 		if descriptionExpense.Category != "" && descriptionExpense.Category != oldCategory {
-			queryUpdateExpense = fmt.Sprintf(`UPDATE expenses
-		SET %s = %s :: numeric - %s ::numeric,
-		%s = %s ::numeric + %s ::numeric`,
-				oldCategory, oldCategory, oldExpense,
-				descriptionExpense.Category, descriptionExpense.Category, descriptionExpense.Expense)
+			queryUpdateExpense = "UPDATE expenses" +
+				"SET " + oldCategory + " = " + oldCategory + " :: numeric - " + oldExpense + " ::numeric," +
+				descriptionExpense.Category + " = " + descriptionExpense.Category + " ::numeric + " + descriptionExpense.Expense + " ::numeric"
+
 		} else {
-			queryUpdateExpense = fmt.Sprintf(`UPDATE expenses
-		SET %s = %s ::numeric - %s ::numeric + %s ::numeric`,
-				oldCategory, oldCategory, oldExpense, descriptionExpense.Expense)
+			queryUpdateExpense = "UPDATE expenses SET " +
+				oldCategory + " = " + oldCategory + " ::numeric - " + oldExpense + " ::numeric + " + descriptionExpense.Expense + " ::numeric"
 		}
-		queryUpdateExpense += fmt.Sprintf(" WHERE expense_uuid = '%s' AND budget_uuid = '%s'",
-			descriptionExpense.ExpenseUUID, budgetUUID)
+		queryUpdateExpense += " WHERE expense_uuid = '" + descriptionExpense.ExpenseUUID + "' AND budget_uuid = '" + budgetUUID + "'"
 		if errUpdateExpense := tx.Exec(queryUpdateExpense).Error; errUpdateExpense != nil {
 			r.Logger.Error("failed to update expense: " + errUpdateExpense.Error())
 			return errUpdateExpense
@@ -199,22 +201,16 @@ type deleteExpenseParams struct {
 	descriptionExpenseUUID string
 }
 
-func (r *RepositoryExpense) DeleteDescriptionExpense(params *deleteExpenseParams) error {
-	fmt.Println(r.Postgres.ToSQL(func(tx *gorm.DB) *gorm.DB {
-		tx.Model(&model.Expenses{}).
-			Where("expense_uuid = ? AND budget_uuid = ?", params.expenseUUID, params.budgetUUID).
-			Update(params.categoryExpense, gorm.Expr(fmt.Sprintf("%s ::numeric - %s ::numeric", params.categoryExpense, params.expense)))
-		return tx
-	}))
-	return r.Postgres.Transaction(func(tx *gorm.DB) error {
-		if errDelete := r.Postgres.Where("expense_uuid = ? AND description_expense_uuid = ?", params.expenseUUID, params.descriptionExpenseUUID).
+func (r *RepositoryExpense) DeleteDescriptionExpense(ctxRequest context.Context, params *deleteExpenseParams) error {
+	return r.Postgres.WithContext(ctxRequest).Transaction(func(tx *gorm.DB) error {
+		if errDelete := tx.Where("expense_uuid = ? AND description_expense_uuid = ?", params.expenseUUID, params.descriptionExpenseUUID).
 			Delete(&model.DescriptionExpenses{}).Error; errDelete != nil {
 			r.Logger.Error("failed to delete expense: " + errDelete.Error())
 			return errDelete
 		}
-		if errUpdate := r.Postgres.Model(&model.Expenses{}).
+		if errUpdate := tx.Model(&model.Expenses{}).
 			Where("expense_uuid = ? AND budget_uuid = ?", params.expenseUUID, params.budgetUUID).
-			Update(params.categoryExpense, gorm.Expr(fmt.Sprintf("%s ::numeric - %s ::numeric", params.categoryExpense, params.expense))).
+			Update(params.categoryExpense, gorm.Expr(params.categoryExpense+"::numeric - "+params.expense+" ::numeric")).
 			Error; errUpdate != nil {
 			r.Logger.Error("failed to update expense: " + errUpdate.Error())
 			return errUpdate
@@ -222,9 +218,10 @@ func (r *RepositoryExpense) DeleteDescriptionExpense(params *deleteExpenseParams
 		return nil
 	})
 }
-func (r *RepositoryExpense) ListDescriptionExpense(expenseUUID string, limit, offset int) ([]model.DescriptionExpenses, error) {
+func (r *RepositoryExpense) ListDescriptionExpense(ctxRequest context.Context, expenseUUID string, limit, offset int) ([]model.DescriptionExpenses, error) {
 	sliceDescriptionExpense := make([]model.DescriptionExpenses, 0, 50)
 	if errList := r.Postgres.
+		WithContext(ctxRequest).
 		Model(&model.DescriptionExpenses{}).
 		Where("expense_uuid = ?", expenseUUID).
 		Limit(limit).
@@ -239,11 +236,13 @@ func (r *RepositoryExpense) ListDescriptionExpense(expenseUUID string, limit, of
 	}
 	return sliceDescriptionExpense, nil
 }
-func (r *RepositoryExpense) ExpenseExist(budgetUUID, expenseUUID string) bool {
+func (r *RepositoryExpense) ExpenseExist(ctxRequest context.Context, budgetUUID, expenseUUID string) bool {
 	var exist bool
-	if errExist := r.Postgres.Raw(`SELECT EXISTS(
-SELECT FROM expenses
-WHERE budget_uuid = ? AND expense_uuid = ?)`, budgetUUID, expenseUUID).Scan(&exist).
+	if errExist := r.Postgres.
+		WithContext(ctxRequest).
+		Raw(`SELECT EXISTS(
+				 SELECT FROM expenses
+				 WHERE budget_uuid = ? AND expense_uuid = ?)`, budgetUUID, expenseUUID).Scan(&exist).
 		Error; errExist != nil {
 		r.Logger.Error("failed to check the expense existence: " + errExist.Error())
 		return false

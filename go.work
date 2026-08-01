@@ -3,6 +3,7 @@ go 1.25.7
 use (
 	./services/auth
 	./services/budget
+	./services/gatewaydocs
 	./services/notification
 	./shared
 )
