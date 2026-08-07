@@ -5,6 +5,7 @@ import (
 )
 
 func ValidateUserAgent(oldUserAgent, newUserAgent string) (bool, string) {
+	matchUserAgent := true
 	oldParse := useragent.Parse(oldUserAgent)
 	newParse := useragent.Parse(newUserAgent)
 	newDevice := newParse.Device
@@ -16,7 +17,7 @@ func ValidateUserAgent(oldUserAgent, newUserAgent string) (bool, string) {
 		oldParse.Mobile != newParse.Mobile ||
 		oldParse.Tablet != newParse.Tablet ||
 		oldParse.Name != newParse.Name {
-		return false, ""
+		matchUserAgent = false
 	}
 	if newDevice == "" {
 		if newOS != "" {
@@ -30,5 +31,5 @@ func ValidateUserAgent(oldUserAgent, newUserAgent string) (bool, string) {
 	if newDevice == "" {
 		newDevice = "unknown"
 	}
-	return true, newDevice
+	return matchUserAgent, newDevice
 }

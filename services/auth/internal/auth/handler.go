@@ -5,6 +5,7 @@ import (
 	"app/auth-service/internal/common"
 	"app/auth-service/internal/ip"
 	"app/auth-service/internal/middleware"
+	"context"
 	"errors"
 	"net/http"
 	"shared/loggers"
@@ -92,7 +93,7 @@ func (h *HandlerAuth) Register() http.HandlerFunc {
 			h.ResponseSend(writer, resp, http.StatusBadRequest)
 			return
 		}
-		if !h.helperRateLimiting(body.Email, writer) {
+		if !h.helperRateLimiting(request.Context(), body.Email, writer) {
 			return
 		}
 		respAuth, errAuth := h.ServiceAuth.Register(request.Context(), body)
@@ -167,7 +168,7 @@ func (h *HandlerAuth) Login() http.HandlerFunc {
 			h.ResponseSend(writer, resp, http.StatusBadRequest)
 			return
 		}
-		if !h.helperRateLimiting(body.Email, writer) {
+		if !h.helperRateLimiting(request.Context(), body.Email, writer) {
 			return
 		}
 		respAuth, errLogin := h.ServiceAuth.Login(request.Context(), body)
@@ -238,7 +239,7 @@ func (h *HandlerAuth) Recovery() http.HandlerFunc {
 			h.ResponseSend(writer, resp, http.StatusBadRequest)
 			return
 		}
-		if !h.helperRateLimiting(body.Email, writer) {
+		if !h.helperRateLimiting(request.Context(), body.Email, writer) {
 			return
 		}
 		action := request.URL.Query().Get("action")
@@ -326,7 +327,7 @@ func (h *HandlerAuth) Confirm() http.HandlerFunc {
 		values.DataLog.MapLog["action"] = action
 		userAgent := request.Header.Get("User-Agent")
 		values.DataLog.MapLog["user_agent"] = userAgent
-		if !h.helperRateLimiting(values.DataAuth.SessionID, writer) {
+		if !h.helperRateLimiting(request.Context(), values.DataAuth.SessionID, writer) {
 			return
 		}
 		ipUser := ip.GetIP(request)
@@ -415,7 +416,7 @@ func (h *HandlerAuth) Refresh() http.HandlerFunc {
 			h.ResponseSend(writer, resp, http.StatusBadRequest)
 			return
 		}
-		if !h.helperRateLimiting(body.RefreshJwt, writer) {
+		if !h.helperRateLimiting(request.Context(), body.RefreshJwt, writer) {
 			return
 		}
 		userAgent := request.Header.Get("User-Agent")
@@ -486,7 +487,7 @@ func (h *HandlerAuth) Logout() http.HandlerFunc {
 		values.DataLog.MapLog["user_agent"] = userAgent
 		ipUser := ip.GetIP(request)
 		values.DataLog.MapLog["ip"] = ipUser
-		if !h.helperRateLimiting(body.RefreshJwt, writer) {
+		if !h.helperRateLimiting(request.Context(), body.RefreshJwt, writer) {
 			return
 		}
 		h.ServiceAuth.Logout(request.Context(), body.RefreshJwt, userAgent, ipUser)
@@ -494,11 +495,11 @@ func (h *HandlerAuth) Logout() http.HandlerFunc {
 	}
 }
 
-func (h *HandlerAuth) helperRateLimiting(keyLimiter string, writer http.ResponseWriter) bool {
+func (h *HandlerAuth) helperRateLimiting(ctxRequest context.Context, keyLimiter string, writer http.ResponseWriter) bool {
 	resp := &response.Response{
 		Error: make(map[string]string),
 	}
-	counterRequest, headers, errRateLimiting := h.Limiter.RateLimiter(keyLimiter)
+	counterRequest, headers, errRateLimiting := h.Limiter.RateLimiter(ctxRequest, keyLimiter)
 	if errRateLimiting != nil {
 		resp.Error["global"] = sherrors.ErrCriticalServer.Error()
 		h.ResponseSend(writer, resp, http.StatusInternalServerError)
