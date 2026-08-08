@@ -4,11 +4,12 @@ import (
 	"app/auth-service/internal/apperrors"
 	"app/auth-service/internal/appjwt"
 	"context"
-	"fmt"
 	"net/http"
 	"shared/response"
 	"shared/sherrors"
 	"shared/shmiddleware"
+
+	"github.com/google/uuid"
 )
 
 func (m *ManagerMiddleware) HandlerSessionToken(next http.Handler) http.Handler {
@@ -40,8 +41,7 @@ func (m *ManagerMiddleware) HandlerSessionToken(next http.Handler) http.Handler 
 			m.HandlerResponse.ResponseSend(writer, resp, http.StatusUnauthorized)
 			return
 		}
-		fmt.Print(sessionID)
-		if len(sessionID) != 36 {
+		if _, errSessionID := uuid.Parse(sessionID); errSessionID != nil {
 			values.DataLog.Errors = apperrors.ErrInvalidSessionToken.Error()
 			resp.Error["auth"] = apperrors.ErrInvalidSessionToken.Error()
 			m.HandlerResponse.ResponseSend(writer, resp, http.StatusUnauthorized)

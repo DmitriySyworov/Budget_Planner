@@ -1,4 +1,5 @@
 {{- range .Values.microservices }}
+{{- $outside := . }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -10,7 +11,17 @@ spec:
   ports:
     - protocol: TCP
       port: {{ .service.port | default .port }}
-      targetPort: {{ .port }}
+      {{- $targetPort := 8080 }}
+      {{- range $.Values.secrets }}
+        {{- if eq .secretName $outside.secretName}}
+        {{- range .envSecrets}}
+        {{- if eq .name "EXTERNAL_API_PORT"}}
+        {{- $targetPort = .value}}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+      targetPort: {{ $targetPort }}
       {{- if and .service .service.nodePort }}
       nodePort: {{ .service.nodePort }}
       {{- end }}

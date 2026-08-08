@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"shared/testutil"
 	"testing"
 
 	"github.com/google/uuid"
@@ -27,7 +28,7 @@ func TestCreateExpenseSuccessful(t *testing.T) {
 		userCreateUUID = "26f50b4d-389d-4de3-85f5-46bd8ecb1d03"
 	)
 	appVariable := App()
-	accessToken := shtesting.CreateTestAccessToken(userCreateUUID, appVariable.Conf.Signature, t)
+	accessToken := testutil.CreateTestAccessToken(userCreateUUID, appVariable.Conf.Signature, t)
 	testServer := httptest.NewServer(appVariable.HandlerApp)
 	defer testServer.Close()
 	dataQuery, errReadFileSql := os.ReadFile("load-mock-budget-data.sql")
@@ -35,7 +36,7 @@ func TestCreateExpenseSuccessful(t *testing.T) {
 		t.Fatal("failed to read file sql: ", errReadFileSql)
 	}
 	for _, test := range CaseCreateDescriptionExpenseData {
-		shtesting.RefreshUserTestData(dataQuery, []string{"budgets", "expenses", "description_expenses"}, t)
+		testutil.RefreshUserTestData(dataQuery, []string{"budgets", "expenses", "description_expenses"}, t)
 		bodyCreateExpense := expense.RequestCreateDescriptionExpense{
 			Category:    "sport",
 			Expense:     "234.78",
@@ -54,7 +55,7 @@ func TestCreateExpenseSuccessful(t *testing.T) {
 		if errRespCreate != nil {
 			t.Fatal(test.Name+"failed to get response: ", errRespCreate)
 		}
-		dataRespCreate := shtesting.HelperHandleResponse[expense.ResponseCreateAndUpdateExpense](respCreate, http.StatusCreated, t)
+		dataRespCreate := testutil.HelperHandleResponse[expense.ResponseCreateAndUpdateExpense](respCreate, http.StatusCreated, t)
 		if _, errUUID := uuid.Parse(dataRespCreate.DescriptionExpenseUUID); errUUID != nil {
 			t.Fatal(test.Name+"incorrect description_expense_uuid: ", errUUID)
 		}
@@ -95,8 +96,8 @@ func TestUpdateDescriptionExpenseSuccessful(t *testing.T) {
 		t.Fatal("failed to read file sql: ", errReadFileSql)
 	}
 	for _, test := range CaseUpdateDescriptionExpenseData {
-		accessToken := shtesting.CreateTestAccessToken(userUUID, appVariable.Conf.Signature, t)
-		shtesting.RefreshUserTestData(dataQuery, []string{"budgets", "expenses", "description_expenses"}, t)
+		accessToken := testutil.CreateTestAccessToken(userUUID, appVariable.Conf.Signature, t)
+		testutil.RefreshUserTestData(dataQuery, []string{"budgets", "expenses", "description_expenses"}, t)
 		data, errMarshal := json.Marshal(test)
 		if errMarshal != nil {
 			t.Fatal(test.Name+"failed to prepare request: ", errMarshal)
@@ -110,7 +111,7 @@ func TestUpdateDescriptionExpenseSuccessful(t *testing.T) {
 		if errRespGet != nil {
 			t.Fatal(test.Name+"failed to get response: ", errRespGet)
 		}
-		dataRespGet := shtesting.HelperHandleResponse[expense.ResponseCreateAndUpdateExpense](respRemove, http.StatusOK, t)
+		dataRespGet := testutil.HelperHandleResponse[expense.ResponseCreateAndUpdateExpense](respRemove, http.StatusOK, t)
 		if _, errUUID := uuid.Parse(dataRespGet.DescriptionExpenseUUID); errUUID != nil {
 			t.Fatal(test.Name+"incorrect description_expenses_uuid: ", errUUID)
 		}
@@ -135,14 +136,14 @@ func TestGetDescriptionExpenseSuccessful(t *testing.T) {
 		userUUID               = "4a5b6c7d-8e9f-40a1-b2c3-d4e5f6a7b8c9"
 	)
 	appVariable := App()
-	accessToken := shtesting.CreateTestAccessToken(userUUID, appVariable.Conf.Signature, t)
+	accessToken := testutil.CreateTestAccessToken(userUUID, appVariable.Conf.Signature, t)
 	testServer := httptest.NewServer(appVariable.HandlerApp)
 	defer testServer.Close()
 	dataQuery, errReadFileSql := os.ReadFile("load-mock-budget-data.sql")
 	if errReadFileSql != nil {
 		t.Fatal("failed to read file sql: ", errReadFileSql)
 	}
-	shtesting.RefreshUserTestData(dataQuery, []string{"budgets", "expenses", "description_expenses"}, t)
+	testutil.RefreshUserTestData(dataQuery, []string{"budgets", "expenses", "description_expenses"}, t)
 	requestGet, errReqGet := http.NewRequest(http.MethodGet, testServer.URL+"/api/v1/description-expense/"+budgetUUID+"/"+descriptionExpenseUUID, nil)
 	if errReqGet != nil {
 		t.Fatal("failed to prepare request: ", errReqGet)
@@ -152,7 +153,7 @@ func TestGetDescriptionExpenseSuccessful(t *testing.T) {
 	if errRespGet != nil {
 		t.Fatal("failed to get response: ", errRespGet)
 	}
-	dataRespGet := shtesting.HelperHandleResponse[model.DescriptionExpenses](respRemove, http.StatusOK, t)
+	dataRespGet := testutil.HelperHandleResponse[model.DescriptionExpenses](respRemove, http.StatusOK, t)
 	if _, errUUID := uuid.Parse(dataRespGet.DescriptionExpenseUUID); errUUID != nil {
 		t.Fatal("incorrect description_expenses_uuid: ", errUUID)
 	}
@@ -173,14 +174,14 @@ func TestGetExpenseSuccessful(t *testing.T) {
 		userUUID    = "4a5b6c7d-8e9f-40a1-b2c3-d4e5f6a7b8c9"
 	)
 	appVariable := App()
-	accessToken := shtesting.CreateTestAccessToken(userUUID, appVariable.Conf.Signature, t)
+	accessToken := testutil.CreateTestAccessToken(userUUID, appVariable.Conf.Signature, t)
 	testServer := httptest.NewServer(appVariable.HandlerApp)
 	defer testServer.Close()
 	dataQuery, errReadFileSql := os.ReadFile("load-mock-budget-data.sql")
 	if errReadFileSql != nil {
 		t.Fatal("failed to read file sql: ", errReadFileSql)
 	}
-	shtesting.RefreshUserTestData(dataQuery, []string{"budgets", "expenses", "description_expenses"}, t)
+	testutil.RefreshUserTestData(dataQuery, []string{"budgets", "expenses", "description_expenses"}, t)
 	requestGet, errReqGet := http.NewRequest(http.MethodGet, testServer.URL+"/api/v1/expense/"+budgetUUID, nil)
 	if errReqGet != nil {
 		t.Fatal("failed to prepare request: ", errReqGet)
@@ -190,7 +191,7 @@ func TestGetExpenseSuccessful(t *testing.T) {
 	if errRespGet != nil {
 		t.Fatal("failed to get response: ", errRespGet)
 	}
-	dataRespGet := shtesting.HelperHandleResponse[model.Expenses](respRemove, http.StatusOK, t)
+	dataRespGet := testutil.HelperHandleResponse[model.Expenses](respRemove, http.StatusOK, t)
 	if _, errUUID := uuid.Parse(dataRespGet.ExpenseUUID); errUUID != nil {
 		t.Fatal("incorrect expenses_uuid: ", errUUID)
 	}
@@ -206,14 +207,14 @@ func TestDeleteDescriptionExpenseSuccessful(t *testing.T) {
 		userUUID               = "6e917dcb-94ad-4cd6-b3de-857e2c943dfc"
 	)
 	appVariable := App()
-	accessToken := shtesting.CreateTestAccessToken(userUUID, appVariable.Conf.Signature, t)
+	accessToken := testutil.CreateTestAccessToken(userUUID, appVariable.Conf.Signature, t)
 	testServer := httptest.NewServer(appVariable.HandlerApp)
 	defer testServer.Close()
 	dataQuery, errReadFileSql := os.ReadFile("load-mock-budget-data.sql")
 	if errReadFileSql != nil {
 		t.Fatal("failed to read file sql: ", errReadFileSql)
 	}
-	db := shtesting.RefreshUserTestData(dataQuery, []string{"budgets", "expenses", "description_expenses"}, t)
+	db := testutil.RefreshUserTestData(dataQuery, []string{"budgets", "expenses", "description_expenses"}, t)
 	requestGet, errReqGet := http.NewRequest(http.MethodDelete, testServer.URL+"/api/v1/description-expense/"+budgetUUID+"/"+descriptionExpenseUUID, nil)
 	if errReqGet != nil {
 		t.Fatal("failed to prepare request: ", errReqGet)
@@ -223,7 +224,7 @@ func TestDeleteDescriptionExpenseSuccessful(t *testing.T) {
 	if errRespGet != nil {
 		t.Fatal("failed to get response: ", errRespGet)
 	}
-	shtesting.HelperHandleResponse[struct{}](respRemove, http.StatusNoContent, t)
+	testutil.HelperHandleResponse[struct{}](respRemove, http.StatusNoContent, t)
 	if db.Where("expense_uuid = ? AND description_expense_uuid = ?", expenseUUID, descriptionExpenseUUID).
 		Take(&model.DescriptionExpenses{}).Error == nil {
 		t.Fatal("failed to delete description_expenses")
@@ -255,14 +256,14 @@ func TestListDescriptionExpenseSuccessful(t *testing.T) {
 		userUUID   = "4a5b6c7d-8e9f-40a1-b2c3-d4e5f6a7b8c9"
 	)
 	appVariable := App()
-	accessToken := shtesting.CreateTestAccessToken(userUUID, appVariable.Conf.Signature, t)
+	accessToken := testutil.CreateTestAccessToken(userUUID, appVariable.Conf.Signature, t)
 	testServer := httptest.NewServer(appVariable.HandlerApp)
 	defer testServer.Close()
 	dataQuery, errReadFileSql := os.ReadFile("load-mock-budget-data.sql")
 	if errReadFileSql != nil {
 		t.Fatal("failed to read file sql: ", errReadFileSql)
 	}
-	shtesting.RefreshUserTestData(dataQuery, []string{"budgets", "expenses", "description_expenses"}, t)
+	testutil.RefreshUserTestData(dataQuery, []string{"budgets", "expenses", "description_expenses"}, t)
 	for _, test := range CaseListDescriptionExpenseData {
 		requestList, errReqList := http.NewRequest(http.MethodGet, testServer.URL+"/api/v1/description-expense/"+budgetUUID+test.QueryParams, nil)
 		if errReqList != nil {
@@ -273,7 +274,7 @@ func TestListDescriptionExpenseSuccessful(t *testing.T) {
 		if errRespGet != nil {
 			t.Fatal(test.Name+"failed to get response: ", errRespGet)
 		}
-		dataRespList := shtesting.HelperHandleResponse[[]model.DescriptionExpenses](respGet, http.StatusOK, t)
+		dataRespList := testutil.HelperHandleResponse[[]model.DescriptionExpenses](respGet, http.StatusOK, t)
 		if len(dataRespList) != test.ExpectedQuantityRecords {
 			t.Fatalf(test.Name+"expected len list budget %d got %d", test.ExpectedQuantityRecords, len(dataRespList))
 		}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	docsconfig "app/gatewaydocs/config"
 	"app/gatewaydocs/internal/swaggerdocs"
 	"context"
 	"errors"
@@ -14,20 +15,17 @@ import (
 	"time"
 
 	_ "github.com/swaggo/http-swagger/v2"
+	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
 
 func main() {
 	logger := loggers.NewLogger()
 	//
-	apiPort := os.Getenv("EXTERNAL_API_PORT")
-	if apiPort == "" {
-		logger.Warn("environment variable 'EXTERNAL_API_PORT' not found. Default value = 8080")
-		apiPort = "8080"
-	}
+	conf := docsconfig.NewConfig(logger)
 	//
 	respHandler := response.NewHandlerResponse(logger)
 	//
-	serviceDocs := swaggerdocs.NewServiceSwaggerDocs(logger)
+	serviceDocs := swaggerdocs.NewServiceSwaggerDocs(logger, conf)
 	serviceDocs.UpdateDocs()
 	ctxCancel, cancelCancel := context.WithCancel(context.Background())
 	go serviceDocs.PlanUpdateDocs(ctxCancel)
@@ -41,11 +39,12 @@ func main() {
 		sharedMv.Recovery,
 	)
 	server := http.Server{
-		Addr:    ":" + apiPort,
+		Addr:    ":" + conf.ApiPort,
 		Handler: chainMv(router),
 	}
 	//
-	swaggerdocs.NewHandlerSwaggerDocs(router, serviceDocs, respHandler)
+	router.Handle("GET /swagger/{any...}", httpSwagger.Handler(httpSwagger.URL("/api/v1/docs/api")))
+	swaggerdocs.NewHandlerSwaggerDocs(router, serviceDocs, respHandler, logger)
 	//
 	serverError := make(chan error, 1)
 	stopSignal := make(chan os.Signal, 1)

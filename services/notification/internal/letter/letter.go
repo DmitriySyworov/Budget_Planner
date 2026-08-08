@@ -3,7 +3,6 @@ package letter
 import (
 	notconfig "app/notification/config"
 	"context"
-	"fmt"
 	"net/smtp"
 	"shared/htmltemplates"
 	"shared/loggers"
@@ -48,7 +47,7 @@ func NewSendLetter(conf *notconfig.SMTP, shRedis *storage.Redis, logger *loggers
 			return counts.ConsecutiveFailures >= 3
 		},
 		OnStateChange: func(name string, from gobreaker.State, to gobreaker.State) {
-			logger.Warn(fmt.Sprintf("Circuit Breaker [%s] changed condition: %s -> %s", name, from, to))
+			logger.Warn("Circuit Breaker [" + name + "] changed condition: " + from.String() + " -> " + to.String())
 		},
 	})
 	return &SendLetter{
@@ -122,13 +121,13 @@ func (l *SendLetter) SendEmailLetter(eventSendData []byte) error {
 			"Session ID: " + eventUUID)
 		contentHTML = htmlMessage
 	case *event.NotificationEvent_NewDevice:
-		userAgent := e.NewDevice.GetDevice()
+		device := e.NewDevice.GetDevice()
 		clientIP := e.NewDevice.GetClientIp()
 		currentTime := e.NewDevice.GetCurrentTime()
 		htmlMessage, errCreateMessage := htmltemplates.CreateHTMLMessageNewDevice(&htmltemplates.DataSecurityNotification{
 			AlertID:     eventUUID,
 			Email:       emailTo,
-			Device:      userAgent,
+			Device:      device,
 			ClientIP:    clientIP,
 			Timestamp:   currentTime,
 			ServiceName: serviceName,
@@ -143,7 +142,7 @@ func (l *SendLetter) SendEmailLetter(eventSendData []byte) error {
 		text = []byte("Welcome to " + serviceName + "!\n\n" +
 			"We noticed a successful login to your account from a device we haven't seen before. Please review the details:\n\n" +
 			"Account Email: " + emailTo + "\n" +
-			"Device / Agent: " + userAgent + "\n" +
+			"Device / Agent: " + device + "\n" +
 			"IP Address: " + clientIP + "\n" +
 			"Time (UTC): " + currentTime + "\n\n" +
 			"If this was you, no further action is needed. If you do not recognize this device, someone else may have accessed your account. Please log out of all devices immediately to secure your data:\n" +

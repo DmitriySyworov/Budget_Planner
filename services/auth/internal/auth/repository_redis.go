@@ -88,7 +88,7 @@ func (r *RepositoryRedisAuth) GetUserSession(ctxRequest context.Context, session
 		r.Logger.Error("failed to parse attempts left: " + errParse.Error())
 		return nil, apperrors.ErrSessionExpired
 	}
-	if attempts <= 0 {
+	if attempts < 0 {
 		if errDel := r.Redis.Del(ctxTimeout, keySession).Err(); errDel != nil {
 			r.Logger.Error("failed to delete session: " + errDel.Error())
 		}

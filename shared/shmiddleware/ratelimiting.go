@@ -23,7 +23,7 @@ func (m *ManagerSharedMiddleware) RateLimiting(next http.Handler) http.Handler {
 			m.ResponseSend(writer, resp, http.StatusInternalServerError)
 			return
 		}
-		counterRequest, headers, errRateLimiting := m.RateLimit.RateLimiter(values.DataAuth.UserUUID)
+		counterRequest, headers, errRateLimiting := m.RateLimit.RateLimiter(request.Context(), values.DataAuth.UserUUID)
 		if errRateLimiting != nil {
 			resp.Error["global"] = sherrors.ErrCriticalServer.Error()
 			m.ResponseSend(writer, resp, http.StatusInternalServerError)

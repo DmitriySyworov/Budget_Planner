@@ -24,6 +24,23 @@ func NewHandlerFinance(router *http.ServeMux, service *ServiceFinance, response 
 	}
 	router.Handle("GET /api/v1/finance/{budget_uuid}/{expense_uuid}", mv.HandlerAccessToken(finance.Finance()))
 }
+
+// Finance godoc
+// @Summary      Get comprehensive financial analytics and predictive calculations
+// @Description  Calculates advanced financial analytics for a specific budget and expense container. Returns initial vs current balances, category-by-category expense tracking, percentage distribution, and a predicted average spend per day based on historical user data.
+// @Tags         finance
+// @Accept       json
+// @Produce      json
+// @Param        Authorization  header    string  true  "Bearer <access_token>"
+// @Param        budget_uuid    path      string  true  "Budget UUID (36 characters)"
+// @Param        expense_uuid   path      string  true  "Expense Container UUID (36 characters)"
+// @Success      200      {object}  response.Response{data=Finance,errors=nil} "Comprehensive financial data successfully computed and retrieved"
+// @Failure      400      {object}  response.NegativeResponse "Validation or business logic errors. Format: { \"errors\": { \"budget\": \"the budget uuid must be exactly 36 characters\" } } or { \"errors\": { \"expense\": \"the expense uuid must be exactly 36 characters\" } }"
+// @Failure      401      {object}  response.NegativeResponse "Authentication errors. Format: { \"errors\": { \"auth\": \"invalid access token\" } } or { \"errors\": { \"auth\": \"access token has expired\" } }"
+// @Failure      404      {object}  response.NegativeResponse "Data errors. Format: { \"errors\": { \"budget\": \"not found budget\" } } or { \"errors\": { \"expense\": \"not found expense\" } }"
+// @Failure      429      {object}  response.NegativeResponse "Too many requests. Format: { \"errors\": { \"global\": \"the limit for sending requests per minute has been exceeded\" } }"
+// @Failure      500      {object}  response.NegativeResponse "Server errors. Format: { \"errors\": { \"global\": \"critical error on the server side\" } } or { \"errors\": { \"finance\": \"failed to get finance\" } }"
+// @Router       /api/v1/finance/{budget_uuid}/{expense_uuid} [get]
 func (h HandlerFinance) Finance() http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		resp := &response.Response{

@@ -10,6 +10,8 @@ import (
 	"shared/sherrors"
 	"shared/shmiddleware"
 
+	_ "app/budget-planner/internal/model"
+
 	"github.com/go-playground/validator/v10"
 )
 
@@ -36,6 +38,22 @@ func NewHandlerExpense(router *http.ServeMux, service *ServiceExpense, logger *l
 	router.Handle("GET /api/v1/description-expense/{budget_uuid}", mv.HandlerAccessToken(expense.ListDescriptionExpense()))
 }
 
+// CreateExpense godoc
+// @Summary      Create a new expense transaction under a budget
+// @Description  Creates a detailed expense record and associates it with a specific budget by UUID. If the parent expense container does not exist, it initializes one automatically. Validates transaction category constraints and overall budget existence.
+// @Tags         expense
+// @Accept       json
+// @Produce      json
+// @Param        Authorization  header    string                             true  "Bearer <access_token>"
+// @Param        budget_uuid    path      string                             true  "Parent Budget UUID (36 characters)"
+// @Param        request        body      RequestCreateDescriptionExpense    true  "Expense creation payload"
+// @Success      201      {object}  response.Response{data=ResponseCreateAndUpdateExpense,errors=nil} "Expense transaction successfully recorded"
+// @Failure      400      {object}  response.NegativeResponse "Validation or business logic errors. Format: { \"errors\": { \"expense\": \"expense must be a positive decimals and greater than 0\" } } or { \"errors\": { \"category\": \"category mast be a health, sport, supermarket, restaurant, leisure, investments, savings or other\" } } or { \"errors\": { \"description\": \"description cannot be more than 250 characters\" } } or { \"errors\": { \"budget\": \"the budget uuid must be exactly 36 characters\" } } or { \"errors\": { \"body\": \"<raw_body_error>\" } }"
+// @Failure      401      {object}  response.NegativeResponse "Authentication errors. Format: { \"errors\": { \"auth\": \"invalid access token\" } } or { \"errors\": { \"auth\": \"access token has expired\" } }"
+// @Failure      404      {object}  response.NegativeResponse "Data errors. Format: { \"errors\": { \"budget\": \"not found budget\" } }"
+// @Failure      429      {object}  response.NegativeResponse "Too many requests. Format: { \"errors\": { \"global\": \"the limit for sending requests per minute has been exceeded\" } }"
+// @Failure      500      {object}  response.NegativeResponse "Server errors. Format: { \"errors\": { \"global\": \"critical error on the server side\" } } or { \"errors\": { \"global\": \"failed to create expense\" } }"
+// @Router       /api/v1/description-expense/{budget_uuid} [post]
 func (h *HandlerExpense) CreateExpense() http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		resp := &response.Response{
@@ -98,6 +116,23 @@ func (h *HandlerExpense) CreateExpense() http.HandlerFunc {
 	}
 }
 
+// UpdateExpense godoc
+// @Summary      Update an existing expense transaction
+// @Description  Updates an individual expense transaction's category, expense amount, or description by its UUID under a specific budget. Validates the existence of the parent budget, the main expense container, and the specific transaction record.
+// @Tags         expense
+// @Accept       json
+// @Produce      json
+// @Param        Authorization           header    string                             true  "Bearer <access_token>"
+// @Param        budget_uuid             path      string                             true  "Parent Budget UUID (36 characters)"
+// @Param        description_expense_uuid path      string                             true  "Specific Transaction UUID (36 characters)"
+// @Param        request                 body      RequestUpdateDescriptionExpense    true  "Expense translation update payload"
+// @Success      200      {object}  response.Response{data=ResponseCreateAndUpdateExpense,errors=nil} "Expense transaction successfully updated"
+// @Failure      400      {object}  response.NegativeResponse "Validation or business logic errors. Format: { \"errors\": { \"expense\": \"expense must be a positive decimals and greater than 0\" } } or { \"errors\": { \"category\": \"category mast be a health, sport, supermarket, restaurant, leisure, investments, savings or other\" } } or { \"errors\": { \"description\": \"description cannot be more than 250 characters\" } } or { \"errors\": { \"budget\": \"the budget uuid must be exactly 36 characters\" } } or { \"errors\": { \"body\": \"<raw_body_error>\" } }"
+// @Failure      401      {object}  response.NegativeResponse "Authentication errors. Format: { \"errors\": { \"auth\": \"invalid access token\" } } or { \"errors\": { \"auth\": \"access token has expired\" } }"
+// @Failure      404      {object}  response.NegativeResponse "Data errors. Format: { \"errors\": { \"budget\": \"not found budget\" } } or { \"errors\": { \"expense\": \"not found expense\" } } or { \"errors\": { \"expense\": \"not found description expense\" } }"
+// @Failure      429      {object}  response.NegativeResponse "Too many requests. Format: { \"errors\": { \"global\": \"the limit for sending requests per minute has been exceeded\" } }"
+// @Failure      500      {object}  response.NegativeResponse "Server errors. Format: { \"errors\": { \"global\": \"critical error on the server side\" } } or { \"errors\": { \"global\": \"failed to update expense\" } }"
+// @Router       /api/v1/description-expense/{budget_uuid}/{description_expense_uuid} [patch]
 func (h *HandlerExpense) UpdateExpense() http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		resp := &response.Response{
@@ -164,6 +199,23 @@ func (h *HandlerExpense) UpdateExpense() http.HandlerFunc {
 		h.ResponseSend(writer, resp, http.StatusOK)
 	}
 }
+
+// GetDescriptionExpense godoc
+// @Summary      Get a specific expense transaction details
+// @Description  Retrieves the complete data of an individual expense transaction by its UUID under a specific budget. Validates the entity existence chain: parent budget, expense container, and the specific transaction.
+// @Tags         expense
+// @Accept       json
+// @Produce      json
+// @Param        Authorization           header    string  true  "Bearer <access_token>"
+// @Param        budget_uuid             path      string  true  "Parent Budget UUID (36 characters)"
+// @Param        description_expense_uuid path      string  true  "Specific Transaction UUID (36 characters)"
+// @Success      200      {object}  response.Response{data=model.DescriptionExpenses,errors=nil} "Expense transaction details successfully retrieved"
+// @Failure      400      {object}  response.NegativeResponse "Validation or business logic errors. Format: { \"errors\": { \"budget\": \"the budget uuid must be exactly 36 characters\" } }"
+// @Failure      401      {object}  response.NegativeResponse "Authentication errors. Format: { \"errors\": { \"auth\": \"invalid access token\" } } or { \"errors\": { \"auth\": \"access token has expired\" } }"
+// @Failure      404      {object}  response.NegativeResponse "Data errors. Format: { \"errors\": { \"budget\": \"not found budget\" } } or { \"errors\": { \"expense\": \"not found expense\" } } or { \"errors\": { \"expense\": \"not found description expense\" } }"
+// @Failure      429      {object}  response.NegativeResponse "Too many requests. Format: { \"errors\": { \"global\": \"the limit for sending requests per minute has been exceeded\" } }"
+// @Failure      500      {object}  response.NegativeResponse "Server errors. Format: { \"errors\": { \"global\": \"critical error on the server side\" } }"
+// @Router       /api/v1/description-expense/{budget_uuid}/{description_expense_uuid} [get]
 func (h *HandlerExpense) GetDescriptionExpense() http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		resp := &response.Response{
@@ -202,6 +254,23 @@ func (h *HandlerExpense) GetDescriptionExpense() http.HandlerFunc {
 		h.ResponseSend(writer, resp, http.StatusOK)
 	}
 }
+
+// DeleteDescriptionExpense godoc
+// @Summary      Delete an individual expense transaction
+// @Description  Deletes a specific expense transaction record by its UUID under a parent budget. Recalculates total expense fields inside the database transaction and returns no content upon success.
+// @Tags         expense
+// @Accept       json
+// @Produce      json
+// @Param        Authorization           header    string  true  "Bearer <access_token>"
+// @Param        budget_uuid             path      string  true  "Parent Budget UUID (36 characters)"
+// @Param        description_expense_uuid path      string  true  "Specific Transaction UUID (36 characters)"
+// @Success      204      "Expense transaction successfully deleted, no content returned"
+// @Failure      400      {object}  response.NegativeResponse "Validation or business logic errors. Format: { \"errors\": { \"budget\": \"the budget uuid must be exactly 36 characters\" } }"
+// @Failure      401      {object}  response.NegativeResponse "Authentication errors. Format: { \"errors\": { \"auth\": \"invalid access token\" } } or { \"errors\": { \"auth\": \"access token has expired\" } }"
+// @Failure      404      {object}  response.NegativeResponse "Data errors. Format: { \"errors\": { \"budget\": \"not found budget\" } } or { \"errors\": { \"expense\": \"not found expense\" } } or { \"errors\": { \"expense\": \"not found description expense\" } }"
+// @Failure      429      {object}  response.NegativeResponse "Too many requests. Format: { \"errors\": { \"global\": \"the limit for sending requests per minute has been exceeded\" } }"
+// @Failure      500      {object}  response.NegativeResponse "Server errors. Format: { \"errors\": { \"global\": \"critical error on the server side\" } } or { \"errors\": { \"global\": \"failed to delete expense\" } }"
+// @Router       /api/v1/description-expense/{budget_uuid}/{description_expense_uuid} [delete]
 func (h *HandlerExpense) DeleteDescriptionExpense() http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		resp := &response.Response{
@@ -240,6 +309,24 @@ func (h *HandlerExpense) DeleteDescriptionExpense() http.HandlerFunc {
 		writer.WriteHeader(http.StatusNoContent)
 	}
 }
+
+// ListDescriptionExpense godoc
+// @Summary      Get a paginated list of individual expense transactions
+// @Description  Retrieves a collection of detailed expense transactions for a specific budget using its UUID. Supports pagination via limit and offset query parameters.
+// @Tags         expense
+// @Accept       json
+// @Produce      json
+// @Param        Authorization  header    string  true  "Bearer <access_token>"
+// @Param        budget_uuid    path      string  true  "Parent Budget UUID (36 characters)"
+// @Param        limit          query     string  false "Maximum number of records to return (positive integer, max 100)"
+// @Param        offset         query     string  false "Number of records to skip (positive integer)"
+// @Success      200      {object}  response.Response{data=[]model.DescriptionExpenses,errors=nil} "List of expense transactions successfully retrieved"
+// @Failure      400      {object}  response.NegativeResponse "Validation or business logic errors. Format: { \"errors\": { \"limit\": \"the limit must be a positive integer not greater than 100\" } } or { \"errors\": { \"offset\": \"the offset must be a positive integer\" } } or { \"errors\": { \"expense\": \"not found expense\" } }"
+// @Failure      401      {object}  response.NegativeResponse "Authentication errors. Format: { \"errors\": { \"auth\": \"invalid access token\" } } or { \"errors\": { \"auth\": \"access token has expired\" } }"
+// @Failure      404      {object}  response.NegativeResponse "Data errors. Format: { \"errors\": { \"expense\": \"not found description expense\" } }"
+// @Failure      429      {object}  response.NegativeResponse "Too many requests. Format: { \"errors\": { \"global\": \"the limit for sending requests per minute has been exceeded\" } }"
+// @Failure      500      {object}  response.NegativeResponse "Server errors. Format: { \"errors\": { \"global\": \"critical error on the server side\" } }"
+// @Router       /api/v1/description-expense/{budget_uuid} [get]
 func (h *HandlerExpense) ListDescriptionExpense() http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		resp := &response.Response{
@@ -277,6 +364,22 @@ func (h *HandlerExpense) ListDescriptionExpense() http.HandlerFunc {
 		h.ResponseSend(writer, resp, http.StatusOK)
 	}
 }
+
+// GetExpense godoc
+// @Summary      Get aggregated expenses for a specific budget
+// @Description  Retrieves the top-level aggregated expenses data (total spent vs budget limits) associated with a specific budget by its UUID.
+// @Tags         expense
+// @Accept       json
+// @Produce      json
+// @Param        Authorization  header    string  true  "Bearer <access_token>"
+// @Param        budget_uuid    path      string  true  "Budget UUID (36 characters)"
+// @Success      200      {object}  response.Response{data=model.Expenses,errors=nil} "Aggregated expenses data successfully retrieved"
+// @Failure      400      {object}  response.NegativeResponse "Validation or business logic errors. Format: { \"errors\": { \"budget\": \"the budget uuid must be exactly 36 characters\" } }"
+// @Failure      401      {object}  response.NegativeResponse "Authentication errors. Format: { \"errors\": { \"auth\": \"invalid access token\" } } or { \"errors\": { \"auth\": \"access token has expired\" } }"
+// @Failure      404      {object}  response.NegativeResponse "Data errors. Format: { \"errors\": { \"expense\": \"not found expense\" } }"
+// @Failure      429      {object}  response.NegativeResponse "Too many requests. Format: { \"errors\": { \"global\": \"the limit for sending requests per minute has been exceeded\" } }"
+// @Failure      500      {object}  response.NegativeResponse "Server errors. Format: { \"errors\": { \"global\": \"critical error on the server side\" } }"
+// @Router       /api/v1/expense/{budget_uuid} [get]
 func (h *HandlerExpense) GetExpense() http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		resp := &response.Response{

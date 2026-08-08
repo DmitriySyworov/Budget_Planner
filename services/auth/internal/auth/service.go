@@ -276,7 +276,7 @@ func (s *ServiceAuth) Refresh(ctxRequest context.Context, oldRefreshToken, userA
 	if errConfirm != nil {
 		return nil, apperrors.ErrFailedSecurity
 	}
-	newRefreshKey := newRefreshUUID + nullByte + userAgent
+	newRefreshKey := newRefreshUUID + nullByte + userAgent + nullByte + ipUser + nullByte + refreshData.Email
 	if errRotation := s.Repo.RotationRefresh(ctxRequest, userUUID, newRefreshKey, oldRefreshStrKey); errRotation != nil {
 		return nil, apperrors.ErrRenewalRefresh
 	}
