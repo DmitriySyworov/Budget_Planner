@@ -18,8 +18,18 @@ spec:
             backend:
               service:
                 name: {{ $outside.name }}-service
+                {{- $port := 8080 }}
+                {{- range $.Values.secrets }}
+                  {{- if eq .secretName $outside.secretName}}
+                  {{- range .envSecrets}}
+                  {{- if eq .name "EXTERNAL_API_PORT"}}
+                  {{- $port = .value}}
+                  {{- end }}
+                  {{- end }}
+                  {{- end }}
+                  {{- end }}
                 port:
-                  number: {{ $outside.port }}
+                  number: {{ $port }}
           {{- end }}
 ---
 {{- end }}

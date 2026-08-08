@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"shared/testutil"
 	"testing"
 )
 
@@ -15,14 +16,14 @@ func TestFinanceSuccessful(t *testing.T) {
 		userUUID    = "f20a1bc3-5819-4a92-bdde-62fa9c671b2e"
 	)
 	appVariable := App()
-	accessToken := shtesting.CreateTestAccessToken(userUUID, appVariable.Conf.Signature, t)
+	accessToken := testutil.CreateTestAccessToken(userUUID, appVariable.Conf.Signature, t)
 	testServer := httptest.NewServer(appVariable.HandlerApp)
 	defer testServer.Close()
 	dataQuery, errReadFileSql := os.ReadFile("load-mock-budget-data.sql")
 	if errReadFileSql != nil {
 		t.Fatal("failed to read file sql: ", errReadFileSql)
 	}
-	shtesting.RefreshUserTestData(dataQuery, []string{"budgets", "expenses", "description_expenses"}, t)
+	testutil.RefreshUserTestData(dataQuery, []string{"budgets", "expenses", "description_expenses"}, t)
 	requestGet, errReqGet := http.NewRequest(http.MethodGet, testServer.URL+"/api/v1/finance/"+budgetUUID+"/"+expenseUUID, nil)
 	if errReqGet != nil {
 		t.Fatal("failed to prepare request: ", errReqGet)
@@ -32,6 +33,6 @@ func TestFinanceSuccessful(t *testing.T) {
 	if errRespGet != nil {
 		t.Fatal("failed to get response: ", errRespGet)
 	}
-	dataRespGet := shtesting.HelperHandleResponse[finance.Finance](respRemove, http.StatusOK, t)
+	dataRespGet := testutil.HelperHandleResponse[finance.Finance](respRemove, http.StatusOK, t)
 	t.Log(dataRespGet.Budget, dataRespGet.Expenses, dataRespGet.ExpensesPercent)
 }

@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"shared/shconstant"
+	"shared/testutil"
 	"testing"
 )
 
@@ -19,9 +20,9 @@ func TestGetUserSuccessful(t *testing.T) {
 	if errReadFile != nil {
 		t.Fatal("failed to read sql file: ", errReadFile)
 	}
-	shtesting.RefreshUserTestData(dataSqlFile, []string{"users"}, t)
+	testutil.RefreshUserTestData(dataSqlFile, []string{"users"}, t)
 	appVariable := App()
-	accessToken := shtesting.CreateTestAccessToken(userGetUUID, appVariable.Conf.Signature, t)
+	accessToken := testutil.CreateTestAccessToken(userGetUUID, appVariable.Conf.Signature, t)
 	testServer := httptest.NewServer(appVariable.HandlerApp)
 	defer testServer.Close()
 	request, errReq := http.NewRequest(http.MethodGet, testServer.URL+"/api/v1/user", nil)
@@ -33,7 +34,7 @@ func TestGetUserSuccessful(t *testing.T) {
 	if errRespGet != nil {
 		t.Fatal("failed to get response: ", errRespGet)
 	}
-	userResp := shtesting.HelperHandleResponse[user.ResponseUser](respGet, http.StatusOK, t)
+	userResp := testutil.HelperHandleResponse[user.ResponseUser](respGet, http.StatusOK, t)
 	if userResp.UserUUID != userGetUUID {
 		t.Fatalf("expected uuid %s got %s", userGetUUID, userResp.UserUUID)
 	}
@@ -64,10 +65,10 @@ func TestUpdateUserSuccessful(t *testing.T) {
 		t.Fatal("failed to read sql file: ", errReadFile)
 	}
 	for _, test := range CaseDataUpdate {
-		shtesting.RefreshUserTestData(dataSqlFile, []string{"users"}, t)
+		testutil.RefreshUserTestData(dataSqlFile, []string{"users"}, t)
 		deleteRedisData(t)
 		deleteMailPitMessages(t)
-		accessToken := shtesting.CreateTestAccessToken(userUpdateUUID, appVariable.Conf.Signature, t)
+		accessToken := testutil.CreateTestAccessToken(userUpdateUUID, appVariable.Conf.Signature, t)
 		data, errMarshalUpdate := json.Marshal(test)
 		if errMarshalUpdate != nil {
 			t.Fatal("failed to prepare request: ", errMarshalUpdate)
@@ -82,12 +83,12 @@ func TestUpdateUserSuccessful(t *testing.T) {
 			t.Fatal("failed to get response: ", errRespUpdate)
 		}
 		if test.NewName != "" && test.NewEmail == "" && test.NewPassword == "" {
-			dataResp := shtesting.HelperHandleResponse[model.Users](respUpdate, http.StatusOK, t)
+			dataResp := testutil.HelperHandleResponse[model.Users](respUpdate, http.StatusOK, t)
 			if dataResp.Name != NewName {
 				t.Fatalf("expected name %s got %s", NewName, dataResp.Name)
 			}
 		} else {
-			dataResp := shtesting.HelperHandleResponse[common.ResponseAuth](respUpdate, http.StatusAccepted, t)
+			dataResp := testutil.HelperHandleResponse[common.ResponseAuth](respUpdate, http.StatusAccepted, t)
 			if dataResp.SessionJwt == "" {
 				t.Fatal("sessionJwt is empty")
 			}
@@ -109,7 +110,7 @@ func TestUpdateUserSuccessful(t *testing.T) {
 			if errRespConfirm != nil {
 				t.Fatal("failed to get response confirm: ", errRespConfirm)
 			}
-			userUpdate := shtesting.HelperHandleResponse[user.ResponseUser](respConfirm, http.StatusOK, t)
+			userUpdate := testutil.HelperHandleResponse[user.ResponseUser](respConfirm, http.StatusOK, t)
 			if userUpdate.UserUUID != userUpdateUUID {
 				t.Fatalf("expected user_uuid %s got %s", userUpdateUUID, userUpdate.UserUUID)
 			}
@@ -136,10 +137,10 @@ func TestRemoveUserSuccessful(t *testing.T) {
 		t.Fatal("failed to read sql file: ", errReadFile)
 	}
 	for _, test := range CaseDataRemove {
-		db := shtesting.RefreshUserTestData(dataSqlFile, []string{"users"}, t)
+		db := testutil.RefreshUserTestData(dataSqlFile, []string{"users"}, t)
 		deleteRedisData(t)
 		deleteMailPitMessages(t)
-		accessToken := shtesting.CreateTestAccessToken(test.UserUUID, appVariable.Conf.Signature, t)
+		accessToken := testutil.CreateTestAccessToken(test.UserUUID, appVariable.Conf.Signature, t)
 		data, errMarshalRemove := json.Marshal(test.RequestRemoveUser)
 		if errMarshalRemove != nil {
 			t.Fatal(test.Name+"failed to prepare request: ", errMarshalRemove)
@@ -153,7 +154,7 @@ func TestRemoveUserSuccessful(t *testing.T) {
 		if errRespDelete != nil {
 			t.Fatal(test.Name+"failed to get response: ", errRespDelete)
 		}
-		dataResp := shtesting.HelperHandleResponse[common.ResponseAuth](respDelete, http.StatusAccepted, t)
+		dataResp := testutil.HelperHandleResponse[common.ResponseAuth](respDelete, http.StatusAccepted, t)
 		if dataResp.SessionJwt == "" {
 			t.Fatal(test.Name + "sessionJwt is empty")
 		}
@@ -175,7 +176,7 @@ func TestRemoveUserSuccessful(t *testing.T) {
 		if errRespConfirm != nil {
 			t.Fatal(test.Name+"failed to get response confirm: ", errRespConfirm)
 		}
-		shtesting.HelperHandleResponse[struct{}](respConfirm, http.StatusNoContent, t)
+		testutil.HelperHandleResponse[struct{}](respConfirm, http.StatusNoContent, t)
 		if test.Type == shconstant.TypeSoftDelete {
 			if db.Where("user_uuid = ?", test.UserUUID).
 				Take(&model.Users{}).Error == nil {

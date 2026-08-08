@@ -28,11 +28,11 @@ func NewRateLimiter(rdb *storage.Redis, logger *loggers.Logger) *Limiter {
 		Logger: logger,
 	}
 }
-func (l *Limiter) RateLimiter(key string) (int64, map[string]string, error) {
+func (l *Limiter) RateLimiter(ctxRequest context.Context, key string) (int64, map[string]string, error) {
 	now := time.Now().UnixNano() / int64(time.Millisecond)
 	clearBefore := now - int64(time.Minute/time.Millisecond)
 	keyRateLimit := KeyRateLimiting + key
-	ctxTimeout, cancel := context.WithTimeout(context.Background(), shconstant.CtxTimeoutRedis)
+	ctxTimeout, cancel := context.WithTimeout(ctxRequest, shconstant.CtxTimeoutRedis)
 	defer cancel()
 	pipe := l.Redis.Pipeline()
 	pipe.ZRemRangeByScore(ctxTimeout, keyRateLimit, "0", strconv.FormatInt(clearBefore, 10))

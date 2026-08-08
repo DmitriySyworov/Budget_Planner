@@ -19,9 +19,24 @@ import (
 	"syscall"
 	"time"
 
+	"app/budget-planner/docs"
+
 	"github.com/go-playground/validator/v10"
+	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
 
+// @title           Budget Planner Microservice API
+// @version         1.0
+// @description     Financial planning and management service. Provides personal budgeting, automated expense tracking, and advanced financial analytics.
+// @host            localhost:8081
+// @BasePath        /api/v1
+
+// @tag.name        budget
+// @tag.description Envelope budgeting, limit configurations, and category allocations
+// @tag.name        expense
+// @tag.description Daily transaction tracking, merchant categorization, and historic expense logs
+// @tag.name        finance
+// @tag.description Advanced predictive analytics, financial health scoring, and heavy data aggregation calculations
 func main() {
 	appVariable := App()
 	server := http.Server{
@@ -111,6 +126,8 @@ func App() *AppVariable {
 	serviceExpense := expense.NewServiceExpense(repoExpense, serviceBudget)
 	serviceFinance := finance.NewServiceFinance(repoFinance, repoBudget, repoExpense)
 	//
+	docs.SwaggerInfo.Host = conf.ServiceIP + ":" + conf.ApiPort
+	router.Handle("GET /swagger/{any...}", httpSwagger.Handler(httpSwagger.URL("/swagger/doc.json")))
 	router.HandleFunc("GET /health", health(logging))
 	router.HandleFunc("GET /ready", ready(postgres, sharedRedis, logging))
 	budget.NewHandlerBudget(router, serviceBudget, logging, responseHandler, validate, sharedMv)

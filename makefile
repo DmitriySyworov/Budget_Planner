@@ -7,6 +7,9 @@ REPLICAS_BUDGET ?= 3
 REPLICAS_NOTIFICATION ?= 3
 REPLICAS_DOCS ?= 1
 TAIL ?=1000
+go-e2e-test-budget:
+	docker compose --env-file services/budget/cmd/app/.env.test -f services/budget/docker-compose-test.yaml up --build
+	go test -v ./services/budget/cmd/app
 build-auth:
 	docker build -t dmitriysyworov/auth-user-service:$(VERSION_AUTH) -f ./services/auth/Dockerfile . && \
 	docker push dmitriysyworov/auth-user-service:$(VERSION_AUTH)
@@ -77,6 +80,8 @@ upgrade-helm-push-all: build-all-images
 		--set replicasCount.notificationReplicas="$(REPLICAS_NOTIFICATION)" \
 		--set replicasCount.docsReplicas="$(REPLICAS_DOCS)"
 	helm template budget-app ./helm-chart -f ./helm-chart/values.yaml --show-only templates/ingress.yaml | kubectl apply -f -
+port-forward-docs:
+	kubectl port-forward deployment/gateway-docs 8080:8080
 get-services-port:
 	minikube service ingress-nginx-controller --namespace=ingress-nginx
 get-logs-auth-user:
@@ -85,7 +90,8 @@ get-logs-budget-planner:
 	kubectl logs -l app=app-budget-planner --tail=$(TAIL) -f
 get-logs-notification:
 	kubectl logs -l app=notification --tail=$(TAIL) -f
-
+get-logs-docs:
+	kubectl logs -l app=gateway-docs --tail=$(TAIL) -f
 proto-update-all:
 	protoc --go_out=. --go_opt=paths=source_relative ./shared/shprotos/event/user.proto
 	protoc --go_out=. --go_opt=paths=source_relative ./shared/shprotos/event/letter.proto

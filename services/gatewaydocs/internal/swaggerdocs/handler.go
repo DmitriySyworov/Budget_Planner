@@ -1,19 +1,23 @@
 package swaggerdocs
 
 import (
+	"errors"
 	"net/http"
+	"shared/loggers"
 	"shared/response"
 )
 
 type HandlerSwaggerDocs struct {
 	Service *ServiceSwaggerDocs
 	*response.HandlerResponse
+	Logger *loggers.Logger
 }
 
-func NewHandlerSwaggerDocs(router *http.ServeMux, service *ServiceSwaggerDocs, respHandler *response.HandlerResponse) {
+func NewHandlerSwaggerDocs(router *http.ServeMux, service *ServiceSwaggerDocs, respHandler *response.HandlerResponse, logger *loggers.Logger) {
 	docs := HandlerSwaggerDocs{
 		Service:         service,
 		HandlerResponse: respHandler,
+		Logger:          logger,
 	}
 	router.HandleFunc("GET /api/v1/docs", docs.GetDocs())
 	router.HandleFunc("GET /api/v1/docs/api", docs.GetDocsAPI())
@@ -37,12 +41,18 @@ func (h *HandlerSwaggerDocs) GetDocsAPI() http.HandlerFunc {
 		dataDocs, errGetDocs := h.Service.GetDocsAPI(service)
 		if errGetDocs != nil {
 			resp.Error["docs"] = errGetDocs.Error()
-			h.ResponseSend(writer, resp, http.StatusNotFound)
+			if errors.Is(errGetDocs, ErrNotFoundDocs) {
+				h.ResponseSend(writer, resp, http.StatusNotFound)
+			} else {
+				h.ResponseSend(writer, resp, http.StatusInternalServerError)
+			}
 			return
 		}
-		resp.Success = true
-		resp.Data = dataDocs
-		h.ResponseSend(writer, resp, http.StatusOK)
+		writer.Header().Set("Content-Type", "application/json; charset=utf-8")
+		writer.WriteHeader(http.StatusOK)
+		if _, errWrite := writer.Write(dataDocs); errWrite != nil {
+			h.Logger.Error("failed to write response: " + errWrite.Error())
+		}
 	}
 }
 

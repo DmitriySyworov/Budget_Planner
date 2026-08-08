@@ -1,0 +1,1037 @@
+basePath: /api/v1
+definitions:
+  app_budget-planner_internal_model.Budgets:
+    properties:
+      amount:
+        type: string
+      budgetUUID:
+        type: string
+      createdAt:
+        type: string
+      deletedAt:
+        $ref: '#/definitions/gorm.DeletedAt'
+      description:
+        type: string
+      finish:
+        type: string
+      start:
+        type: string
+      updatedAt:
+        type: string
+      userUUID:
+        type: string
+    type: object
+  app_budget-planner_internal_model.DescriptionExpenses:
+    properties:
+      category:
+        type: string
+      description:
+        type: string
+      descriptionExpenseUUID:
+        type: string
+      expense:
+        type: string
+      expenseUUID:
+        type: string
+    type: object
+  app_budget-planner_internal_model.Expenses:
+    properties:
+      budgetUUID:
+        type: string
+      expenseUUID:
+        type: string
+      health:
+        type: string
+      investments:
+        type: string
+      leisure:
+        type: string
+      other:
+        type: string
+      restaurant:
+        type: string
+      savings:
+        type: string
+      sport:
+        type: string
+      supermarket:
+        type: string
+    type: object
+  gorm.DeletedAt:
+    properties:
+      time:
+        type: string
+      valid:
+        description: Valid is true if Time is not NULL
+        type: boolean
+    type: object
+  internal_budget.RequestCreateBudget:
+    properties:
+      amount:
+        type: string
+      description:
+        type: string
+      finish:
+        type: string
+      start:
+        type: string
+    type: object
+  internal_budget.RequestUpdateBudget:
+    properties:
+      amount:
+        type: string
+      description:
+        type: string
+      finish:
+        type: string
+      start:
+        type: string
+    type: object
+  internal_expense.RequestCreateDescriptionExpense:
+    properties:
+      category:
+        enum:
+        - health
+        - sport
+        - supermarket
+        - restaurant
+        - leisure
+        - investments
+        - savings
+        - other
+        type: string
+      description:
+        maxLength: 250
+        type: string
+      expense:
+        type: string
+    required:
+    - category
+    - expense
+    type: object
+  internal_expense.RequestUpdateDescriptionExpense:
+    properties:
+      category:
+        enum:
+        - health
+        - sport
+        - supermarket
+        - restaurant
+        - leisure
+        - investments
+        - savings
+        - other
+        type: string
+      description:
+        maxLength: 250
+        type: string
+      expense:
+        type: string
+    type: object
+  internal_expense.ResponseCreateAndUpdateExpense:
+    properties:
+      description_expenses:
+        $ref: '#/definitions/app_budget-planner_internal_model.DescriptionExpenses'
+      expense:
+        $ref: '#/definitions/app_budget-planner_internal_model.Expenses'
+    type: object
+  internal_finance.Budget:
+    properties:
+      budget_balance:
+        type: string
+      budget_initial:
+        type: string
+      predicted_average_spend_per_day:
+        type: string
+    type: object
+  internal_finance.Expenses:
+    properties:
+      health:
+        type: string
+      investments:
+        type: string
+      leisure:
+        type: string
+      other:
+        type: string
+      restaurant:
+        type: string
+      savings:
+        type: string
+      sport:
+        type: string
+      supermarket:
+        type: string
+    type: object
+  internal_finance.ExpensesPercent:
+    properties:
+      health_expense_percent:
+        type: string
+      investments_expense_percent:
+        type: string
+      leisure_expense_percent:
+        type: string
+      other_expense_percent:
+        type: string
+      restaurant_expense_percent:
+        type: string
+      savings_expense_percent:
+        type: string
+      sport_expense_percent:
+        type: string
+      supermarket_expense_percent:
+        type: string
+    type: object
+  internal_finance.Finance:
+    properties:
+      budget:
+        $ref: '#/definitions/internal_finance.Budget'
+      expenses:
+        $ref: '#/definitions/internal_finance.Expenses'
+      expenses_percent:
+        $ref: '#/definitions/internal_finance.ExpensesPercent'
+    type: object
+  response.NegativeResponse:
+    properties:
+      errors:
+        type: object
+      success:
+        example: false
+        type: boolean
+    type: object
+  response.Response:
+    properties:
+      data: {}
+      errors:
+        additionalProperties:
+          type: string
+        type: object
+      success:
+        type: boolean
+    type: object
+host: localhost:8081
+info:
+  contact: {}
+  description: Financial planning and management service. Provides personal budgeting,
+    automated expense tracking, and advanced financial analytics.
+  title: Budget Planner Microservice API
+  version: "1.0"
+paths:
+  /api/v1/description-expense/{budget_uuid}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieves a collection of detailed expense transactions for a specific
+        budget using its UUID. Supports pagination via limit and offset query parameters.
+      parameters:
+      - description: Bearer <access_token>
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Parent Budget UUID (36 characters)
+        in: path
+        name: budget_uuid
+        required: true
+        type: string
+      - description: Maximum number of records to return (positive integer, max 100)
+        in: query
+        name: limit
+        type: string
+      - description: Number of records to skip (positive integer)
+        in: query
+        name: offset
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of expense transactions successfully retrieved
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/app_budget-planner_internal_model.DescriptionExpenses'
+                  type: array
+                errors:
+                  type: object
+              type: object
+        "400":
+          description: 'Validation or business logic errors. Format: { \"errors\":
+            { \"limit\": \"the limit must be a positive integer not greater than 100\"
+            } } or { \"errors\": { \"offset\": \"the offset must be a positive integer\"
+            } } or { \"errors\": { \"expense\": \"not found expense\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "401":
+          description: 'Authentication errors. Format: { \"errors\": { \"auth\": \"invalid
+            access token\" } } or { \"errors\": { \"auth\": \"access token has expired\"
+            } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "404":
+          description: 'Data errors. Format: { \"errors\": { \"expense\": \"not found
+            description expense\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "429":
+          description: 'Too many requests. Format: { \"errors\": { \"global\": \"the
+            limit for sending requests per minute has been exceeded\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "500":
+          description: 'Server errors. Format: { \"errors\": { \"global\": \"critical
+            error on the server side\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+      summary: Get a paginated list of individual expense transactions
+      tags:
+      - expense
+    post:
+      consumes:
+      - application/json
+      description: Creates a detailed expense record and associates it with a specific
+        budget by UUID. If the parent expense container does not exist, it initializes
+        one automatically. Validates transaction category constraints and overall
+        budget existence.
+      parameters:
+      - description: Bearer <access_token>
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Parent Budget UUID (36 characters)
+        in: path
+        name: budget_uuid
+        required: true
+        type: string
+      - description: Expense creation payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_expense.RequestCreateDescriptionExpense'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Expense transaction successfully recorded
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_expense.ResponseCreateAndUpdateExpense'
+                errors:
+                  type: object
+              type: object
+        "400":
+          description: 'Validation or business logic errors. Format: { \"errors\":
+            { \"expense\": \"expense must be a positive decimals and greater than
+            0\" } } or { \"errors\": { \"category\": \"category mast be a health,
+            sport, supermarket, restaurant, leisure, investments, savings or other\"
+            } } or { \"errors\": { \"description\": \"description cannot be more than
+            250 characters\" } } or { \"errors\": { \"budget\": \"the budget uuid
+            must be exactly 36 characters\" } } or { \"errors\": { \"body\": \"<raw_body_error>\"
+            } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "401":
+          description: 'Authentication errors. Format: { \"errors\": { \"auth\": \"invalid
+            access token\" } } or { \"errors\": { \"auth\": \"access token has expired\"
+            } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "404":
+          description: 'Data errors. Format: { \"errors\": { \"budget\": \"not found
+            budget\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "429":
+          description: 'Too many requests. Format: { \"errors\": { \"global\": \"the
+            limit for sending requests per minute has been exceeded\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "500":
+          description: 'Server errors. Format: { \"errors\": { \"global\": \"critical
+            error on the server side\" } } or { \"errors\": { \"global\": \"failed
+            to create expense\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+      summary: Create a new expense transaction under a budget
+      tags:
+      - expense
+  /api/v1/description-expense/{budget_uuid}/{description_expense_uuid}:
+    delete:
+      consumes:
+      - application/json
+      description: Deletes a specific expense transaction record by its UUID under
+        a parent budget. Recalculates total expense fields inside the database transaction
+        and returns no content upon success.
+      parameters:
+      - description: Bearer <access_token>
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Parent Budget UUID (36 characters)
+        in: path
+        name: budget_uuid
+        required: true
+        type: string
+      - description: Specific Transaction UUID (36 characters)
+        in: path
+        name: description_expense_uuid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Expense transaction successfully deleted, no content returned
+        "400":
+          description: 'Validation or business logic errors. Format: { \"errors\":
+            { \"budget\": \"the budget uuid must be exactly 36 characters\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "401":
+          description: 'Authentication errors. Format: { \"errors\": { \"auth\": \"invalid
+            access token\" } } or { \"errors\": { \"auth\": \"access token has expired\"
+            } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "404":
+          description: 'Data errors. Format: { \"errors\": { \"budget\": \"not found
+            budget\" } } or { \"errors\": { \"expense\": \"not found expense\" } }
+            or { \"errors\": { \"expense\": \"not found description expense\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "429":
+          description: 'Too many requests. Format: { \"errors\": { \"global\": \"the
+            limit for sending requests per minute has been exceeded\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "500":
+          description: 'Server errors. Format: { \"errors\": { \"global\": \"critical
+            error on the server side\" } } or { \"errors\": { \"global\": \"failed
+            to delete expense\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+      summary: Delete an individual expense transaction
+      tags:
+      - expense
+    get:
+      consumes:
+      - application/json
+      description: 'Retrieves the complete data of an individual expense transaction
+        by its UUID under a specific budget. Validates the entity existence chain:
+        parent budget, expense container, and the specific transaction.'
+      parameters:
+      - description: Bearer <access_token>
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Parent Budget UUID (36 characters)
+        in: path
+        name: budget_uuid
+        required: true
+        type: string
+      - description: Specific Transaction UUID (36 characters)
+        in: path
+        name: description_expense_uuid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Expense transaction details successfully retrieved
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/app_budget-planner_internal_model.DescriptionExpenses'
+                errors:
+                  type: object
+              type: object
+        "400":
+          description: 'Validation or business logic errors. Format: { \"errors\":
+            { \"budget\": \"the budget uuid must be exactly 36 characters\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "401":
+          description: 'Authentication errors. Format: { \"errors\": { \"auth\": \"invalid
+            access token\" } } or { \"errors\": { \"auth\": \"access token has expired\"
+            } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "404":
+          description: 'Data errors. Format: { \"errors\": { \"budget\": \"not found
+            budget\" } } or { \"errors\": { \"expense\": \"not found expense\" } }
+            or { \"errors\": { \"expense\": \"not found description expense\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "429":
+          description: 'Too many requests. Format: { \"errors\": { \"global\": \"the
+            limit for sending requests per minute has been exceeded\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "500":
+          description: 'Server errors. Format: { \"errors\": { \"global\": \"critical
+            error on the server side\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+      summary: Get a specific expense transaction details
+      tags:
+      - expense
+    patch:
+      consumes:
+      - application/json
+      description: Updates an individual expense transaction's category, expense amount,
+        or description by its UUID under a specific budget. Validates the existence
+        of the parent budget, the main expense container, and the specific transaction
+        record.
+      parameters:
+      - description: Bearer <access_token>
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Parent Budget UUID (36 characters)
+        in: path
+        name: budget_uuid
+        required: true
+        type: string
+      - description: Specific Transaction UUID (36 characters)
+        in: path
+        name: description_expense_uuid
+        required: true
+        type: string
+      - description: Expense translation update payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_expense.RequestUpdateDescriptionExpense'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Expense transaction successfully updated
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_expense.ResponseCreateAndUpdateExpense'
+                errors:
+                  type: object
+              type: object
+        "400":
+          description: 'Validation or business logic errors. Format: { \"errors\":
+            { \"expense\": \"expense must be a positive decimals and greater than
+            0\" } } or { \"errors\": { \"category\": \"category mast be a health,
+            sport, supermarket, restaurant, leisure, investments, savings or other\"
+            } } or { \"errors\": { \"description\": \"description cannot be more than
+            250 characters\" } } or { \"errors\": { \"budget\": \"the budget uuid
+            must be exactly 36 characters\" } } or { \"errors\": { \"body\": \"<raw_body_error>\"
+            } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "401":
+          description: 'Authentication errors. Format: { \"errors\": { \"auth\": \"invalid
+            access token\" } } or { \"errors\": { \"auth\": \"access token has expired\"
+            } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "404":
+          description: 'Data errors. Format: { \"errors\": { \"budget\": \"not found
+            budget\" } } or { \"errors\": { \"expense\": \"not found expense\" } }
+            or { \"errors\": { \"expense\": \"not found description expense\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "429":
+          description: 'Too many requests. Format: { \"errors\": { \"global\": \"the
+            limit for sending requests per minute has been exceeded\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "500":
+          description: 'Server errors. Format: { \"errors\": { \"global\": \"critical
+            error on the server side\" } } or { \"errors\": { \"global\": \"failed
+            to update expense\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+      summary: Update an existing expense transaction
+      tags:
+      - expense
+  /api/v1/expense/{budget_uuid}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieves the top-level aggregated expenses data (total spent vs
+        budget limits) associated with a specific budget by its UUID.
+      parameters:
+      - description: Bearer <access_token>
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Budget UUID (36 characters)
+        in: path
+        name: budget_uuid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Aggregated expenses data successfully retrieved
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/app_budget-planner_internal_model.Expenses'
+                errors:
+                  type: object
+              type: object
+        "400":
+          description: 'Validation or business logic errors. Format: { \"errors\":
+            { \"budget\": \"the budget uuid must be exactly 36 characters\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "401":
+          description: 'Authentication errors. Format: { \"errors\": { \"auth\": \"invalid
+            access token\" } } or { \"errors\": { \"auth\": \"access token has expired\"
+            } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "404":
+          description: 'Data errors. Format: { \"errors\": { \"expense\": \"not found
+            expense\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "429":
+          description: 'Too many requests. Format: { \"errors\": { \"global\": \"the
+            limit for sending requests per minute has been exceeded\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "500":
+          description: 'Server errors. Format: { \"errors\": { \"global\": \"critical
+            error on the server side\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+      summary: Get aggregated expenses for a specific budget
+      tags:
+      - expense
+  /api/v1/finance/{budget_uuid}/{expense_uuid}:
+    get:
+      consumes:
+      - application/json
+      description: Calculates advanced financial analytics for a specific budget and
+        expense container. Returns initial vs current balances, category-by-category
+        expense tracking, percentage distribution, and a predicted average spend per
+        day based on historical user data.
+      parameters:
+      - description: Bearer <access_token>
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Budget UUID (36 characters)
+        in: path
+        name: budget_uuid
+        required: true
+        type: string
+      - description: Expense Container UUID (36 characters)
+        in: path
+        name: expense_uuid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Comprehensive financial data successfully computed and retrieved
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_finance.Finance'
+                errors:
+                  type: object
+              type: object
+        "400":
+          description: 'Validation or business logic errors. Format: { \"errors\":
+            { \"budget\": \"the budget uuid must be exactly 36 characters\" } } or
+            { \"errors\": { \"expense\": \"the expense uuid must be exactly 36 characters\"
+            } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "401":
+          description: 'Authentication errors. Format: { \"errors\": { \"auth\": \"invalid
+            access token\" } } or { \"errors\": { \"auth\": \"access token has expired\"
+            } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "404":
+          description: 'Data errors. Format: { \"errors\": { \"budget\": \"not found
+            budget\" } } or { \"errors\": { \"expense\": \"not found expense\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "429":
+          description: 'Too many requests. Format: { \"errors\": { \"global\": \"the
+            limit for sending requests per minute has been exceeded\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "500":
+          description: 'Server errors. Format: { \"errors\": { \"global\": \"critical
+            error on the server side\" } } or { \"errors\": { \"finance\": \"failed
+            to get finance\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+      summary: Get comprehensive financial analytics and predictive calculations
+      tags:
+      - finance
+  /budget:
+    get:
+      consumes:
+      - application/json
+      description: Retrieves a collection of budget plans for the authenticated user.
+        Supports pagination via limit and offset query parameters.
+      parameters:
+      - description: Bearer <access_token>
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Maximum number of records to return (positive integer, max 100)
+        in: query
+        name: limit
+        type: string
+      - description: Number of records to skip (positive integer)
+        in: query
+        name: offset
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of budget plans successfully retrieved
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/app_budget-planner_internal_model.Budgets'
+                  type: array
+                errors:
+                  type: object
+              type: object
+        "400":
+          description: 'Validation or business logic errors. Format: { \"errors\":
+            { \"limit\": \"the limit must be a positive integer not greater than 100\"
+            } } or { \"errors\": { \"offset\": \"the offset must be a positive integer\"
+            } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "401":
+          description: 'Authentication errors. Format: { \"errors\": { \"auth\": \"invalid
+            access token\" } } or { \"errors\": { \"auth\": \"access token has expired\"
+            } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "404":
+          description: 'Data errors. Format: { \"errors\": { \"budget\": \"not found
+            budget\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "429":
+          description: 'Too many requests. Format: { \"errors\": { \"global\": \"the
+            limit for sending requests per minute has been exceeded\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "500":
+          description: 'Server errors. Format: { \"errors\": { \"global\": \"critical
+            error on the server side\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+      summary: Get a paginated list of budget plans
+      tags:
+      - budget
+    post:
+      consumes:
+      - application/json
+      description: Creates a personal budget allocation with date boundaries. Validates
+        time period overlaps and restricts multiple active budgets for the same time
+        window.
+      parameters:
+      - description: Bearer <access_token>
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Budget creation payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_budget.RequestCreateBudget'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Budget plan successfully created
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/app_budget-planner_internal_model.Budgets'
+                errors:
+                  type: object
+              type: object
+        "400":
+          description: 'Validation or business logic errors. Format: { \"errors\":
+            { \"amount\": \"amount must be a positive decimals and greater than 0\"
+            } } or { \"errors\": { \"start\": \"the start parameter must be in the
+            format YYYY-MM-DD\" } } or { \"errors\": { \"finish\": \"the finish parameter
+            must be in the format YYYY-MM-DD\" } } or { \"errors\": { \"dates\": \"the
+            start parameter cannot be greater than or equal to finish\" } } or { \"errors\":
+            { \"dates\": \"the start and finish parameters are overlap with another
+            budget time period\" } } or { \"errors\": { \"body\": \"<raw_body_error>\"
+            } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "401":
+          description: 'Authentication errors. Format: { \"errors\": { \"auth\": \"invalid
+            access token\" } } or { \"errors\": { \"auth\": \"access token has expired\"
+            } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "429":
+          description: 'Too many requests. Format: { \"errors\": { \"global\": \"the
+            limit for sending requests per minute has been exceeded\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "500":
+          description: 'Server errors. Format: { \"errors\": { \"global\": \"critical
+            error on the server side\" } } or { \"errors\": { \"global\": \"failed
+            to create budget\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+      summary: Create a new financial budget plan
+      tags:
+      - budget
+  /budget/{uuid}:
+    delete:
+      consumes:
+      - application/json
+      description: Removes a budget by its UUID. Supports soft-delete (default) or
+        hard-delete via query parameter. Validates budget existence and user ownership
+        before execution.
+      parameters:
+      - description: Bearer <access_token>
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Budget UUID (36 characters)
+        in: path
+        name: uuid
+        required: true
+        type: string
+      - description: 'Deletion type strategy: ''soft-delete'' or ''hard-delete''.
+          Defaults to soft-delete if empty.'
+        in: query
+        name: type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Budget successfully removed, no content returned
+        "400":
+          description: 'Validation or business logic errors. Format: { \"errors\":
+            { \"budget\": \"the budget uuid must be exactly 36 characters\" } } or
+            { \"errors\": { \"type\": \"the type  must be a soft-delete or hard-delete\"
+            } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "401":
+          description: 'Authentication errors. Format: { \"errors\": { \"auth\": \"invalid
+            access token\" } } or { \"errors\": { \"auth\": \"access token has expired\"
+            } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "404":
+          description: 'Data errors. Format: { \"errors\": { \"budget\": \"not found
+            budget\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "429":
+          description: 'Too many requests. Format: { \"errors\": { \"global\": \"the
+            limit for sending requests per minute has been exceeded\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "500":
+          description: 'Server errors. Format: { \"errors\": { \"global\": \"critical
+            error on the server side\" } } or { \"errors\": { \"global\": \"failed
+            to remove budget\" } } or { \"errors\": { \"global\": \"failed to delete
+            budget\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+      summary: Remove or hard delete a financial budget plan
+      tags:
+      - budget
+    get:
+      consumes:
+      - application/json
+      description: Retrieves the complete data of a specific financial budget plan
+        using its unique identifier. Validates resource ownership based on the extracted
+        user token.
+      parameters:
+      - description: Bearer <access_token>
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Budget UUID (36 characters)
+        in: path
+        name: uuid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Budget plan details successfully retrieved
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/app_budget-planner_internal_model.Budgets'
+                errors:
+                  type: object
+              type: object
+        "400":
+          description: 'Validation or business logic errors. Format: { \"errors\":
+            { \"budget\": \"the budget uuid must be exactly 36 characters\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "401":
+          description: 'Authentication errors. Format: { \"errors\": { \"auth\": \"invalid
+            access token\" } } or { \"errors\": { \"auth\": \"access token has expired\"
+            } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "404":
+          description: 'Data errors. Format: { \"errors\": { \"budget\": \"not found
+            budget\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "429":
+          description: 'Too many requests. Format: { \"errors\": { \"global\": \"the
+            limit for sending requests per minute has been exceeded\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "500":
+          description: 'Server errors. Format: { \"errors\": { \"global\": \"critical
+            error on the server side\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+      summary: Get budget plan details by UUID
+      tags:
+      - budget
+    patch:
+      consumes:
+      - application/json
+      description: Updates a budget's amount, dates, or description by its UUID. Validates
+        that new date periods do not overlap with existing budgets and partial date
+        updates are cross-checked with current values.
+      parameters:
+      - description: Bearer <access_token>
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Budget UUID (36 characters)
+        in: path
+        name: uuid
+        required: true
+        type: string
+      - description: Budget partial update payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_budget.RequestUpdateBudget'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Budget plan successfully updated
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/app_budget-planner_internal_model.Budgets'
+                errors:
+                  type: object
+              type: object
+        "400":
+          description: 'Validation or business logic errors. Format: { \"errors\":
+            { \"amount\": \"amount must be a positive decimals and greater than 0\"
+            } } or { \"errors\": { \"start\": \"the start parameter must be in the
+            format YYYY-MM-DD\" } } or { \"errors\": { \"finish\": \"the finish parameter
+            must be in the format YYYY-MM-DD\" } } or { \"errors\": { \"dates\": \"the
+            start parameter cannot be greater than or equal to finish\" } } or { \"errors\":
+            { \"dates\": \"the start and finish parameters are overlap with another
+            budget time period\" } } or { \"errors\": { \"budget\": \"the budget uuid
+            must be exactly 36 characters\" } } or { \"errors\": { \"body\": \"<raw_body_error>\"
+            } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "401":
+          description: 'Authentication errors. Format: { \"errors\": { \"auth\": \"invalid
+            access token\" } } or { \"errors\": { \"auth\": \"access token has expired\"
+            } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "404":
+          description: 'Data errors. Format: { \"errors\": { \"budget\": \"not found
+            budget\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "429":
+          description: 'Too many requests. Format: { \"errors\": { \"global\": \"the
+            limit for sending requests per minute has been exceeded\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+        "500":
+          description: 'Server errors. Format: { \"errors\": { \"global\": \"critical
+            error on the server side\" } } or { \"errors\": { \"global\": \"failed
+            to update budget\" } }'
+          schema:
+            $ref: '#/definitions/response.NegativeResponse'
+      summary: Update an existing financial budget plan
+      tags:
+      - budget
+swagger: "2.0"
+tags:
+- description: Envelope budgeting, limit configurations, and category allocations
+  name: budget
+- description: Daily transaction tracking, merchant categorization, and historic expense
+    logs
+  name: expense
+- description: Advanced predictive analytics, financial health scoring, and heavy
+    data aggregation calculations
+  name: finance

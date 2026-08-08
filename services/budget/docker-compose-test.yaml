@@ -13,11 +13,23 @@ services:
       timeout: 5s
       interval: 5s
       retries: 5
+  redis-shared-test:
+    container_name: redis-shared
+    image: redis:8.10-rc2-alpine3.23
+    ports:
+      - "${EXTERNAL_SHARED_REDIS_PORT}:6379"
+    command: redis-server --requirepass ${SHARED_REDIS_PASSWORD}
+    healthcheck:
+      test: [ "CMD", "redis-cli", "-a", "${SHARED_REDIS_PASSWORD}", "ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
   migration-planner-test:
     container_name: migration-budget-planner-test
     build:
       context: ../../
-      dockerfile: ./services/budget-planner-service/Dockerfile
+      dockerfile: ./services/budget/Dockerfile
     entrypoint: ["./migrator"]
     environment:
       DSN : ${DSN_TEST_MIGRATION}

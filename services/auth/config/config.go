@@ -62,7 +62,7 @@ func NewConfig(logger *loggers.Logger) *Config {
 		logger.Warn("environment variable 'EXTERNAL_API_PORT' not found. Default value = 8080")
 	}
 	if serviceIP == "" {
-		apiPort = "localhost"
+		serviceIP = "localhost"
 		logger.Warn("environment variable 'SERVICE_IP' not found. Default value = localhost")
 	}
 	if dsn == "" {

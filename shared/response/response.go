@@ -28,10 +28,10 @@ func NewHandlerResponse(logger *loggers.Logger) *HandlerResponse {
 }
 
 func (hr *HandlerResponse) ResponseSend(writer http.ResponseWriter, response *Response, status int) {
-	writer.Header().Set("Content-Type", "application/json")
+	writer.Header().Set("Content-Type", "application/json; charset=utf-8")
 	writer.WriteHeader(status)
 	errEncode := json.NewEncoder(writer).Encode(response)
 	if errEncode != nil {
-		hr.Logger.Error("failed to process the response: ", errEncode)
+		hr.Logger.Error("failed to process the response: " + errEncode.Error())
 	}
 }

@@ -11,6 +11,8 @@ import (
 	"net/http/httptest"
 	"os"
 	"regexp"
+	"shared/shconstant"
+	"shared/testutil"
 	"strconv"
 	"strings"
 	"testing"
@@ -28,7 +30,7 @@ func TestRegisterSuccessful(t *testing.T) {
 	if errReadFile != nil {
 		t.Fatal("failed to read sql file: ", errReadFile)
 	}
-	shtesting.RefreshUserTestData(dataSqlFile, []string{"users"}, t)
+	testutil.RefreshUserTestData(dataSqlFile, []string{"users"}, t)
 	deleteRedisData(t)
 	deleteMailPitMessages(t)
 	appVariable := App()
@@ -54,7 +56,7 @@ func TestLoginSuccessful(t *testing.T) {
 	if errReadFile != nil {
 		t.Fatal("failed to read sql file: ", errReadFile)
 	}
-	shtesting.RefreshUserTestData(dataSqlFile, []string{"users"}, t)
+	testutil.RefreshUserTestData(dataSqlFile, []string{"users"}, t)
 	deleteRedisData(t)
 	deleteMailPitMessages(t)
 	appVariable := App()
@@ -92,7 +94,7 @@ func TestRecoverySuccess(t *testing.T) {
 		if errReadFile != nil {
 			t.Fatal("failed to read sql file: ", errReadFile)
 		}
-		shtesting.RefreshUserTestData(dataSqlFile, []string{"users"}, t)
+		testutil.RefreshUserTestData(dataSqlFile, []string{"users"}, t)
 		deleteRedisData(t)
 		deleteMailPitMessages(t)
 		dataRecovery, errMarshalRecovery := json.Marshal(testCase.RequestRecovery)
@@ -152,7 +154,7 @@ func deleteRedisData(t *testing.T) {
 	}
 }
 func helperTestConfirmAndRefresh(resp *http.Response, action, newPassword string, testServer *httptest.Server, t *testing.T) {
-	resultData := shtesting.HelperHandleResponse[common.ResponseAuth](resp, http.StatusAccepted, t)
+	resultData := testutil.HelperHandleResponse[common.ResponseAuth](resp, http.StatusAccepted, t)
 	code := helperExtractCode(t)
 	requestConfirm := auth.RequestConfirm{
 		Code:        code,
@@ -177,7 +179,7 @@ func helperTestConfirmAndRefresh(resp *http.Response, action, newPassword string
 	if errRespConfirm != nil {
 		t.Fatal("failed to get response confirm: ", errRespConfirm)
 	}
-	resultDataConfirm := shtesting.HelperHandleResponse[auth.ResponseConfirm](respConfirm, expectedStatusCode, t)
+	resultDataConfirm := testutil.HelperHandleResponse[auth.ResponseConfirm](respConfirm, expectedStatusCode, t)
 	bodyRefresh := auth.RequestRefreshLogout{
 		RefreshJwt: resultDataConfirm.RefreshJwt,
 	}
@@ -189,7 +191,7 @@ func helperTestConfirmAndRefresh(resp *http.Response, action, newPassword string
 	if errRespRefresh != nil {
 		t.Fatal("failed to get response refresh: ", errRespRefresh)
 	}
-	resultDataRefresh := shtesting.HelperHandleResponse[auth.ResponseConfirm](respRefresh, http.StatusOK, t)
+	resultDataRefresh := testutil.HelperHandleResponse[auth.ResponseConfirm](respRefresh, http.StatusOK, t)
 	t.Log(resultDataRefresh)
 }
 func helperExtractCode(t *testing.T) int {

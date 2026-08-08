@@ -1,22 +1,45 @@
 package swaggerdocs
 
 import (
+	docsconfig "app/gatewaydocs/config"
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"shared/loggers"
+	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 type ServiceSwaggerDocs struct {
-	DocsMap sync.Map
-	Logger  *loggers.Logger
+	DocsMap     sync.Map
+	Logger      *loggers.Logger
+	Conf        *docsconfig.Config
+	ServiceList []ListDocs
 }
 
-func NewServiceSwaggerDocs(logger *loggers.Logger) *ServiceSwaggerDocs {
+type ListDocs struct {
+	Service string
+	Url     string
+}
+
+const (
+	AuthService   = "auth"
+	BudgetService = "budget"
+)
+
+func NewServiceSwaggerDocs(logger *loggers.Logger, conf *docsconfig.Config) *ServiceSwaggerDocs {
 	return &ServiceSwaggerDocs{
 		Logger: logger,
+		Conf:   conf,
+		ServiceList: []ListDocs{
+			{Service: AuthService, Url: "http://" + conf.AuthUserIP + ".default.svc.cluster.local:" + conf.AuthUserPort + "/swagger/doc.json"},
+			{Service: BudgetService, Url: "http://" + conf.BudgetPlannerIP + ".default.svc.cluster.local:" + conf.BudgetPlannerPort + "/swagger/doc.json"},
+		},
 	}
 }
 
@@ -34,55 +57,89 @@ func (s *ServiceSwaggerDocs) GetDocs() []InfoServices {
 }
 
 func (s *ServiceSwaggerDocs) GetDocsAPI(service string) ([]byte, error) {
-	if service == "" {
-		var docsData []byte
-		s.DocsMap.Range(func(key, value any) bool {
-			data, ok := value.([]byte)
-			if ok {
-				docsData = append(docsData, data...)
-			} else {
-				s.Logger.Error("failed to assertion type docs api: " + key.(string))
+	if service != "" {
+		docsData, found := s.DocsMap.Load(service)
+		if !found {
+			return nil, ErrNotFoundDocs
+		}
+		return docsData.([]byte), nil
+	}
+	finalMergeMap := map[string]any{
+		"swagger":  "2.0",
+		"basePath": "/api/v1",
+		"info": map[string]any{
+			"title":       "Combined Gateway API Ecosystem",
+			"version":     "1.0",
+			"description": "Aggregated documentation for all microservices.",
+		},
+		"paths":       make(map[string]any),
+		"definitions": make(map[string]any),
+	}
+	orderServices := []string{AuthService, BudgetService}
+	for _, serviceName := range orderServices {
+		value, exist := s.DocsMap.Load(serviceName)
+		if !exist {
+			continue
+		}
+		dataDocs, ok := value.([]byte)
+		if !ok {
+			s.Logger.Error("failed to assert type key")
+			continue
+		}
+		rawJson := string(dataDocs)
+		title := cases.Title(language.AmericanEnglish)
+		keyTitle := title.String(serviceName)
+		rawJson = strings.ReplaceAll(rawJson, `"response.Response"`, `"response.`+keyTitle+`Response"`)
+		rawJson = strings.ReplaceAll(rawJson, `"response.NegativeResponse"`, `"response.`+keyTitle+`NegativeResponse"`)
+		rawJson = strings.ReplaceAll(rawJson, `#/definitions/response.Response`, `#/definitions/response.`+keyTitle+`Response`)
+		rawJson = strings.ReplaceAll(rawJson, `#/definitions/response.NegativeResponse`, `#/definitions/response.`+keyTitle+`NegativeResponse`)
+		var currentMap map[string]any
+		if errUnmarshal := json.Unmarshal([]byte(rawJson), &currentMap); errUnmarshal != nil {
+			s.Logger.Error("failed to unmarshal docs: " + errUnmarshal.Error())
+			continue
+		}
+		if nextPaths, okNextPath := currentMap["paths"].(map[string]any); okNextPath {
+			if basePaths, okBasePath := finalMergeMap["paths"].(map[string]any); okBasePath {
+				for pathKey, pathValue := range nextPaths {
+					basePaths[pathKey] = pathValue
+				}
 			}
-			return true
-		})
-		return docsData, nil
+		}
+		if nextDefs, okNextDefs := currentMap["definitions"].(map[string]any); okNextDefs {
+			if baseDefs, okBaseDefs := finalMergeMap["definitions"].(map[string]any); okBaseDefs {
+				for defsKey, defsValue := range nextDefs {
+					baseDefs[defsKey] = defsValue
+				}
+			}
+		}
 	}
-	docsData, found := s.DocsMap.Load(service)
-	if !found {
-		return nil, ErrNoyFoundDocs
+	if dataMergeDocs, errMarshal := json.Marshal(finalMergeMap); errMarshal != nil {
+		return nil, ErrFailedMergeDocs
+	} else {
+		return dataMergeDocs, nil
 	}
-	return docsData.([]byte), nil
-}
-
-type ServiceList struct {
-	Service string
-	Url     string
 }
 
 func (s *ServiceSwaggerDocs) UpdateDocs() {
 	s.DocsMap.Clear()
-	listServices := []ServiceList{
-		{Service: "auth", Url: "http://app-auth-user:8080/swager/doc.json"},
-		{Service: "budget", Url: "http://app-budget-planner:8080/swager/doc.json"},
-	}
 	var wg sync.WaitGroup
-	for _, list := range listServices {
+	for _, list := range s.ServiceList {
 		wg.Add(1)
-		go func(ls ServiceList) {
+		go func(ls ListDocs) {
 			defer wg.Done()
 			resp, errGetDocs := http.Get(ls.Url)
 			if errGetDocs != nil {
-				s.Logger.Error("failed to get docs: " + ls.Url + ": " + errGetDocs.Error())
+				s.Logger.Error("failed to get docs: " + ls.Service + ": " + errGetDocs.Error())
 				return
 			}
 			defer func() {
 				if errClose := resp.Body.Close(); errClose != nil {
-					s.Logger.Error("failed to close: " + ls.Url + ": " + errClose.Error())
+					s.Logger.Error("failed to close: " + ls.Service + ": " + errClose.Error())
 				}
 			}()
 			dataDocs, errRead := io.ReadAll(resp.Body)
 			if errRead != nil {
-				s.Logger.Error("failed to read docs: " + ls.Url + ": " + errRead.Error())
+				s.Logger.Error("failed to read docs: " + ls.Service + ": " + errRead.Error())
 				return
 			}
 			s.DocsMap.Store(list.Service, dataDocs)

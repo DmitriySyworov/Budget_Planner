@@ -2,16 +2,17 @@ versions:
   authUserVersion: "v1"
   budgetPlannerVersion: "v1"
   notificationVersion: "v1"
+  gatewayDocsVersion: "v1"
   defaultVersion: "v1"
 replicasCount:
   authReplicas: 3
   budgetReplicas: 3
   notificationReplicas: 3
+  docsReplicas: 1
   defaultReplicas: 3
 microservices:
   - name : app-auth-user
     image : "dmitriysyworov/auth-user-service"
-    port : 8080
     ingressPaths:
       - /api/v1/register
       - /api/v1/login
@@ -29,7 +30,6 @@ microservices:
     secretName: "auth-user-all-secrets"
   - name : app-budget-planner
     image: "dmitriysyworov/budget-planner-service"
-    port: 8080
     ingressPaths:
       - /api/v1/budget
       - /api/v1/expense
@@ -44,11 +44,16 @@ microservices:
     secretName: "budget-planner-all-secrets"
   - name : notification
     image : "dmitriysyworov/notification"
-    port : 8080
     service:
       type: ClusterIP
       port: 80
     secretName: "notification-all-secrets"
+  - name : gateway-docs
+    image : "dmitriysyworov/gateway-docs"
+    service:
+      type: ClusterIP
+      port: 80
+    secretName: "gateway-docs-all-secrets"
 statefulServices:
   - name: postgres-user
     image: "postgres:18-alpine"
@@ -110,6 +115,23 @@ jobServices:
       - name: "notification-topic"
         partitions: 3
 secrets:
+  - secretName: "gateway-docs-all-secrets"
+    envSecrets:
+      - name: EXTERNAL_API_PORT
+        key: external-api-port
+        value: '8080'
+      - name: AUTH_USER_IP
+        key: auth-user-ip
+        value: 'app-auth-user-service'
+      - name: AUTH_USER_PORT
+        key: auth-user-port
+        value: '80'
+      - name: BUDGET_PLANNER_IP
+        key: budget-planner-ip
+        value: 'app-budget-planner-service '
+      - name: BUDGET_PLANNER_PORT
+        key: budget-planner-port
+        value: '80'
   - secretName: "redis-shared-all-secrets"
     envSecrets:
       - name: SHARED_REDIS_ADDRESS

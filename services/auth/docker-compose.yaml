@@ -47,7 +47,9 @@ services:
     container_name: migration-auth-user
     build:
       context: ../../
-      dockerfile: ./services/auth-service/Dockerfile
+      dockerfile: ./services/auth/Dockerfile
+    env_file:
+      - .env
     entrypoint: ["./migrator"]
     environment:
       DSN : ${DSN}
@@ -59,7 +61,9 @@ services:
     container_name: app-auth-user
     build:
       context: ../../
-      dockerfile: ./services/auth-service/Dockerfile
+      dockerfile: ./services/auth/Dockerfile
+    env_file:
+      - .env
     ports:
       - "${EXTERNAL_API_PORT}:8080"
     environment:

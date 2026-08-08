@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"shared/shconstant"
+	"shared/testutil"
 	"testing"
 
 	"github.com/google/uuid"
@@ -17,14 +18,14 @@ import (
 
 func TestCreateBudgetSuccessful(t *testing.T) {
 	appVariable := App()
-	accessToken := shtesting.CreateTestAccessToken("2e4b3c1d-8f9a-4c2b-b5e1-d3a7f8c9e0b2", appVariable.Conf.Signature, t)
+	accessToken := testutil.CreateTestAccessToken("2e4b3c1d-8f9a-4c2b-b5e1-d3a7f8c9e0b2", appVariable.Conf.Signature, t)
 	testServer := httptest.NewServer(appVariable.HandlerApp)
 	defer testServer.Close()
 	dataQuery, errReadFileSql := os.ReadFile("load-mock-budget-data.sql")
 	if errReadFileSql != nil {
 		t.Fatal("failed to read file sql: ", errReadFileSql)
 	}
-	shtesting.RefreshUserTestData(dataQuery, []string{"budgets", "expenses", "description_expenses"}, t)
+	testutil.RefreshUserTestData(dataQuery, []string{"budgets", "expenses", "description_expenses"}, t)
 	bodyCreateBudget := budget.RequestCreateBudget{
 		Amount:      "1234.54",
 		Start:       "2026-06-01",
@@ -44,7 +45,7 @@ func TestCreateBudgetSuccessful(t *testing.T) {
 	if errRespCreate != nil {
 		t.Fatal("failed to get response: ", errRespCreate)
 	}
-	dataRespCreate := shtesting.HelperHandleResponse[model.Budgets](respCreate, http.StatusCreated, t)
+	dataRespCreate := testutil.HelperHandleResponse[model.Budgets](respCreate, http.StatusCreated, t)
 	if _, errUUID := uuid.Parse(dataRespCreate.BudgetUUID); errUUID != nil {
 		t.Fatal("incorrect budget_uuid: ", errUUID)
 	}
@@ -79,12 +80,12 @@ func TestUpdateBudgetSuccessful(t *testing.T) {
 	if errReadFileSql != nil {
 		t.Fatal("failed to read file sql: ", errReadFileSql)
 	}
-	shtesting.RefreshUserTestData(dataQuery, []string{"budgets", "expenses", "description_expenses"}, t)
+	testutil.RefreshUserTestData(dataQuery, []string{"budgets", "expenses", "description_expenses"}, t)
 	const (
 		budgetUpdateUUID = "859c7a21-dc20-410a-ba54-2c11fb6db2a8"
 		userUpdateUUID   = "1b272de3-9827-4c47-8a60-2da8e80556f8"
 	)
-	accessToken := shtesting.CreateTestAccessToken(userUpdateUUID, appVariable.Conf.Signature, t)
+	accessToken := testutil.CreateTestAccessToken(userUpdateUUID, appVariable.Conf.Signature, t)
 
 	for _, test := range CaseDataUpdateBudget {
 		data, errMarshalUpdate := json.Marshal(test)
@@ -100,7 +101,7 @@ func TestUpdateBudgetSuccessful(t *testing.T) {
 		if errRespUpdate != nil {
 			t.Fatal(test.Name+"failed to get response: ", errRespUpdate)
 		}
-		respData := shtesting.HelperHandleResponse[model.Budgets](respUpdate, http.StatusOK, t)
+		respData := testutil.HelperHandleResponse[model.Budgets](respUpdate, http.StatusOK, t)
 		if respData.BudgetUUID != budgetUpdateUUID {
 			t.Fatalf(test.Name+"budget_uuid: %s do not match %s", respData.BudgetUUID, budgetUpdateUUID)
 		}
@@ -111,7 +112,7 @@ func TestUpdateBudgetSuccessful(t *testing.T) {
 }
 func TestGetBudgetSuccessful(t *testing.T) {
 	appVariable := App()
-	accessToken := shtesting.CreateTestAccessToken("6e5f4a3b-2c1d-4e9f-8a7b-6c5d4e3f2a1b", appVariable.Conf.Signature, t)
+	accessToken := testutil.CreateTestAccessToken("6e5f4a3b-2c1d-4e9f-8a7b-6c5d4e3f2a1b", appVariable.Conf.Signature, t)
 	testServer := httptest.NewServer(appVariable.HandlerApp)
 	defer testServer.Close()
 	dataQuery, errReadFileSql := os.ReadFile("load-mock-budget-data.sql")
@@ -119,7 +120,7 @@ func TestGetBudgetSuccessful(t *testing.T) {
 		t.Fatal("failed to read file sql: ", errReadFileSql)
 	}
 	budgetUUID := "0f1e2d3c-4b5a-4678-9abc-def012345678"
-	shtesting.RefreshUserTestData(dataQuery, []string{"budgets", "expenses", "description_expenses"}, t)
+	testutil.RefreshUserTestData(dataQuery, []string{"budgets", "expenses", "description_expenses"}, t)
 	requestRemove, errReqRemove := http.NewRequest(http.MethodGet, testServer.URL+"/api/v1/budget/"+budgetUUID, nil)
 	if errReqRemove != nil {
 		t.Fatal("failed to prepare request: ", errReqRemove)
@@ -129,7 +130,7 @@ func TestGetBudgetSuccessful(t *testing.T) {
 	if errRespRemove != nil {
 		t.Fatal("failed to get response: ", errRespRemove)
 	}
-	dataRespRemove := shtesting.HelperHandleResponse[model.Budgets](respRemove, http.StatusOK, t)
+	dataRespRemove := testutil.HelperHandleResponse[model.Budgets](respRemove, http.StatusOK, t)
 	if _, errUUID := uuid.Parse(dataRespRemove.BudgetUUID); errUUID != nil {
 		t.Fatal("incorrect budget_uuid: ", errUUID)
 	}
@@ -153,9 +154,9 @@ func TestRemoveBudgetSuccessful(t *testing.T) {
 	if errReadFileSql != nil {
 		t.Fatal("failed to read file sql: ", errReadFileSql)
 	}
-	db := shtesting.RefreshUserTestData(dataQuery, []string{"budgets", "expenses", "description_expenses"}, t)
+	db := testutil.RefreshUserTestData(dataQuery, []string{"budgets", "expenses", "description_expenses"}, t)
 	for _, test := range CaseDataRemoveBudget {
-		accessToken := shtesting.CreateTestAccessToken(test.UserUUID, appVariable.Conf.Signature, t)
+		accessToken := testutil.CreateTestAccessToken(test.UserUUID, appVariable.Conf.Signature, t)
 		requestGet, errReqGet := http.NewRequest(http.MethodDelete, testServer.URL+"/api/v1/budget/"+test.BudgetUUID+"?type="+test.Type, nil)
 		if errReqGet != nil {
 			t.Fatal(test.Name+"failed to prepare request: ", errReqGet)
@@ -165,7 +166,7 @@ func TestRemoveBudgetSuccessful(t *testing.T) {
 		if errRespGet != nil {
 			t.Fatal(test.Name+"failed to get response: ", errRespGet)
 		}
-		shtesting.HelperHandleResponse[model.Budgets](respGet, http.StatusNoContent, t)
+		testutil.HelperHandleResponse[model.Budgets](respGet, http.StatusNoContent, t)
 		budgets := &model.Budgets{}
 		if test.Type == shconstant.TypeSoftDelete {
 			if db.Where("user_uuid = ? AND budget_uuid = ?", test.UserUUID, test.BudgetUUID).
@@ -195,14 +196,14 @@ var CaseListBudgetData = []struct {
 func TestListBudgetSuccessful(t *testing.T) {
 	appVariable := App()
 	const userListUUID = "c9b8a7d6-e5f4-4321-890a-bcdef1234567"
-	accessToken := shtesting.CreateTestAccessToken(userListUUID, appVariable.Conf.Signature, t)
+	accessToken := testutil.CreateTestAccessToken(userListUUID, appVariable.Conf.Signature, t)
 	testServer := httptest.NewServer(appVariable.HandlerApp)
 	defer testServer.Close()
 	dataQuery, errReadFileSql := os.ReadFile("load-mock-budget-data.sql")
 	if errReadFileSql != nil {
 		t.Fatal("failed to read file sql: ", errReadFileSql)
 	}
-	shtesting.RefreshUserTestData(dataQuery, []string{"budgets", "expenses", "description_expenses"}, t)
+	testutil.RefreshUserTestData(dataQuery, []string{"budgets", "expenses", "description_expenses"}, t)
 	for _, test := range CaseListBudgetData {
 		requestGet, errReqGet := http.NewRequest(http.MethodGet, testServer.URL+"/api/v1/budget"+test.QueryParams, nil)
 		if errReqGet != nil {
@@ -213,7 +214,7 @@ func TestListBudgetSuccessful(t *testing.T) {
 		if errRespGet != nil {
 			t.Fatal(test.Name+"failed to get response: ", errRespGet)
 		}
-		dataRespGet := shtesting.HelperHandleResponse[[]model.Budgets](respGet, http.StatusOK, t)
+		dataRespGet := testutil.HelperHandleResponse[[]model.Budgets](respGet, http.StatusOK, t)
 		if len(dataRespGet) != test.ExpectedQuantityRecords {
 			t.Fatalf(test.Name+"expected len list budget %d got %d", test.ExpectedQuantityRecords, len(dataRespGet))
 		}

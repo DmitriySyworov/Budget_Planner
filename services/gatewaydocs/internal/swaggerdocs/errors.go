@@ -3,5 +3,6 @@ package swaggerdocs
 import "errors"
 
 var (
-	ErrNoyFoundDocs = errors.New("not found docs")
+	ErrNotFoundDocs    = errors.New("not found docs")
+	ErrFailedMergeDocs = errors.New("failed to merge docs")
 )
