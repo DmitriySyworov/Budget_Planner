@@ -72,11 +72,18 @@ func (s *ServiceSwaggerDocs) GetDocsAPI(service string) ([]byte, error) {
 			"version":     "1.0",
 			"description": "Aggregated documentation for all microservices.",
 		},
+		"tags": []map[string]any{
+			{"name": "auth", "description": "User registration, authentication, and session management"},
+			{"name": "user", "description": "Profile management, account data retrieval, and user deletion logs"},
+			{"name": "budget", "description": "Envelope budgeting, limit configurations, and category allocations"},
+			{"name": "expense", "description": "Daily transaction tracking, merchant categorization, and historic expense logs"},
+			{"name": "finance", "description": "Advanced predictive analytics, financial health scoring, and heavy data aggregation calculations"},
+		},
 		"paths":       make(map[string]any),
 		"definitions": make(map[string]any),
 	}
-	orderServices := []string{AuthService, BudgetService}
-	for _, serviceName := range orderServices {
+	services := []string{AuthService, BudgetService}
+	for _, serviceName := range services {
 		value, exist := s.DocsMap.Load(serviceName)
 		if !exist {
 			continue

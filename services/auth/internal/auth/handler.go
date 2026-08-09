@@ -448,6 +448,7 @@ func (h *HandlerAuth) Refresh() http.HandlerFunc {
 // @Tags         auth
 // @Accept       json
 // @Produce      json
+// @Param        all      query     bool    false "If true, terminates all active sessions across all devices. Default is false (only current device)." default(false)
 // @Param        request  body      RequestRefreshLogout  true  "Logout payload containing refresh token"
 // @Success      204      "Session successfully invalidated, no content returned"
 // @Failure      400      {object}  response.NegativeResponse "Client validation errors. Format: { \"errors\": { \"refresh_token\": \"refresh token not sent\" } } or { \"errors\": { \"body\": \"invalid json format\" } }"
@@ -487,10 +488,12 @@ func (h *HandlerAuth) Logout() http.HandlerFunc {
 		values.DataLog.MapLog["user_agent"] = userAgent
 		ipUser := ip.GetIP(request)
 		values.DataLog.MapLog["ip"] = ipUser
+		allFlag := request.URL.Query().Get("all")
+		values.DataLog.MapLog["all"] = allFlag
 		if !h.helperRateLimiting(request.Context(), body.RefreshJwt, writer) {
 			return
 		}
-		h.ServiceAuth.Logout(request.Context(), body.RefreshJwt, userAgent, ipUser)
+		h.ServiceAuth.Logout(request.Context(), body.RefreshJwt, userAgent, ipUser, allFlag)
 		writer.WriteHeader(http.StatusNoContent)
 	}
 }

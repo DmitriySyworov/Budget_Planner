@@ -95,3 +95,5 @@ get-logs-docs:
 proto-update-all:
 	protoc --go_out=. --go_opt=paths=source_relative ./shared/shprotos/event/user.proto
 	protoc --go_out=. --go_opt=paths=source_relative ./shared/shprotos/event/letter.proto
+check-helm-template:
+	helm template ./helm-chart -f ./helm-chart/values.test.yaml

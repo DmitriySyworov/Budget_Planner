@@ -18,10 +18,9 @@ microservices:
       - /api/v1/login
       - /api/v1/recovery
       - /api/v1/refresh
-      - /api/v1/logout-
+      - /api/v1/logout
       - /api/v1/confirm
       - /api/v1/user
-    host: "budget-planner"
     service:
       type: NodePort
       port: 80
@@ -35,25 +34,29 @@ microservices:
       - /api/v1/expense
       - /api/v1/description-expense
       - /api/v1/finance
-    host: "budget-planner"
     service:
       type: NodePort
       port: 80
       nodePort: 32001
     checkLivenessProbe: true
     secretName: "budget-planner-all-secrets"
+  - name : gateway-docs
+    image : "dmitriysyworov/gateway-docs"
+    ingressPaths:
+      - /api/v1/docs
+      - /swagger
+    isSecurityService: true
+    service:
+      type: NodePort
+      port: 80
+      nodePort: 32002
+    secretName: "gateway-docs-all-secrets"
   - name : notification
     image : "dmitriysyworov/notification"
     service:
       type: ClusterIP
       port: 80
     secretName: "notification-all-secrets"
-  - name : gateway-docs
-    image : "dmitriysyworov/gateway-docs"
-    service:
-      type: ClusterIP
-      port: 80
-    secretName: "gateway-docs-all-secrets"
 statefulServices:
   - name: postgres-user
     image: "postgres:18-alpine"
@@ -115,8 +118,22 @@ jobServices:
       - name: "notification-topic"
         partitions: 3
 secrets:
+  - secretName: "redis-shared-all-secrets"
+    envSecrets:
+      - name: SHARED_REDIS_ADDRESS
+        key: shared-redis-address
+        value: 'redis-shared-service:6379'
+      - name: SHARED_REDIS_PASSWORD
+        key: shared-redis-password
+        value: 'example_password'
   - secretName: "gateway-docs-all-secrets"
     envSecrets:
+      - name: AUTH
+        key: auth
+        value: 'admin-swagger:$apr1$B4mK9rNu$vbytwN7LgFmh7d7wW3SXG0' #example_password
+      - name: REALM_NAME_AUTH
+        key:  realm-name-auth
+        value: 'Authentication Required - Swagger UI'
       - name: EXTERNAL_API_PORT
         key: external-api-port
         value: '8080'
@@ -128,35 +145,33 @@ secrets:
         value: '80'
       - name: BUDGET_PLANNER_IP
         key: budget-planner-ip
-        value: 'app-budget-planner-service '
+        value: 'app-budget-planner-service'
       - name: BUDGET_PLANNER_PORT
         key: budget-planner-port
         value: '80'
-  - secretName: "redis-shared-all-secrets"
-    envSecrets:
-      - name: SHARED_REDIS_ADDRESS
-        key: shared-redis-address
-        value: 'redis-shared-service:6379'
-      - name: SHARED_REDIS_PASSWORD
-        key: shared-redis-password
-        value: 'example_password'
   - secretName: "auth-user-all-secrets"
     envSecrets:
+      - name: EXTERNAL_API_PORT
+        key: external-api-port
+        value: '8080'
+      - name: SERVICE_IP
+        key: service-ip
+        value: 'app-auth-user-service'
       - name: DSN
         key: dsn
-        value: 'host=postgres-user-service user=example_user password=example_password dbname=example_db port=5432 sslmode=disable'
+        value: 'host=postgres-user-service user=admin-auth password=example_password dbname=user port=5432 sslmode=disable'
       - name: JWT_SIGNATURE
         key: jwt-signature
         value: '*.01?Ue)p6]H=|C:o-.2z%5R^]@}:r9E_&k#4LC(bOR'
       - name: POSTGRES_USER
         key: postgres-user
-        value: 'example_user'
+        value: 'admin-auth'
       - name: POSTGRES_PASSWORD
         key: postgres-password
         value: 'example_password'
       - name: POSTGRES_DB
         key: postgres-db
-        value: 'example_db'
+        value: 'user'
       - name: REDIS_ADDRESS
         key: redis-address
         value: 'redis-auth-service:6379'
@@ -186,9 +201,12 @@ secrets:
         value: 'example_password'
   - secretName: "notification-all-secrets"
     envSecrets:
+      - name: EXTERNAL_API_PORT
+        key: external-api-port
+        value: '8080'
       - name: API_EMAIL
         key: api-email
-        value: 'example@gmail.com'
+        value: 'example_email@gmail.com'
       - name: API_PASSWORD
         key: api-password
         value: 'example_password'
@@ -221,21 +239,27 @@ secrets:
         value: 'example_password'
   - secretName: "budget-planner-all-secrets"
     envSecrets:
+      - name: EXTERNAL_API_PORT
+        key: external-api-port
+        value: '8080'
+      - name: SERVICE_IP
+        key: service-ip
+        value: 'app-budget-planner-service'
       - name: DSN
         key: dsn
-        value: 'host=postgres-budget-service user=example_user password=example_password dbname=example_db port=5432 sslmode=disable'
+        value: 'host=postgres-budget-service user=admin-budget password=example_password dbname=planner port=5432 sslmode=disable'
       - name: JWT_SIGNATURE
         key: jwt-signature
         value: '*.01?Ue)p6]H=|C:o-.2z%5R^]@}:r9E_&k#4LC(bOR'
       - name: POSTGRES_USER
         key: postgres-budget
-        value: 'example_user'
+        value: 'admin-budget'
       - name: POSTGRES_PASSWORD
         key: postgres-password
         value: 'example_password'
       - name: POSTGRES_DB
         key: postgres-db
-        value: 'example_db'
+        value: 'planner'
       - name: KAFKA_CLIENT_USER
         key: kafka-user
         value: "user1"

@@ -282,22 +282,29 @@ func (s *ServiceAuth) Refresh(ctxRequest context.Context, oldRefreshToken, userA
 	}
 	return respConfirm, nil
 }
-func (s *ServiceAuth) Logout(ctxRequest context.Context, refreshToken, userAgent, ipUser string) {
+func (s *ServiceAuth) Logout(ctxRequest context.Context, refreshToken, userAgent, ipUser, allFlag string) {
 	j := appjwt.NewJWT(s.Conf.Signature, s.Logger)
 	refreshTokenData, errParseRefresh := j.ParseRefreshToken(refreshToken)
 	if errParseRefresh != nil {
 		return
 	}
 	userUUID := refreshTokenData.UserUUID
-	refreshData, refreshByteKey, errGetRefreshKey := s.Repo.GetRefreshData(ctxRequest, userUUID, refreshTokenData.RefreshUUID)
-	if errGetRefreshKey != nil {
-		return
-	}
-	if errSecurity := s.HelperSecurity(ctxRequest, refreshData.UserAgent, userAgent, refreshData.IP, ipUser, userUUID, refreshData.RefreshUUID, refreshData.Email); errSecurity != nil {
-		return
-	}
-	if s.Repo.LogoutRefresh(ctxRequest, userUUID, refreshByteKey) != nil {
-		return
+	switch allFlag {
+	case "true":
+		if s.Repo.DeleteUserRefreshes(ctxRequest, userUUID) != nil {
+			return
+		}
+	default:
+		refreshData, refreshByteKey, errGetRefreshKey := s.Repo.GetRefreshData(ctxRequest, userUUID, refreshTokenData.RefreshUUID)
+		if errGetRefreshKey != nil {
+			return
+		}
+		if errSecurity := s.HelperSecurity(ctxRequest, refreshData.UserAgent, userAgent, refreshData.IP, ipUser, userUUID, refreshData.RefreshUUID, refreshData.Email); errSecurity != nil {
+			return
+		}
+		if s.Repo.LogoutRefresh(ctxRequest, userUUID, refreshByteKey) != nil {
+			return
+		}
 	}
 }
 func (s *ServiceAuth) HelperSecurity(ctxRequest context.Context, oldUserAgent, newUserAgent, oldIP, newIP, userUUID, refreshUUID, email string) error {
