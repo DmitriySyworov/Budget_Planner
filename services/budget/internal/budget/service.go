@@ -4,16 +4,13 @@ import (
 	"app/budget-planner/internal/apperrors"
 	"app/budget-planner/internal/model"
 	"context"
-	"errors"
 	"shared/loggers"
 	"shared/pagination"
 	"shared/shconstant"
 	"shared/sherrors"
-	"shared/shprotos/event"
 	"time"
 
 	"github.com/google/uuid"
-	"google.golang.org/protobuf/proto"
 )
 
 type ServiceBudget struct {
@@ -172,22 +169,4 @@ func (s *ServiceBudget) ListBudget(ctxRequest context.Context, userUUID, limitSt
 		return nil, apperrors.ErrNotFoundBudget
 	}
 	return listBudget, nil
-}
-func (s *ServiceBudget) DeleteDataDeletingUser(data []byte) error {
-	var eventDel event.DeleteUserDataEvent
-	if errUnmarshal := proto.Unmarshal(data, &eventDel); errUnmarshal != nil {
-		s.Logger.Error("failed to unmarshal delete event: " + errUnmarshal.Error())
-		return errUnmarshal
-	}
-	userUUID := eventDel.GetUserUuid()
-	if userUUID == "" {
-		s.Logger.Error("event with an empty user_uuid was sent")
-		return errors.New("event with an empty user_uuid was sent")
-	}
-	if errDel := s.Repo.DeleteAllUserBudgets(userUUID); errDel != nil {
-		s.Logger.Warn("failed to delete user budgets maybe it was deleted earlier: " + errDel.Error())
-		return errDel
-	}
-	s.Logger.Info("cascade deletion of all user data was successful")
-	return nil
 }

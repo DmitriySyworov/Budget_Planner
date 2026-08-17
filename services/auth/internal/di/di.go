@@ -12,8 +12,10 @@ type IRepoUser interface {
 	GetPasswordByEmail(ctxRequest context.Context, email string) (string, error)
 	GetUserUUIDByEmail(ctxRequest context.Context, email string) (string, error)
 	RecoveryUser(ctxRequest context.Context, userUUID string) error
+	GetEmailByUUID(ctxRequest context.Context, userUUID string) (string, error)
 	UpdateUser(ctxRequest context.Context, user *model.Users, userUUID string) error
 	GetUserByEmail(ctxRequest context.Context, email string) (*model.Users, error)
+	DeleteUsersByTimer() ([]string, error)
 }
 type IServiceAuth interface {
 	HelperAuth(ctxRequest context.Context, action string, dataUser map[string]any) (*common.ResponseAuth, error)

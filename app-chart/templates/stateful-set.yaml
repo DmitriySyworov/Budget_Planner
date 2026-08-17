@@ -1,10 +1,8 @@
 {{- range .Values.statefulServices }}
-{{- $outside := . }}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: {{ .name }}
-  namespace: default
 spec:
   serviceName: {{ .name }}-service
   replicas: {{ .replicas }}
@@ -23,31 +21,28 @@ spec:
           command: ["redis-server"]
           args: ["--requirepass", "$(REDIS_PASSWORD)", "--appendonly", "yes"]
           {{- end }}
-          {{- if .isSharedRedis }}
-          command: [ "redis-server" ]
-          args: [ "--requirepass", "$(SHARED_REDIS_PASSWORD)", "--appendonly", "yes" ]
-          {{- end }}
           ports:
             - containerPort: {{ .port }}
-          env:
-            {{- range $.Values.secrets }}
-            {{- if eq .secretName $outside.secretName}}
-            {{- range .envSecrets}}
-            - name: {{ .name }}
-              valueFrom:
-                secretKeyRef:
-                  name: {{ $outside.secretName }}
-                  key: {{ .key }}
-            {{- end }}
-            {{- end }}
-            {{- end }}
+          envFrom:
+          - secretRef:
+              name: {{ .secretName }}
+            {{- if .configName}}
+          - configMapRef:
+              name: {{ .configName}}
+                {{- end }}
           volumeMounts:
-            - name: data-volume
-              mountPath: {{ .mountPath }}
+          - name: data-volume
+            mountPath: {{ .mountPath }}
+           {{- if .isLocal}}
+            subPath: {{ .name }}-data
+           {{- end }}
   volumeClaimTemplates:
     - metadata:
         name: data-volume
       spec:
+        {{- if .isLocal }}
+        storageClassName: local-storage
+        {{- end }}
         accessModes: [ "ReadWriteOnce" ]
         resources:
           requests:

@@ -10,7 +10,7 @@ type DataAuthLetter struct {
 	Email       string
 	Code        string
 	ServiceName string
-	Year        string
+	Year        int
 }
 
 const HtmlTemplateAuthString = `

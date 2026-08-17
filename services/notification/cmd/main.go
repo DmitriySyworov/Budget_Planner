@@ -29,6 +29,13 @@ func init() {
 		panic(errors.New("failed to init template security alert letter: " + errParseSecurityAlert.Error()))
 	}
 	htmltemplates.HtmlParseTemplateSecurityAlert = templateSecurityAlert
+
+	templateExpense, errParseExpenseAlert := template.New("expense").Parse(htmltemplates.HtmlExpenseTemplateString)
+	if errParseExpenseAlert != nil {
+		panic(errors.New("failed to init template expense alert letter: " + errParseExpenseAlert.Error()))
+	}
+	htmltemplates.HtmlExpenseTemplate = templateExpense
+
 }
 func main() {
 	logger := loggers.NewLogger()

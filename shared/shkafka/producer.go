@@ -44,11 +44,12 @@ func NewProducer(conf *ConfigProducer, logger *loggers.Logger) (*KafkaProducer, 
 	}
 
 	producer := &kafka.Writer{
-		Addr:        kafka.TCP(conf.Brokers...),
-		Topic:       conf.Topic,
-		Balancer:    &kafka.Hash{},
-		MaxAttempts: 5,
-		Transport:   customTransport,
+		Addr:         kafka.TCP(conf.Brokers...),
+		Topic:        conf.Topic,
+		Balancer:     &kafka.Hash{},
+		MaxAttempts:  5,
+		Transport:    customTransport,
+		RequiredAcks: kafka.RequireAll,
 	}
 	return &KafkaProducer{
 		Producer: producer,

@@ -26,11 +26,12 @@ type SharedRedis struct {
 	SharedRedisPassword string
 }
 type Kafka struct {
-	Broker              string
-	KafkaUser           string
-	KafkaPassword       string
-	DeletedUsersTopic   string
-	BudgetDeleteGroupID string
+	Broker                   string
+	KafkaUser                string
+	KafkaPassword            string
+	DeletedUsersTopic        string
+	BudgetDeleteGroupID      string
+	ExpenseNotificationTopic string
 }
 
 func NewConfig(logger *loggers.Logger) *Config {
@@ -49,6 +50,7 @@ func NewConfig(logger *loggers.Logger) *Config {
 	kafkaPassword := os.Getenv("KAFKA_CLIENT_PASSWORD")
 	deletedUsersTopic := os.Getenv("DELETED_USERS_TOPIC")
 	budgetDeleteGroupID := os.Getenv("BUDGET_DELETE_GROUP_ID")
+	expenseNotificationTopic := os.Getenv("EXPENSE_NOTIFICATION_TOPIC")
 	sharedRedisAddress := os.Getenv("SHARED_REDIS_ADDRESS")
 	sharedRedisPassword := os.Getenv("SHARED_REDIS_PASSWORD")
 	counterEmptyVariables := 0
@@ -84,6 +86,10 @@ func NewConfig(logger *loggers.Logger) *Config {
 		counterEmptyVariables++
 		logger.Error("environment variable 'DELETED_USERS_TOPIC' not found")
 	}
+	if expenseNotificationTopic == "" {
+		counterEmptyVariables++
+		logger.Error("environment variable 'EXPENSE_NOTIFICATION_TOPIC' not found")
+	}
 	if budgetDeleteGroupID == "" {
 		counterEmptyVariables++
 		logger.Error("environment variable 'BUDGET_DELETE_GROUP_ID' not found")
@@ -109,11 +115,12 @@ func NewConfig(logger *loggers.Logger) *Config {
 			DSN: dsn,
 		},
 		Kafka: &Kafka{
-			Broker:              broker,
-			KafkaUser:           kafkaUser,
-			KafkaPassword:       kafkaPassword,
-			DeletedUsersTopic:   deletedUsersTopic,
-			BudgetDeleteGroupID: budgetDeleteGroupID,
+			Broker:                   broker,
+			KafkaUser:                kafkaUser,
+			KafkaPassword:            kafkaPassword,
+			DeletedUsersTopic:        deletedUsersTopic,
+			BudgetDeleteGroupID:      budgetDeleteGroupID,
+			ExpenseNotificationTopic: expenseNotificationTopic,
 		},
 		SharedRedis: &SharedRedis{
 			SharedRedisAddress:  sharedRedisAddress,

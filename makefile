@@ -6,6 +6,7 @@ REPLICAS_AUTH ?= 3
 REPLICAS_BUDGET ?= 3
 REPLICAS_NOTIFICATION ?= 3
 REPLICAS_DOCS ?= 1
+LOCAL_PATH_VOLUMES ?= /home/dmitriy/volumes/minikube-persistent-disks #!EXAMPLE!
 TAIL ?=1000
 go-e2e-test-budget:
 	docker compose --env-file services/budget/cmd/app/.env.test -f services/budget/docker-compose-test.yaml up --build
@@ -30,19 +31,41 @@ build-all-images:
 	@$(MAKE) -j 4 build-auth build-budget build-notification build-docs
 
 rebuild-push-all-helm-hard-replace-all: build-all-images
-	-helm uninstall my
-	-helm uninstall budget-app --namespace default
-	-kubectl delete jobs --all --force --grace-period=0
-	-kubectl delete pods --all --force --grace-period=0
-	-kubectl get pvc --no-headers | awk '{print $$1}' | xargs -I {} kubectl patch pvc {} -p '{"metadata":{"finalizers":null}}' --type=merge
-	-kubectl delete pvc --all --force --grace-period=0
-
-	helm install my oci://registry-1.docker.io/soldevelo/kafka-chart --version 32.4.4 -f ./helm-chart/values.yaml
-	kubectl wait --namespace default --for=condition=Ready pod/my-kafka-chart-controller-0 --timeout=180s
-	sleep 35
-	helm install budget-app ./helm-chart \
-		-f ./helm-chart/values.yaml \
-		--namespace default \
+#Delete
+	-helm uninstall my --namespace infrastructure
+	-minikube addons disable ingress
+	-kubectl get pods -A --no-headers | awk '{print $$1}' | xargs -I {} kubectl patch pod {} -n app -p '{"metadata":{"finalizers":null}}' --type=merge
+	-kubectl delete namespace infrastructure app --force --grace-period=0
+	-kubectl get pvc -A --no-headers | awk '{print $$1, $$2}' | xargs -L1 sh -c 'kubectl patch pvc $$2 -n $$1 -p "{\"metadata\":{\"finalizers\":null}}" --type=merge'
+	-kubectl delete pvc --all -A --force --grace-period=0
+	-kubectl get pv --no-headers | awk '{print $$1}' | xargs -I {} kubectl patch pv {} -p "{\"metadata\":{\"finalizers\":null}}" --type=merge
+	-kubectl delete pv --all --force --grace-period=0
+	-kubectl wait --for=delete namespace/app --timeout=60s
+	-kubectl wait --for=delete namespace/infrastructure --timeout=60s
+#Install Infrastructure
+	helm install my oci://registry-1.docker.io/soldevelo/kafka-chart --version 32.4.4 \
+ 	-f ./infra-chart/values.yaml \
+ 	--namespace infrastructure \
+ 	--create-namespace
+	kubectl wait --namespace infrastructure --for=condition=Ready pod/my-kafka-chart-controller-0 --timeout=180s
+	sleep 20
+	helm dependency build ./infra-chart
+	helm install infrastructure ./infra-chart \
+	-f ./infra-chart/values.yaml \
+ 	--namespace infrastructure
+	kubectl wait --namespace infrastructure --for=condition=complete job -l app=kafka-topics-setup --timeout=180s
+#Install Nginx
+	minikube addons enable ingress
+	kubectl wait --namespace ingress-nginx \
+		--for=condition=ready pod \
+		--selector=app.kubernetes.io/component=controller \
+		--timeout=120s
+#Job
+	helm dependency build ./app-chart
+	helm install app ./app-chart \
+		-f ./app-chart/values.yaml \
+		--namespace app \
+		--create-namespace \
 		--set versions.authUserVersion="$(VERSION_AUTH)" \
 		--set versions.budgetPlannerVersion="$(VERSION_BUDGET)" \
 		--set versions.notificationVersion="$(VERSION_NOTIFICATION)" \
@@ -51,37 +74,34 @@ rebuild-push-all-helm-hard-replace-all: build-all-images
 		--set replicasCount.budgetReplicas=0 \
 		--set replicasCount.notificationReplicas=0 \
 		--set replicasCount.docsReplicas=0
-	kubectl wait --namespace default --for=condition=complete job/kafka-create-topics-job --timeout=60s
-	helm upgrade budget-app ./helm-chart \
-		-f ./helm-chart/values.yaml \
-		--namespace default \
+	kubectl wait --namespace app --for=condition=complete job --all --timeout=180s
+#Final services
+	helm upgrade app ./app-chart \
+		-f ./app-chart/values.yaml \
+		--namespace app \
 		--reuse-values \
-		--set versions.authUserVersion="$(VERSION_AUTH)" \
-		--set versions.budgetPlannerVersion="$(VERSION_BUDGET)" \
-		--set versions.notificationVersion="$(VERSION_NOTIFICATION)" \
-		--set versions.gatewayDocsVersion="$(VERSION_DOCS)" \
 		--set replicasCount.authReplicas="$(REPLICAS_AUTH)" \
 		--set replicasCount.budgetReplicas="$(REPLICAS_BUDGET)" \
 		--set replicasCount.notificationReplicas="$(REPLICAS_NOTIFICATION)" \
 		--set replicasCount.docsReplicas="$(REPLICAS_DOCS)"
-	helm template budget-app ./helm-chart -f ./helm-chart/values.yaml --show-only templates/ingress.yaml | kubectl apply -f -
+#Install ingress
+	helm template app ./app-chart -f ./app-chart/values.yaml --show-only templates/ingress.yaml | kubectl apply --namespace app -f -
 
 upgrade-helm-push-all: build-all-images
-	helm upgrade budget-app ./helm-chart \
-		-f ./helm-chart/values.yaml \
-		--namespace default \
-		--reuse-values \
-		--set versions.authUserVersion="$(VERSION_AUTH)" \
-		--set versions.budgetPlannerVersion="$(VERSION_BUDGET)" \
-		--set versions.notificationVersion="$(VERSION_NOTIFICATION)" \
-		--set versions.gatewayDocsVersion="$(VERSION_DOCS)" \
+	helm upgrade app ./app-chart \
+		-f ./app-chart/values.yaml \
+		--namespace app \
 		--set replicasCount.authReplicas="$(REPLICAS_AUTH)" \
 		--set replicasCount.budgetReplicas="$(REPLICAS_BUDGET)" \
 		--set replicasCount.notificationReplicas="$(REPLICAS_NOTIFICATION)" \
-		--set replicasCount.docsReplicas="$(REPLICAS_DOCS)"
-	helm template budget-app ./helm-chart -f ./helm-chart/values.yaml --show-only templates/ingress.yaml | kubectl apply -f -
-port-forward-docs:
-	kubectl port-forward deployment/gateway-docs 8080:8080
+		--set replicasCount.docsReplicas="$(REPLICAS_DOCS)" \
+		--set versions.authUserVersion="$(VERSION_AUTH)" \
+        --set versions.budgetPlannerVersion="$(VERSION_BUDGET)" \
+        --set versions.notificationVersion="$(VERSION_NOTIFICATION)" \
+        --set versions.gatewayDocsVersion="$(VERSION_DOCS)" \
+	helm template app ./app-chart -f ./app-chart/values.yaml --show-only templates/ingress.yaml | kubectl apply --namespace app -f -
+minikube-start-local:
+	minikube start --cpus=4 --memory=8192 --driver=docker --mount --mount-string="$(LOCAL_PATH_VOLUMES):/mnt/data"
 get-services-port:
 	minikube service ingress-nginx-controller --namespace=ingress-nginx
 get-logs-auth-user:
@@ -95,5 +115,9 @@ get-logs-docs:
 proto-update-all:
 	protoc --go_out=. --go_opt=paths=source_relative ./shared/shprotos/event/user.proto
 	protoc --go_out=. --go_opt=paths=source_relative ./shared/shprotos/event/letter.proto
-check-helm-template:
-	helm template ./helm-chart -f ./helm-chart/values.test.yaml
+check-template-infra:
+	helm dependency build ./infra-chart
+	helm template ./infra-chart -f ./infra-chart/values.yaml
+check-template-app:
+	helm dependency build ./app-chart
+	helm template ./app-chart -f ./app-chart/values.yaml

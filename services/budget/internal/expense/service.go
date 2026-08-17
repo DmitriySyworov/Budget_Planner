@@ -5,21 +5,31 @@ import (
 	"app/budget-planner/internal/di"
 	"app/budget-planner/internal/model"
 	"context"
+	"shared/loggers"
 	"shared/pagination"
+	"shared/shconstant"
 	"shared/sherrors"
+	"shared/shkafka"
+	"shared/shprotos/event"
+	"time"
 
 	"github.com/google/uuid"
+	"google.golang.org/protobuf/proto"
 )
 
 type ServiceExpense struct {
-	Repo           IRepositoryExpense
-	IServiceBudget di.IServiceBudget
+	Repo            IRepositoryExpense
+	IServiceBudget  di.IServiceBudget
+	ProducerExpense *shkafka.KafkaProducer
+	Logger          *loggers.Logger
 }
 
-func NewServiceExpense(repo IRepositoryExpense, serviceBudget di.IServiceBudget) *ServiceExpense {
+func NewServiceExpense(repo IRepositoryExpense, serviceBudget di.IServiceBudget, producerExpense *shkafka.KafkaProducer, logger *loggers.Logger) *ServiceExpense {
 	return &ServiceExpense{
-		Repo:           repo,
-		IServiceBudget: serviceBudget,
+		Repo:            repo,
+		IServiceBudget:  serviceBudget,
+		ProducerExpense: producerExpense,
+		Logger:          logger,
 	}
 }
 func (s *ServiceExpense) CreateExpense(ctxRequest context.Context, body *RequestCreateDescriptionExpense, userUUID, budgetUUID string) (*ResponseCreateAndUpdateExpense, error) {
@@ -51,6 +61,30 @@ func (s *ServiceExpense) CreateExpense(ctxRequest context.Context, body *Request
 	if errGetExpense != nil {
 		return nil, apperrors.ErrNotFoundExpense
 	}
+	go func(userUUID, expense, category, description string, producerExpense *shkafka.KafkaProducer, logger *loggers.Logger) {
+		dataEvent, errMarshal := proto.Marshal(&event.NotificationEvent{
+			Event: &event.NotificationEvent_Expense{
+				Expense: &event.ExpenseLetterPayload{
+					Expense:     expense,
+					Category:    category,
+					Description: description,
+					UserUUID:    userUUID,
+					Time:        time.Now().Format(time.DateTime),
+				},
+			},
+			EventUUID: uuid.New().String(),
+		})
+		ctxTimeout, cancel := context.WithTimeout(context.Background(), shconstant.CtxTimeoutSendEventKafka)
+		defer cancel()
+		if errMarshal != nil {
+			logger.Error("failed to marshal expense event: " + errMarshal.Error())
+			return
+		}
+		if errSendEvent := producerExpense.SendEvent(ctxTimeout, userUUID, dataEvent); errSendEvent != nil {
+			logger.Error("failed to send expense event: " + errSendEvent.Error())
+			return
+		}
+	}(userUUID, body.Expense, body.Category, body.Description, s.ProducerExpense, s.Logger)
 	return &ResponseCreateAndUpdateExpense{
 		Expenses:            expense,
 		DescriptionExpenses: descriptionExpense,

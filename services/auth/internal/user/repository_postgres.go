@@ -4,7 +4,6 @@ import (
 	"app/auth-service/internal/apperrors"
 	"app/auth-service/internal/model"
 	"context"
-	"errors"
 	"shared/loggers"
 	"shared/storage"
 
@@ -17,6 +16,7 @@ type IRepositoryUser interface {
 	UserExistsByEmail(ctxRequest context.Context, email string) (bool, error)
 	UserExistsByUserUUID(ctxRequest context.Context, userUUID string) (bool, error)
 	GetResponseUserByUUID(ctxRequest context.Context, userUUID string) (*ResponseUser, error)
+	GetEmailByUUID(ctxRequest context.Context, userUUID string) (string, error)
 	GetUserByUUID(ctxRequest context.Context, userUUID string) (*model.Users, error)
 	GetUserByEmail(ctxRequest context.Context, email string) (*model.Users, error)
 	GetPasswordByEmail(ctxRequest context.Context, email string) (string, error)
@@ -24,7 +24,7 @@ type IRepositoryUser interface {
 	RemoveUser(ctxRequest context.Context, userUUID string) error
 	DeleteUser(ctxRequest context.Context, userUUID string) error
 	RecoveryUser(ctxRequest context.Context, userUUID string) error
-	deleteUsersByTimer() ([]string, error)
+	DeleteUsersByTimer() ([]string, error)
 }
 type RepositoryUser struct {
 	*storage.Postgres
@@ -124,6 +124,20 @@ func (r *RepositoryUser) GetPasswordByEmail(ctxRequest context.Context, email st
 	}
 	return password, nil
 }
+func (r *RepositoryUser) GetEmailByUUID(ctxRequest context.Context, userUUID string) (string, error) {
+	var email string
+	if errGetEmail := r.Postgres.
+		WithContext(ctxRequest).
+		Raw(`SELECT email FROM users
+                 WHERE user_uuid = ?`, userUUID).Scan(&email).Error; errGetEmail != nil {
+		r.Logger.Error("failed to get user password: ", errGetEmail)
+		return "", ErrFailedGetUser
+	}
+	if email == "" {
+		return "", apperrors.ErrNotFoundUser
+	}
+	return email, nil
+}
 func (r *RepositoryUser) GetUserUUIDByEmail(ctxRequest context.Context, email string) (string, error) {
 	var userUUID string
 	if errGetUserUUID := r.Postgres.
@@ -170,7 +184,7 @@ func (r *RepositoryUser) RecoveryUser(ctxRequest context.Context, userUUID strin
 	}
 	return nil
 }
-func (r *RepositoryUser) deleteUsersByTimer() ([]string, error) {
+func (r *RepositoryUser) DeleteUsersByTimer() ([]string, error) {
 	var sliceDeleteUserUUID []string
 	if errDelete := r.Postgres.Raw(`DELETE FROM users
 						WHERE now()::date - deleted_at >= 30
@@ -178,10 +192,6 @@ func (r *RepositoryUser) deleteUsersByTimer() ([]string, error) {
 		Error; errDelete != nil {
 		r.Logger.Error("failed to delete users by timer: " + errDelete.Error())
 		return nil, errDelete
-	}
-	if len(sliceDeleteUserUUID) == 0 {
-		r.Logger.Warn("not found soft-deleting users")
-		return nil, errors.New("not found soft-deleting users")
 	}
 	return sliceDeleteUserUUID, nil
 }
