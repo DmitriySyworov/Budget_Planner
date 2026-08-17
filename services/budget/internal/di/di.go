@@ -7,6 +7,7 @@ import (
 
 type IRepoBudget interface {
 	BudgetExist(ctxRequest context.Context, userUUID, budgetUUID string) bool
+	DeleteAllUserBudgets(listUserUUID []string) error
 }
 type IRepoExpense interface {
 	ExpenseExist(ctxRequest context.Context, budgetUUID, expenseUUID string) bool

@@ -17,7 +17,7 @@ type IRepositoryBudget interface {
 	GetBudget(ctxRequest context.Context, userUUID, budgetUUID string) (*model.Budgets, error)
 	RemoveBudget(ctxRequest context.Context, userUUID, budgetUUID string) error
 	DeleteBudget(ctxRequest context.Context, userUUID, budgetUUID string) error
-	DeleteAllUserBudgets(userUUID string) error
+	DeleteAllUserBudgets(listUserUUID []string) error
 	DateOverlapCreate(ctxRequest context.Context, userUUID string, start, finish time.Time) bool
 	DateOverlapUpdate(ctxRequest context.Context, userUUID, budgetUUID string, start, finish time.Time) bool
 	ListBudget(ctxRequest context.Context, userUUID string, limit, offset int) ([]model.Budgets, error)
@@ -90,12 +90,12 @@ func (r *RepositoryBudget) DeleteBudget(ctxRequest context.Context, userUUID, bu
 	}
 	return nil
 }
-func (r *RepositoryBudget) DeleteAllUserBudgets(userUUID string) error {
-	return r.Postgres.
-		Unscoped().
-		Where("user_uuid = ?", userUUID).
-		Delete(&model.Budgets{}).
-		Error
+func (r *RepositoryBudget) DeleteAllUserBudgets(listUserUUID []string) error {
+	return r.Postgres.Raw(`
+DELETE FROM budgets
+WHERE user_uuid IN (?)
+`, listUserUUID).Error
+
 }
 func (r *RepositoryBudget) DateOverlapCreate(ctxRequest context.Context, userUUID string, start, finish time.Time) bool {
 	var isOverlap bool

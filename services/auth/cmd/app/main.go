@@ -3,6 +3,8 @@ package main
 import (
 	authconfig "app/auth-service/config"
 	"app/auth-service/internal/auth"
+	"app/auth-service/internal/di"
+	"app/auth-service/internal/listener"
 	"app/auth-service/internal/middleware"
 	"app/auth-service/internal/user"
 	"context"
@@ -41,7 +43,13 @@ func main() {
 		Handler: appVariable.HandlerApp,
 	}
 	ctxCancel, cancelCancel := context.WithCancel(context.Background())
-	go appVariable.ServiceUser.DeleteExpiredUsers(ctxCancel)
+	go appVariable.KafkaConsumerExpenseEmail.WaitEvent(ctxCancel,
+		listener.NewKafkaListener(
+			appVariable.KafkaProducerEmail,
+			appVariable.Redis,
+			appVariable.IRepoUser,
+			appVariable.Logger).
+			HandleEventExpenseNotification)
 	serverError := make(chan error, 1)
 	stopSignal := make(chan os.Signal, 1)
 	go func() {
@@ -64,6 +72,7 @@ func main() {
 	cancelCancel()
 	appVariable.KafkaProducerDelete.CloseProducer()
 	appVariable.KafkaProducerEmail.CloseProducer()
+	appVariable.KafkaConsumerExpenseEmail.CloseConsumer()
 	if errCloseRedis := appVariable.Redis.Close(); errCloseRedis != nil {
 		appVariable.Logger.Error("failed to close redis: " + errCloseRedis.Error())
 	}
@@ -81,15 +90,17 @@ func main() {
 }
 
 type AppVariable struct {
-	Conf                *authconfig.Config
-	KafkaProducerDelete *shkafka.KafkaProducer
-	KafkaProducerEmail  *shkafka.KafkaProducer
-	SharedRedis         *storage.Redis
-	Redis               *storage.Redis
-	Postgres            *storage.Postgres
-	Logger              *loggers.Logger
-	HandlerApp          http.Handler
-	ServiceUser         *user.ServiceUser
+	Conf                      *authconfig.Config
+	KafkaProducerDelete       *shkafka.KafkaProducer
+	KafkaProducerEmail        *shkafka.KafkaProducer
+	KafkaConsumerExpenseEmail *shkafka.KafkaConsumer
+	SharedRedis               *storage.Redis
+	Redis                     *storage.Redis
+	Postgres                  *storage.Postgres
+	Logger                    *loggers.Logger
+	HandlerApp                http.Handler
+	ServiceUser               *user.ServiceUser
+	IRepoUser                 di.IRepoUser
 }
 
 func App() *AppVariable {
@@ -115,6 +126,10 @@ func App() *AppVariable {
 		KafkaPassword: conf.KafkaPassword,
 		Topic:         conf.DeletedUsersTopic,
 	}, logging)
+	if errInitialProducerDelete != nil {
+		logging.Error("failed to initial producer delete event kafka: " + errInitialProducerDelete.Error())
+		os.Exit(1)
+	}
 	producerEmailEvent, errInitProducerEmail := shkafka.NewProducer(&shkafka.ConfigProducer{
 		Brokers:       []string{conf.Broker},
 		KafkaUser:     conf.KafkaUser,
@@ -122,11 +137,18 @@ func App() *AppVariable {
 		Topic:         conf.NotificationTopic,
 	}, logging)
 	if errInitProducerEmail != nil {
-		logging.Error("failed to init producer kafka: " + errInitProducerEmail.Error())
+		logging.Error("failed to init producer email event kafka: " + errInitProducerEmail.Error())
 		os.Exit(1)
 	}
-	if errInitialProducerDelete != nil {
-		logging.Error("failed to initial producer kafka: " + errInitialProducerDelete.Error())
+	consumerExpenseEmailEvent, errInitConsumerEmail := shkafka.NewConsumer(&shkafka.ConfigConsumer{
+		Brokers:       []string{conf.Broker},
+		KafkaUser:     conf.KafkaUser,
+		KafkaPassword: conf.KafkaPassword,
+		Topic:         conf.ExpenseNotificationTopic,
+		GroupID:       conf.ExpenseNotificationGroupID,
+	}, logging)
+	if errInitConsumerEmail != nil {
+		logging.Error("failed to init consumer email event kafka: " + errInitConsumerEmail.Error())
 		os.Exit(1)
 	}
 	//
@@ -150,15 +172,17 @@ func App() *AppVariable {
 		sharedMv.Recovery,
 	)
 	return &AppVariable{
-		Conf:                conf,
-		KafkaProducerDelete: producerDeleteEvent,
-		KafkaProducerEmail:  producerEmailEvent,
-		Logger:              logging,
-		HandlerApp:          chainMv(router),
-		Postgres:            postgres,
-		Redis:               redis,
-		SharedRedis:         sharedRedis,
-		ServiceUser:         serviceUser,
+		Conf:                      conf,
+		KafkaProducerDelete:       producerDeleteEvent,
+		KafkaProducerEmail:        producerEmailEvent,
+		KafkaConsumerExpenseEmail: consumerExpenseEmailEvent,
+		Logger:                    logging,
+		HandlerApp:                chainMv(router),
+		Postgres:                  postgres,
+		Redis:                     redis,
+		SharedRedis:               sharedRedis,
+		ServiceUser:               serviceUser,
+		IRepoUser:                 repoUser,
 	}
 }
 func health(logger *loggers.Logger) http.HandlerFunc {

@@ -9,7 +9,6 @@ import (
 	"shared/shconstant"
 	"shared/shprotos/event"
 	"shared/storage"
-	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -80,7 +79,7 @@ func (l *SendLetter) SendEmailLetter(eventSendData []byte) error {
 	emailTo := eventSend.GetEmailTo()
 	serviceName := shconstant.ServiceName
 	domain := shconstant.Domain
-	year := strconv.Itoa(time.Now().Year())
+	year := time.Now().Year()
 
 	keyEvent := shconstant.EventKey + "letter:" + eventUUID
 	success, errSetNX := l.Redis.SetNX(ctxTimeout, keyEvent, 1, shconstant.EventKafkaTTL).Result()
@@ -177,6 +176,37 @@ func (l *SendLetter) SendEmailLetter(eventSendData []byte) error {
 			"Time (UTC): " + currentTime + "\n\n" +
 			"If this was you, no further action is needed. If you do not recognize this device, someone else may have accessed your account. Please log out of all devices immediately to secure your data:\n" +
 			"http://" + domain + "/security/sessions\n\n" +
+			"---\n" +
+			"Notification ID: " + eventUUID)
+		contentHTML = htmlMessage
+	case *event.NotificationEvent_Expense:
+		expense := e.Expense.GetExpense()
+		category := e.Expense.GetCategory()
+		description := e.Expense.GetDescription()
+		timeOfExpense := e.Expense.GetTime()
+		htmlMessage, errCreateMessage := htmltemplates.CreateHTMLMessageExpense(&htmltemplates.DataExpenseNotification{
+			Expense:     expense,
+			Category:    category,
+			Description: description,
+			Time:        timeOfExpense,
+			ServiceName: serviceName,
+			Year:        year,
+			Domain:      domain,
+		})
+		if errCreateMessage != nil {
+			l.Logger.Error("failed to create new security alert message: " + errCreateMessage.Error())
+			return errCreateMessage
+		}
+		subject = "📱 Security Notification: New Expense Account Activity!"
+		text = []byte("[" + serviceName + "] New Expense Account Activity!\n\n" +
+			"We registered a new transaction on your account. Please review the financial details below:\n\n" +
+			"Amount Deducted: -" + expense + "\n" +
+			"Category:        " + category + "\n" +
+			"Description:     " + description + "\n" +
+			"Transaction Time: " + timeOfExpense + "\n\n" +
+			"If you recognize this activity, no further action is required. If you did not make this purchase, your account or limits might be compromised. Please block unauthorized activity or update your security keys immediately.\n\n" +
+			"View Budget Analytics:\n" +
+			"http://" + domain + "/budget/analytics\n\n" +
 			"---\n" +
 			"Notification ID: " + eventUUID)
 		contentHTML = htmlMessage

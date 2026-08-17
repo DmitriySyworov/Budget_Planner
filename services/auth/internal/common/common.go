@@ -14,10 +14,9 @@ const (
 )
 
 type RefreshData struct {
-	RefreshUUID string
-	UserAgent   string
-	IP          string
-	Email       string
+	UserAgent string
+	IP        string
+	Email     string
 }
 type ResponseAuth struct {
 	Message    string

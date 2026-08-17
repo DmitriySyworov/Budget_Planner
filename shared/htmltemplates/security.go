@@ -13,7 +13,7 @@ type DataSecurityNotification struct {
 	Timestamp   string
 	ServiceName string
 	Domain      string
-	Year        string
+	Year        int
 }
 
 const HtmlNewDeviceTemplateString = `
@@ -151,6 +151,87 @@ var HtmlParseTemplateSecurityAlert *template.Template
 func CreateHTMLMessageSecurityAlert(dataLetter *DataSecurityNotification) ([]byte, error) {
 	var tmplBytes bytes.Buffer
 	if errExecute := HtmlParseTemplateSecurityAlert.Execute(&tmplBytes, dataLetter); errExecute != nil {
+		return nil, errExecute
+	}
+	return tmplBytes.Bytes(), nil
+}
+
+const HtmlExpenseTemplateString = `
+<!DOCTYPE html>
+<html>
+<head>
+	<style>
+		body { font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px; }
+		.card { background: white; padding: 30px; border-radius: 8px; max-width: 500px; margin: 0 auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-top: 4px solid #1E3A8A; }
+		.alert-title { color: #1E3A8A; font-size: 20px; font-weight: bold; margin-top: 10px; }
+		.info-table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px; }
+		.info-table td { padding: 10px; border-bottom: 1px solid #E5E7EB; }
+		.info-table td.label { color: #6B7280; width: 35%; }
+		.info-table td.value { color: #111827; font-weight: 500; }
+		.amount-value { color: #DC2626; font-size: 18px; font-weight: bold; font-family: monospace; }
+		.btn-box { text-align: center; margin: 25px 0 15px 0; }
+		.btn { background-color: #1E3A8A; color: white !important; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block; box-shadow: 0 2px 4px rgba(30,58,138,0.2); }
+		.footer { font-size: 12px; color: #6B7280; text-align: center; margin-top: 25px; line-height: 1.5; }
+		.logo { text-align: center; margin-bottom: 10px; }
+	</style>
+</head>
+<body>
+	<div class="card">
+		<div class="logo" style="font-size: 22px; font-weight: 800; color: #1F2937; letter-spacing: 1px;">BUDGET <span style="color: #3B82F6;">PLANNER</span></div>
+		
+		<div class="alert-title">💸 New Expense Account Activity</div>
+		
+		<p>Hello! We registered a new transaction on your account. Please review the financial details below:</p>
+		
+		<table class="info-table">
+			<tr>
+				<td class="label">Amount Deducted:</td>
+				<td class="value amount-value">-{{.Expense}}</td>
+			</tr>
+			<tr>
+				<td class="label">Category:</td>
+				<td class="value">{{.Category}}</td>
+			</tr>
+			<tr>
+				<td class="label">Description:</td>
+				<td class="value" style="font-style: italic; color: #4B5563;">{{.Description}}</td>
+			</tr>
+			<tr>
+				<td class="label">Transaction Time:</td>
+				<td class="value">{{.Time}}</td>
+			</tr>
+		</table>
+
+		<p style="font-size: 14px; color: #4B5563;">If you recognize this activity, no further action is required. <strong>If you did not make this purchase, your account or limits might be compromised. Please block unauthorized activity or update your security keys immediately.</strong></p>
+
+		<div class="btn-box">
+			<a href="http://{{.Domain}}/budget/analytics" class="btn">View Budget Analytics</a>
+		</div>
+
+		<div class="footer">
+			© {{.Year}} {{.ServiceName}}. All rights reserved.<br>
+			Event ID: {{.EventUUID}}
+		</div>
+	</div>
+</body>
+</html>`
+
+var HtmlExpenseTemplate *template.Template
+
+type DataExpenseNotification struct {
+	Expense     string
+	Category    string
+	Description string
+	Time        string
+	EventUUID   string
+	Domain      string
+	Year        int
+	ServiceName string
+}
+
+func CreateHTMLMessageExpense(dataLetter *DataExpenseNotification) ([]byte, error) {
+	var tmplBytes bytes.Buffer
+	if errExecute := HtmlExpenseTemplate.Execute(&tmplBytes, dataLetter); errExecute != nil {
 		return nil, errExecute
 	}
 	return tmplBytes.Bytes(), nil

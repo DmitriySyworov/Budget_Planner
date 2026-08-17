@@ -14,8 +14,10 @@ COPY shared/ ./shared/
 WORKDIR /app/services/auth
 RUN go build -o /app/services/auth/auth-app ./cmd/app/main.go
 RUN go build -o /app/services/auth/migrator ./cmd/migration/auto.go
+RUN go build -o /app/services/auth/croncleaner ./cmd/croncleaner/cleaner.go
 FROM alpine:3.23.5
 WORKDIR /app
 COPY --from=builder /app/services/auth/auth-app .
 COPY --from=builder /app/services/auth/migrator .
+COPY --from=builder /app/services/auth/croncleaner .
 ENTRYPOINT ["./auth-app"]

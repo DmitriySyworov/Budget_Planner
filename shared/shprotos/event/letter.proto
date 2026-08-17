@@ -9,9 +9,10 @@ message NotificationEvent {
     AuthLetterPayload auth_code = 1;
     SecurityLetterPayload  new_device = 2;
     SecurityLetterPayload security_alert = 3;
+    ExpenseLetterPayload expense = 4;
   }
-  string EmailTo = 4;
-  string EventUUID = 7;
+  string EmailTo = 5;
+  string EventUUID = 6;
 }
 
 message AuthLetterPayload {
@@ -23,4 +24,12 @@ message SecurityLetterPayload   {
   string device = 1;
   string client_ip = 2;
   string current_time = 3;
+}
+
+message ExpenseLetterPayload {
+  string Expense = 1;
+  string Category = 2;
+  string Description = 3;
+  string UserUUID = 4;
+  string Time = 5;
 }

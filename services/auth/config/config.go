@@ -29,11 +29,13 @@ type SharedRedis struct {
 	SharedRedisPassword string
 }
 type Kafka struct {
-	Broker            string
-	KafkaUser         string
-	KafkaPassword     string
-	DeletedUsersTopic string
-	NotificationTopic string
+	Broker                     string
+	KafkaUser                  string
+	KafkaPassword              string
+	DeletedUsersTopic          string
+	ExpenseNotificationTopic   string
+	ExpenseNotificationGroupID string
+	NotificationTopic          string
 }
 
 func NewConfig(logger *loggers.Logger) *Config {
@@ -53,6 +55,8 @@ func NewConfig(logger *loggers.Logger) *Config {
 	kafkaUser := os.Getenv("KAFKA_CLIENT_USER")
 	kafkaPassword := os.Getenv("KAFKA_CLIENT_PASSWORD")
 	deletedUsersTopic := os.Getenv("DELETED_USERS_TOPIC")
+	expenseNotificationTopic := os.Getenv("EXPENSE_NOTIFICATION_TOPIC")
+	expenseNotificationGroupID := os.Getenv("EXPENSE_NOTIFICATION_GROUP_ID")
 	sharedRedisAddress := os.Getenv("SHARED_REDIS_ADDRESS")
 	sharedRedisPassword := os.Getenv("SHARED_REDIS_PASSWORD")
 	notificationTopic := os.Getenv("NOTIFICATION_TOPIC")
@@ -97,6 +101,14 @@ func NewConfig(logger *loggers.Logger) *Config {
 		counterEmptyVariables++
 		logger.Error("environment variable 'NOTIFICATION_TOPIC' not found")
 	}
+	if expenseNotificationTopic == "" {
+		counterEmptyVariables++
+		logger.Error("environment variable 'EXPENSE_NOTIFICATION_TOPIC' not found")
+	}
+	if expenseNotificationGroupID == "" {
+		counterEmptyVariables++
+		logger.Error("environment variable 'EXPENSE_NOTIFICATION_GROUP_ID' not found")
+	}
 	if signature == "" {
 		counterEmptyVariables++
 		logger.Error("environment variable 'JWT_SIGNATURE' not found")
@@ -124,11 +136,13 @@ func NewConfig(logger *loggers.Logger) *Config {
 			Signature: signature,
 		},
 		Kafka: &Kafka{
-			Broker:            broker,
-			KafkaUser:         kafkaUser,
-			KafkaPassword:     kafkaPassword,
-			DeletedUsersTopic: deletedUsersTopic,
-			NotificationTopic: notificationTopic,
+			Broker:                     broker,
+			KafkaUser:                  kafkaUser,
+			KafkaPassword:              kafkaPassword,
+			DeletedUsersTopic:          deletedUsersTopic,
+			ExpenseNotificationTopic:   expenseNotificationTopic,
+			ExpenseNotificationGroupID: expenseNotificationGroupID,
+			NotificationTopic:          notificationTopic,
 		},
 		SharedRedis: &SharedRedis{
 			SharedRedisAddress:  sharedRedisAddress,

@@ -3,8 +3,10 @@ package main
 import (
 	budgetconfig "app/budget-planner/config"
 	"app/budget-planner/internal/budget"
+	"app/budget-planner/internal/di"
 	"app/budget-planner/internal/expense"
 	"app/budget-planner/internal/finance"
+	"app/budget-planner/internal/listener"
 	"context"
 	"errors"
 	"net/http"
@@ -44,7 +46,11 @@ func main() {
 		Handler: appVariable.HandlerApp,
 	}
 	ctxCancel, eventCancel := context.WithCancel(context.Background())
-	go appVariable.KafkaConsumer.WaitEvent(ctxCancel, appVariable.ServiceBudget.DeleteDataDeletingUser)
+	go appVariable.KafkaConsumer.WaitEvent(ctxCancel, listener.NewKafkaListener(
+		appVariable.SharedRedis,
+		appVariable.IRepoBudget,
+		appVariable.Logger,
+	).DeleteDataDeletingUser)
 	serverError := make(chan error, 1)
 	stopSignal := make(chan os.Signal, 1)
 	go func() {
@@ -66,6 +72,7 @@ func main() {
 	}
 	eventCancel()
 	appVariable.KafkaConsumer.CloseConsumer()
+	appVariable.KafkaProducerExpense.CloseProducer()
 	if errCloseSharedRedis := appVariable.SharedRedis.Close(); errCloseSharedRedis != nil {
 		appVariable.Logger.Error("failed to close shared redis: " + errCloseSharedRedis.Error())
 	}
@@ -80,13 +87,15 @@ func main() {
 }
 
 type AppVariable struct {
-	Conf          *budgetconfig.Config
-	KafkaConsumer *shkafka.KafkaConsumer
-	Logger        *loggers.Logger
-	HandlerApp    http.Handler
-	Postgres      *storage.Postgres
-	SharedRedis   *storage.Redis
-	ServiceBudget *budget.ServiceBudget
+	Conf                 *budgetconfig.Config
+	KafkaConsumer        *shkafka.KafkaConsumer
+	KafkaProducerExpense *shkafka.KafkaProducer
+	Logger               *loggers.Logger
+	HandlerApp           http.Handler
+	Postgres             *storage.Postgres
+	SharedRedis          *storage.Redis
+	ServiceBudget        *budget.ServiceBudget
+	IRepoBudget          di.IRepoBudget
 }
 
 func App() *AppVariable {
@@ -95,6 +104,7 @@ func App() *AppVariable {
 	conf := budgetconfig.NewConfig(logging)
 	//
 	postgres := storage.OpenPostgres(conf.DSN, logging)
+	//
 	kafkaConsumer, errInitialConsumer := shkafka.NewConsumer(&shkafka.ConfigConsumer{
 		Brokers:       []string{conf.Broker},
 		KafkaUser:     conf.KafkaUser,
@@ -104,6 +114,16 @@ func App() *AppVariable {
 	}, logging)
 	if errInitialConsumer != nil {
 		logging.Error("failed to initial consumer kafka: " + errInitialConsumer.Error())
+		os.Exit(1)
+	}
+	kafkaProducerExpense, errInitialProducer := shkafka.NewProducer(&shkafka.ConfigProducer{
+		Brokers:       []string{conf.Broker},
+		KafkaUser:     conf.KafkaUser,
+		KafkaPassword: conf.KafkaPassword,
+		Topic:         conf.ExpenseNotificationTopic,
+	}, logging)
+	if errInitialProducer != nil {
+		logging.Error("failed to initial producer kafka: " + errInitialProducer.Error())
 		os.Exit(1)
 	}
 	//
@@ -123,7 +143,7 @@ func App() *AppVariable {
 	repoFinance := finance.NewRepositoryFinance(postgres, logging)
 	//
 	serviceBudget := budget.NewServiceBudget(repoBudget, logging)
-	serviceExpense := expense.NewServiceExpense(repoExpense, serviceBudget)
+	serviceExpense := expense.NewServiceExpense(repoExpense, serviceBudget, kafkaProducerExpense, logging)
 	serviceFinance := finance.NewServiceFinance(repoFinance, repoBudget, repoExpense)
 	//
 	docs.SwaggerInfo.Host = conf.ServiceIP + ":" + conf.ApiPort
@@ -139,13 +159,15 @@ func App() *AppVariable {
 		sharedMv.RateLimiting,
 	)
 	return &AppVariable{
-		Conf:          conf,
-		KafkaConsumer: kafkaConsumer,
-		Logger:        logging,
-		HandlerApp:    chainMv(router),
-		Postgres:      postgres,
-		SharedRedis:   sharedRedis,
-		ServiceBudget: serviceBudget,
+		Conf:                 conf,
+		KafkaConsumer:        kafkaConsumer,
+		KafkaProducerExpense: kafkaProducerExpense,
+		Logger:               logging,
+		HandlerApp:           chainMv(router),
+		Postgres:             postgres,
+		SharedRedis:          sharedRedis,
+		ServiceBudget:        serviceBudget,
+		IRepoBudget:          repoBudget,
 	}
 }
 func health(logger *loggers.Logger) http.HandlerFunc {

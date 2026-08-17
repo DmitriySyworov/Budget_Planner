@@ -23,7 +23,8 @@ const (
 
 type DeleteUserDataEvent struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserUuid      string                 `protobuf:"bytes,1,opt,name=user_uuid,json=userUuid,proto3" json:"user_uuid,omitempty"`
+	UserUuidList  []string               `protobuf:"bytes,1,rep,name=user_uuid_list,json=userUuidList,proto3" json:"user_uuid_list,omitempty"`
+	EventUuid     string                 `protobuf:"bytes,2,opt,name=event_uuid,json=eventUuid,proto3" json:"event_uuid,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -58,9 +59,16 @@ func (*DeleteUserDataEvent) Descriptor() ([]byte, []int) {
 	return file_shared_shprotos_event_user_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *DeleteUserDataEvent) GetUserUuid() string {
+func (x *DeleteUserDataEvent) GetUserUuidList() []string {
 	if x != nil {
-		return x.UserUuid
+		return x.UserUuidList
+	}
+	return nil
+}
+
+func (x *DeleteUserDataEvent) GetEventUuid() string {
+	if x != nil {
+		return x.EventUuid
 	}
 	return ""
 }
@@ -69,9 +77,11 @@ var File_shared_shprotos_event_user_proto protoreflect.FileDescriptor
 
 const file_shared_shprotos_event_user_proto_rawDesc = "" +
 	"\n" +
-	" shared/shprotos/event/user.proto\x12\x05event\"2\n" +
-	"\x13DeleteUserDataEvent\x12\x1b\n" +
-	"\tuser_uuid\x18\x01 \x01(\tR\buserUuidB\x1dZ\x1bshared/shprotos/event;eventb\x06proto3"
+	" shared/shprotos/event/user.proto\x12\x05event\"Z\n" +
+	"\x13DeleteUserDataEvent\x12$\n" +
+	"\x0euser_uuid_list\x18\x01 \x03(\tR\fuserUuidList\x12\x1d\n" +
+	"\n" +
+	"event_uuid\x18\x02 \x01(\tR\teventUuidB\x1dZ\x1bshared/shprotos/event;eventb\x06proto3"
 
 var (
 	file_shared_shprotos_event_user_proto_rawDescOnce sync.Once

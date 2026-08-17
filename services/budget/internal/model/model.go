@@ -15,8 +15,8 @@ type DescriptionExpenses struct {
 	Category               string `gorm:"column:category"`
 	Expense                string `gorm:"column:expense"`
 	Description            string `gorm:"column:description"`
-	DescriptionExpenseUUID string `gorm:"column:description_expense_uuid;primaryKey"`
-	ExpenseUUID            string `gorm:"column:expense_uuid"`
+	DescriptionExpenseUUID string `gorm:"column:description_expense_uuid;primaryKey" json:"description_expense_uuid"`
+	ExpenseUUID            string `gorm:"column:expense_uuid" json:"expense_uuid"`
 }
 type Expenses struct {
 	Health      string `json:"health,omitempty" gorm:"column:health"`
@@ -36,6 +36,6 @@ type Budgets struct {
 	Start       time.Time `gorm:"column:start"`
 	Finish      time.Time `gorm:"column:finish"`
 	Description string    `gorm:"column:description"`
-	BudgetUUID  string    `gorm:"column:budget_uuid;primaryKey"`
-	UserUUID    string    `gorm:"column:user_uuid"`
+	BudgetUUID  string    `gorm:"column:budget_uuid;primaryKey" json:"budget_uuid"`
+	UserUUID    string    `gorm:"column:user_uuid" json:"user_uuid"`
 }

@@ -53,7 +53,6 @@ func NewConsumer(conf *ConfigConsumer, logger *loggers.Logger) (*KafkaConsumer, 
 		HeartbeatInterval: 6 * time.Second,
 		RebalanceTimeout:  30 * time.Second,
 	})
-
 	return &KafkaConsumer{
 		Consumer: consumer,
 		Logger:   logger,

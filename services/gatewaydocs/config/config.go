@@ -15,10 +15,8 @@ type Api struct {
 	ApiPort string
 }
 type Services struct {
-	AuthUserIP        string
-	AuthUserPort      string
-	BudgetPlannerIP   string
-	BudgetPlannerPort string
+	AuthUserURL      string
+	BudgetPlannerURL string
 }
 
 func NewConfig(logger *loggers.Logger) *Config {
@@ -29,29 +27,19 @@ func NewConfig(logger *loggers.Logger) *Config {
 		}
 	}
 	apiPort := os.Getenv("EXTERNAL_API_PORT")
-	authUserIP := os.Getenv("AUTH_USER_IP")
-	authUserPort := os.Getenv("AUTH_USER_PORT")
-	budgetPlannerIP := os.Getenv("BUDGET_PLANNER_IP")
-	budgetPlannerPort := os.Getenv("BUDGET_PLANNER_PORT")
+	authUserURL := os.Getenv("AUTH_USER_URL")
+	budgetPlannerURL := os.Getenv("BUDGET_PLANNER_URL")
 	counterEmptyVariables := 0
 	if apiPort == "" {
 		apiPort = "8080"
 		logger.Warn("environment variable 'EXTERNAL_API_PORT' not found. Default value = 8080")
 	}
-	if authUserIP == "" {
-		logger.Error("environment variable 'AUTH_USER_IP' not found")
+	if authUserURL == "" {
+		logger.Error("environment variable 'AUTH_USER_URL' not found")
 		counterEmptyVariables++
 	}
-	if authUserPort == "" {
-		logger.Error("environment variable 'AUTH_USER_PORT' not found")
-		counterEmptyVariables++
-	}
-	if budgetPlannerIP == "" {
-		logger.Error("environment variable 'BUDGET_PLANNER_IP' not found")
-		counterEmptyVariables++
-	}
-	if budgetPlannerPort == "" {
-		logger.Error("environment variable 'BUDGET_PLANNER_PORT' not found")
+	if budgetPlannerURL == "" {
+		logger.Error("environment variable 'BUDGET_PLANNER_URL' not found")
 		counterEmptyVariables++
 	}
 	if counterEmptyVariables != 0 {
@@ -62,10 +50,8 @@ func NewConfig(logger *loggers.Logger) *Config {
 			ApiPort: apiPort,
 		},
 		Services: &Services{
-			AuthUserIP:        authUserIP,
-			AuthUserPort:      authUserPort,
-			BudgetPlannerIP:   budgetPlannerIP,
-			BudgetPlannerPort: budgetPlannerPort,
+			AuthUserURL:      authUserURL,
+			BudgetPlannerURL: budgetPlannerURL,
 		},
 	}
 }

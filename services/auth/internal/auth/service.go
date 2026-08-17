@@ -245,8 +245,7 @@ func (s *ServiceAuth) Confirm(ctxRequest context.Context, body *RequestConfirm, 
 	if errCreateToken != nil {
 		return nil, apperrors.ErrFailedSecurity
 	}
-	if s.Repo.CreateRefresh(&CreateRefreshParams{
-		CtxRequest:  ctxRequest,
+	if s.Repo.CreateRefresh(ctxRequest, &CreateRefreshParams{
 		UserUUID:    userUUID,
 		RefreshUUID: refreshUUID,
 		UserAgent:   userAgent,
@@ -268,7 +267,7 @@ func (s *ServiceAuth) Refresh(ctxRequest context.Context, oldRefreshToken, userA
 	if errGetRefreshData != nil {
 		return nil, apperrors.ErrRenewalRefresh
 	}
-	if errSecurity := s.HelperSecurity(ctxRequest, refreshData.UserAgent, userAgent, refreshData.IP, ipUser, userUUID, refreshData.RefreshUUID, refreshData.Email); errSecurity != nil {
+	if errSecurity := s.HelperSecurity(ctxRequest, refreshData.UserAgent, userAgent, refreshData.IP, ipUser, userUUID, refreshToken.RefreshUUID, refreshData.Email); errSecurity != nil {
 		return nil, errSecurity
 	}
 	newRefreshUUID := uuid.New().String()
@@ -276,7 +275,7 @@ func (s *ServiceAuth) Refresh(ctxRequest context.Context, oldRefreshToken, userA
 	if errConfirm != nil {
 		return nil, apperrors.ErrFailedSecurity
 	}
-	newRefreshKey := newRefreshUUID + nullByte + userAgent + nullByte + ipUser + nullByte + refreshData.Email
+	newRefreshKey := newRefreshUUID + NullByte + userAgent + NullByte + ipUser + NullByte + refreshData.Email
 	if errRotation := s.Repo.RotationRefresh(ctxRequest, userUUID, newRefreshKey, oldRefreshStrKey); errRotation != nil {
 		return nil, apperrors.ErrRenewalRefresh
 	}
@@ -299,7 +298,7 @@ func (s *ServiceAuth) Logout(ctxRequest context.Context, refreshToken, userAgent
 		if errGetRefreshKey != nil {
 			return
 		}
-		if errSecurity := s.HelperSecurity(ctxRequest, refreshData.UserAgent, userAgent, refreshData.IP, ipUser, userUUID, refreshData.RefreshUUID, refreshData.Email); errSecurity != nil {
+		if errSecurity := s.HelperSecurity(ctxRequest, refreshData.UserAgent, userAgent, refreshData.IP, ipUser, userUUID, refreshTokenData.RefreshUUID, refreshData.Email); errSecurity != nil {
 			return
 		}
 		if s.Repo.LogoutRefresh(ctxRequest, userUUID, refreshByteKey) != nil {

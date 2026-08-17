@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/protobuf/proto"
 )
@@ -182,7 +183,7 @@ func (s *ServiceUser) ConfirmUser(params *ConfirmUserParams) (*ResponseUser, err
 	if errGetRefreshData != nil {
 		return nil, apperrors.ErrRenewalRefresh
 	}
-	if errSecurity := s.IServiceAuth.HelperSecurity(params.CtxRequest, refreshData.UserAgent, params.UserAgent, refreshData.IP, params.IP, params.UserUUID, refreshData.RefreshUUID, refreshData.Email); errSecurity != nil {
+	if errSecurity := s.IServiceAuth.HelperSecurity(params.CtxRequest, refreshData.UserAgent, params.UserAgent, refreshData.IP, params.IP, params.UserUUID, refreshUUID, refreshData.Email); errSecurity != nil {
 		return nil, errSecurity
 	}
 	dataSession, errGetDataSession := s.IRepoAuth.GetUserSession(params.CtxRequest, params.SessionID, params.Action)
@@ -222,7 +223,8 @@ func (s *ServiceUser) ConfirmUser(params *ConfirmUserParams) (*ResponseUser, err
 		}, nil
 	case shconstant.TypeHardDelete:
 		dataEvent, errMarshalEvent := proto.Marshal(&event.DeleteUserDataEvent{
-			UserUuid: params.UserUUID,
+			UserUuidList: []string{params.UserUUID},
+			EventUuid:    uuid.New().String(),
 		})
 		if errMarshalEvent != nil {
 			s.Logger.Error("failed to marshal proto event: " + errMarshalEvent.Error())
@@ -254,35 +256,4 @@ func (s *ServiceUser) ConfirmUser(params *ConfirmUserParams) (*ResponseUser, err
 		return nil, apperrors.ErrSessionExpired
 	}
 	return nil, nil
-}
-func (s *ServiceUser) DeleteExpiredUsers(ctxCancel context.Context) {
-	ticker := time.NewTicker(time.Hour * 24)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctxCancel.Done():
-			s.Logger.Info("graceful shutdown close DeleteExpiredUsers")
-			return
-		case <-ticker.C:
-			if sliceDeleteUserUUID, errDelete := s.Repo.deleteUsersByTimer(); errDelete == nil && len(sliceDeleteUserUUID) != 0 {
-				for _, userUUID := range sliceDeleteUserUUID {
-					if errDelUserRefreshes := s.IRepoAuth.DeleteUserRefreshes(ctxCancel, userUUID); errDelUserRefreshes != nil {
-						s.Logger.Warn("failed to delete user: " + userUUID + " refreshes: " + errDelUserRefreshes.Error())
-					}
-					dataEvent, errMarshalEvent := proto.Marshal(&event.DeleteUserDataEvent{
-						UserUuid: userUUID,
-					})
-					if errMarshalEvent != nil {
-						s.Logger.Error("failed to marshal proto event: " + errMarshalEvent.Error())
-						continue
-					}
-					ctxTimeout, cancel := context.WithTimeout(context.Background(), shconstant.CtxTimeoutSendEventKafka)
-					if errSendEvent := s.Producer.SendEvent(ctxTimeout, userUUID, dataEvent); errSendEvent != nil {
-						s.Logger.Error("failed to send event deleted_user: " + errSendEvent.Error())
-					}
-					cancel()
-				}
-			}
-		}
-	}
 }

@@ -37,8 +37,8 @@ func NewServiceSwaggerDocs(logger *loggers.Logger, conf *docsconfig.Config) *Ser
 		Logger: logger,
 		Conf:   conf,
 		ServiceList: []ListDocs{
-			{Service: AuthService, Url: "http://" + conf.AuthUserIP + ".default.svc.cluster.local:" + conf.AuthUserPort + "/swagger/doc.json"},
-			{Service: BudgetService, Url: "http://" + conf.BudgetPlannerIP + ".default.svc.cluster.local:" + conf.BudgetPlannerPort + "/swagger/doc.json"},
+			{Service: AuthService, Url: conf.AuthUserURL + "/swagger/doc.json"},
+			{Service: BudgetService, Url: conf.BudgetPlannerURL + "/swagger/doc.json"},
 		},
 	}
 }
@@ -52,6 +52,7 @@ func (s *ServiceSwaggerDocs) GetDocs() []InfoServices {
 	listInfoServices := []InfoServices{
 		{Name: "Auth Service API", Url: "/docs/api?service=auth"},
 		{Name: "Budget Planner API", Url: "/docs/api?service=budget"},
+		{Name: "All API", Url: "/docs/api"},
 	}
 	return listInfoServices
 }

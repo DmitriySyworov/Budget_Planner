@@ -28,9 +28,10 @@ type NotificationEvent struct {
 	//	*NotificationEvent_AuthCode
 	//	*NotificationEvent_NewDevice
 	//	*NotificationEvent_SecurityAlert
+	//	*NotificationEvent_Expense
 	Event         isNotificationEvent_Event `protobuf_oneof:"event"`
-	EmailTo       string                    `protobuf:"bytes,4,opt,name=EmailTo,proto3" json:"EmailTo,omitempty"`
-	EventUUID     string                    `protobuf:"bytes,7,opt,name=EventUUID,proto3" json:"EventUUID,omitempty"`
+	EmailTo       string                    `protobuf:"bytes,5,opt,name=EmailTo,proto3" json:"EmailTo,omitempty"`
+	EventUUID     string                    `protobuf:"bytes,6,opt,name=EventUUID,proto3" json:"EventUUID,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -99,6 +100,15 @@ func (x *NotificationEvent) GetSecurityAlert() *SecurityLetterPayload {
 	return nil
 }
 
+func (x *NotificationEvent) GetExpense() *ExpenseLetterPayload {
+	if x != nil {
+		if x, ok := x.Event.(*NotificationEvent_Expense); ok {
+			return x.Expense
+		}
+	}
+	return nil
+}
+
 func (x *NotificationEvent) GetEmailTo() string {
 	if x != nil {
 		return x.EmailTo
@@ -129,11 +139,17 @@ type NotificationEvent_SecurityAlert struct {
 	SecurityAlert *SecurityLetterPayload `protobuf:"bytes,3,opt,name=security_alert,json=securityAlert,proto3,oneof"`
 }
 
+type NotificationEvent_Expense struct {
+	Expense *ExpenseLetterPayload `protobuf:"bytes,4,opt,name=expense,proto3,oneof"`
+}
+
 func (*NotificationEvent_AuthCode) isNotificationEvent_Event() {}
 
 func (*NotificationEvent_NewDevice) isNotificationEvent_Event() {}
 
 func (*NotificationEvent_SecurityAlert) isNotificationEvent_Event() {}
+
+func (*NotificationEvent_Expense) isNotificationEvent_Event() {}
 
 type AuthLetterPayload struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -247,18 +263,95 @@ func (x *SecurityLetterPayload) GetCurrentTime() string {
 	return ""
 }
 
+type ExpenseLetterPayload struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Expense       string                 `protobuf:"bytes,1,opt,name=Expense,proto3" json:"Expense,omitempty"`
+	Category      string                 `protobuf:"bytes,2,opt,name=Category,proto3" json:"Category,omitempty"`
+	Description   string                 `protobuf:"bytes,3,opt,name=Description,proto3" json:"Description,omitempty"`
+	UserUUID      string                 `protobuf:"bytes,4,opt,name=UserUUID,proto3" json:"UserUUID,omitempty"`
+	Time          string                 `protobuf:"bytes,5,opt,name=Time,proto3" json:"Time,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ExpenseLetterPayload) Reset() {
+	*x = ExpenseLetterPayload{}
+	mi := &file_shared_shprotos_event_letter_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExpenseLetterPayload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExpenseLetterPayload) ProtoMessage() {}
+
+func (x *ExpenseLetterPayload) ProtoReflect() protoreflect.Message {
+	mi := &file_shared_shprotos_event_letter_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExpenseLetterPayload.ProtoReflect.Descriptor instead.
+func (*ExpenseLetterPayload) Descriptor() ([]byte, []int) {
+	return file_shared_shprotos_event_letter_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *ExpenseLetterPayload) GetExpense() string {
+	if x != nil {
+		return x.Expense
+	}
+	return ""
+}
+
+func (x *ExpenseLetterPayload) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+func (x *ExpenseLetterPayload) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *ExpenseLetterPayload) GetUserUUID() string {
+	if x != nil {
+		return x.UserUUID
+	}
+	return ""
+}
+
+func (x *ExpenseLetterPayload) GetTime() string {
+	if x != nil {
+		return x.Time
+	}
+	return ""
+}
+
 var File_shared_shprotos_event_letter_proto protoreflect.FileDescriptor
 
 const file_shared_shprotos_event_letter_proto_rawDesc = "" +
 	"\n" +
-	"\"shared/shprotos/event/letter.proto\x12\x05event\"\x93\x02\n" +
+	"\"shared/shprotos/event/letter.proto\x12\x05event\"\xcc\x02\n" +
 	"\x11NotificationEvent\x127\n" +
 	"\tauth_code\x18\x01 \x01(\v2\x18.event.AuthLetterPayloadH\x00R\bauthCode\x12=\n" +
 	"\n" +
 	"new_device\x18\x02 \x01(\v2\x1c.event.SecurityLetterPayloadH\x00R\tnewDevice\x12E\n" +
-	"\x0esecurity_alert\x18\x03 \x01(\v2\x1c.event.SecurityLetterPayloadH\x00R\rsecurityAlert\x12\x18\n" +
-	"\aEmailTo\x18\x04 \x01(\tR\aEmailTo\x12\x1c\n" +
-	"\tEventUUID\x18\a \x01(\tR\tEventUUIDB\a\n" +
+	"\x0esecurity_alert\x18\x03 \x01(\v2\x1c.event.SecurityLetterPayloadH\x00R\rsecurityAlert\x127\n" +
+	"\aexpense\x18\x04 \x01(\v2\x1b.event.ExpenseLetterPayloadH\x00R\aexpense\x12\x18\n" +
+	"\aEmailTo\x18\x05 \x01(\tR\aEmailTo\x12\x1c\n" +
+	"\tEventUUID\x18\x06 \x01(\tR\tEventUUIDB\a\n" +
 	"\x05event\"E\n" +
 	"\x11AuthLetterPayload\x12\x1c\n" +
 	"\tValidTime\x18\x01 \x01(\x03R\tValidTime\x12\x12\n" +
@@ -266,7 +359,13 @@ const file_shared_shprotos_event_letter_proto_rawDesc = "" +
 	"\x15SecurityLetterPayload\x12\x16\n" +
 	"\x06device\x18\x01 \x01(\tR\x06device\x12\x1b\n" +
 	"\tclient_ip\x18\x02 \x01(\tR\bclientIp\x12!\n" +
-	"\fcurrent_time\x18\x03 \x01(\tR\vcurrentTimeB\x1dZ\x1bshared/shprotos/event;eventb\x06proto3"
+	"\fcurrent_time\x18\x03 \x01(\tR\vcurrentTime\"\x9e\x01\n" +
+	"\x14ExpenseLetterPayload\x12\x18\n" +
+	"\aExpense\x18\x01 \x01(\tR\aExpense\x12\x1a\n" +
+	"\bCategory\x18\x02 \x01(\tR\bCategory\x12 \n" +
+	"\vDescription\x18\x03 \x01(\tR\vDescription\x12\x1a\n" +
+	"\bUserUUID\x18\x04 \x01(\tR\bUserUUID\x12\x12\n" +
+	"\x04Time\x18\x05 \x01(\tR\x04TimeB\x1dZ\x1bshared/shprotos/event;eventb\x06proto3"
 
 var (
 	file_shared_shprotos_event_letter_proto_rawDescOnce sync.Once
@@ -280,21 +379,23 @@ func file_shared_shprotos_event_letter_proto_rawDescGZIP() []byte {
 	return file_shared_shprotos_event_letter_proto_rawDescData
 }
 
-var file_shared_shprotos_event_letter_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_shared_shprotos_event_letter_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_shared_shprotos_event_letter_proto_goTypes = []any{
 	(*NotificationEvent)(nil),     // 0: event.NotificationEvent
 	(*AuthLetterPayload)(nil),     // 1: event.AuthLetterPayload
 	(*SecurityLetterPayload)(nil), // 2: event.SecurityLetterPayload
+	(*ExpenseLetterPayload)(nil),  // 3: event.ExpenseLetterPayload
 }
 var file_shared_shprotos_event_letter_proto_depIdxs = []int32{
 	1, // 0: event.NotificationEvent.auth_code:type_name -> event.AuthLetterPayload
 	2, // 1: event.NotificationEvent.new_device:type_name -> event.SecurityLetterPayload
 	2, // 2: event.NotificationEvent.security_alert:type_name -> event.SecurityLetterPayload
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	3, // 3: event.NotificationEvent.expense:type_name -> event.ExpenseLetterPayload
+	4, // [4:4] is the sub-list for method output_type
+	4, // [4:4] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_shared_shprotos_event_letter_proto_init() }
@@ -306,6 +407,7 @@ func file_shared_shprotos_event_letter_proto_init() {
 		(*NotificationEvent_AuthCode)(nil),
 		(*NotificationEvent_NewDevice)(nil),
 		(*NotificationEvent_SecurityAlert)(nil),
+		(*NotificationEvent_Expense)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -313,7 +415,7 @@ func file_shared_shprotos_event_letter_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_shared_shprotos_event_letter_proto_rawDesc), len(file_shared_shprotos_event_letter_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   3,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

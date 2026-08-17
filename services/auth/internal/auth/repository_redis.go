@@ -17,7 +17,7 @@ import (
 
 type IRepositoryRedis interface {
 	CreateUserSession(ctxRequest context.Context, sessionID, action string, dataUser map[string]any) error
-	CreateRefresh(params *CreateRefreshParams) error
+	CreateRefresh(ctxRequest context.Context, params *CreateRefreshParams) error
 	LogoutRefresh(ctxRequest context.Context, userUUID string, refreshKey string) error
 	GetRefreshData(ctxRequest context.Context, userUUID, refreshUUID string) (*common.RefreshData, string, error)
 	RotationRefresh(ctxRequest context.Context, userUUID, newRefreshKey, oldRefreshKey string) error
@@ -37,15 +37,15 @@ func NewRepositoryRedis(redis *storage.Redis, logger *loggers.Logger) IRepositor
 }
 
 const (
-	sessionKey       = "session:"
-	userRefreshesKey = "user_refreshes:"
-	nullByte         = "\x00"
+	SessionKey       = "session:"
+	UserRefreshesKey = "user_refreshes:"
+	NullByte         = "\x00"
 )
 
 func (r *RepositoryRedisAuth) CreateUserSession(ctxRequest context.Context, sessionID, action string, dataUser map[string]any) error {
 	ctxTimeout, cancel := context.WithTimeout(ctxRequest, shconstant.CtxTimeoutRedis)
 	defer cancel()
-	keySession := sessionKey + action + ":" + sessionID
+	keySession := SessionKey + action + ":" + sessionID
 	dataUser[common.AttemptsLeft] = 5
 	pipe := r.Redis.Pipeline()
 	pipe.HSet(ctxTimeout, keySession, dataUser)
@@ -59,7 +59,7 @@ func (r *RepositoryRedisAuth) CreateUserSession(ctxRequest context.Context, sess
 func (r *RepositoryRedisAuth) GetUserSession(ctxRequest context.Context, sessionID, action string) (map[string]string, error) {
 	ctxTimeout, cancel := context.WithTimeout(ctxRequest, shconstant.CtxTimeoutRedis)
 	defer cancel()
-	keySession := sessionKey + action + ":" + sessionID
+	keySession := SessionKey + action + ":" + sessionID
 	existKey, errCheckExist := r.Redis.Exists(ctxTimeout, keySession).Result()
 	if errCheckExist != nil {
 		r.Logger.Error("failed to check session existence: " + errCheckExist.Error())
@@ -98,7 +98,6 @@ func (r *RepositoryRedisAuth) GetUserSession(ctxRequest context.Context, session
 }
 
 type CreateRefreshParams struct {
-	CtxRequest  context.Context
 	UserUUID    string
 	RefreshUUID string
 	UserAgent   string
@@ -106,12 +105,12 @@ type CreateRefreshParams struct {
 	EmailUser   string
 }
 
-func (r *RepositoryRedisAuth) CreateRefresh(params *CreateRefreshParams) error {
-	ctxTimeout, cancel := context.WithTimeout(params.CtxRequest, shconstant.CtxTimeoutRedis)
+func (r *RepositoryRedisAuth) CreateRefresh(ctxRequest context.Context, params *CreateRefreshParams) error {
+	ctxTimeout, cancel := context.WithTimeout(ctxRequest, shconstant.CtxTimeoutRedis)
 	defer cancel()
-	keyUserRefreshes := userRefreshesKey + params.UserUUID
+	keyUserRefreshes := UserRefreshesKey + params.UserUUID
 	clearBefore := time.Now().Add(-common.TTLRefreshKey).Unix()
-	keyRefresh := params.RefreshUUID + nullByte + params.UserAgent + nullByte + params.IPUser + nullByte + params.EmailUser
+	keyRefresh := params.RefreshUUID + NullByte + params.UserAgent + NullByte + params.IPUser + NullByte + params.EmailUser
 	pipe := r.Redis.Pipeline()
 	pipe.ZRemRangeByScore(ctxTimeout, keyUserRefreshes, "0", strconv.FormatInt(clearBefore, 10))
 	pipe.ZAdd(ctxTimeout, keyUserRefreshes, redis.Z{
@@ -130,7 +129,7 @@ func (r *RepositoryRedisAuth) CreateRefresh(params *CreateRefreshParams) error {
 func (r *RepositoryRedisAuth) LogoutRefresh(ctxRequest context.Context, userUUID string, refreshKey string) error {
 	ctxTimeout, cancel := context.WithTimeout(ctxRequest, shconstant.CtxTimeoutRedis)
 	defer cancel()
-	keyUserRefreshes := userRefreshesKey + userUUID
+	keyUserRefreshes := UserRefreshesKey + userUUID
 	if errZRem := r.Redis.ZRem(ctxTimeout, keyUserRefreshes, refreshKey).Err(); errZRem != nil {
 		r.Logger.Warn("failed to delete refresh data: " + errZRem.Error())
 		return errZRem
@@ -141,8 +140,8 @@ func (r *RepositoryRedisAuth) LogoutRefresh(ctxRequest context.Context, userUUID
 func (r *RepositoryRedisAuth) GetRefreshData(ctxRequest context.Context, userUUID, refreshUUID string) (*common.RefreshData, string, error) {
 	ctxTimeout, cancel := context.WithTimeout(ctxRequest, shconstant.CtxTimeoutRedis)
 	defer cancel()
-	keyUserRefreshes := userRefreshesKey + userUUID
-	mask := refreshUUID + nullByte + `*`
+	keyUserRefreshes := UserRefreshesKey + userUUID
+	mask := refreshUUID + NullByte + `*`
 	iter := r.Redis.ZScan(ctxTimeout, keyUserRefreshes, 0, mask, 10).Iterator()
 	var refresh string
 	for iter.Next(ctxTimeout) {
@@ -156,22 +155,21 @@ func (r *RepositoryRedisAuth) GetRefreshData(ctxRequest context.Context, userUUI
 	if refresh == "" {
 		return nil, "", errors.New("not found data refresh")
 	}
-	partKey := strings.Split(refresh, nullByte)
+	partKey := strings.Split(refresh, NullByte)
 	if len(partKey) != 4 {
 		return nil, "", errors.New("not found data refresh")
 	}
 	return &common.RefreshData{
-		RefreshUUID: partKey[0],
-		UserAgent:   partKey[1],
-		IP:          partKey[2],
-		Email:       partKey[3],
+		UserAgent: partKey[1],
+		IP:        partKey[2],
+		Email:     partKey[3],
 	}, refresh, nil
 }
 
 func (r *RepositoryRedisAuth) RotationRefresh(ctxRequest context.Context, userUUID, newRefreshKey, oldRefreshKey string) error {
 	ctxTimeout, cancel := context.WithTimeout(ctxRequest, shconstant.CtxTimeoutRedis)
 	defer cancel()
-	keyUserRefreshes := userRefreshesKey + userUUID
+	keyUserRefreshes := UserRefreshesKey + userUUID
 	clearBefore := time.Now().Add(-common.TTLRefreshKey).Unix()
 	pipe := r.Redis.Pipeline()
 	pipe.ZRemRangeByScore(ctxTimeout, keyUserRefreshes, "0", strconv.FormatInt(clearBefore, 10))
@@ -191,7 +189,7 @@ func (r *RepositoryRedisAuth) RotationRefresh(ctxRequest context.Context, userUU
 func (r *RepositoryRedisAuth) DeleteUserRefreshes(ctxRequest context.Context, userUUID string) error {
 	ctxTimeout, cancel := context.WithTimeout(ctxRequest, shconstant.CtxTimeoutRedis)
 	defer cancel()
-	keyUserRefreshes := userRefreshesKey + userUUID
+	keyUserRefreshes := UserRefreshesKey + userUUID
 	if errDel := r.Redis.Del(ctxTimeout, keyUserRefreshes).Err(); errDel != nil {
 		r.Logger.Error("failed to delete user refreshes: " + errDel.Error())
 		return errDel
