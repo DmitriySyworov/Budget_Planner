@@ -34,10 +34,9 @@ rebuild-push-all-helm-hard-replace-all: build-all-images
 #Delete
 	-helm uninstall my --namespace infrastructure
 	-minikube addons disable ingress
-	-kubectl get pods -A --no-headers | awk '{print $$1}' | xargs -I {} kubectl patch pod {} -n app -p '{"metadata":{"finalizers":null}}' --type=merge
-	-kubectl delete namespace infrastructure app --force --grace-period=0
+	-kubectl get pods -A --no-headers | awk '{print $$1, $$2}' | xargs -L1 sh -c 'kubectl patch pod $$2 -n $$1 -p "{\"metadata\":{\"finalizers\":null}}" --type=merge'
 	-kubectl get pvc -A --no-headers | awk '{print $$1, $$2}' | xargs -L1 sh -c 'kubectl patch pvc $$2 -n $$1 -p "{\"metadata\":{\"finalizers\":null}}" --type=merge'
-	-kubectl delete pvc --all -A --force --grace-period=0
+	-kubectl delete namespace infrastructure app --force --grace-period=0
 	-kubectl get pv --no-headers | awk '{print $$1}' | xargs -I {} kubectl patch pv {} -p "{\"metadata\":{\"finalizers\":null}}" --type=merge
 	-kubectl delete pv --all --force --grace-period=0
 	-kubectl wait --for=delete namespace/app --timeout=60s
@@ -74,7 +73,7 @@ rebuild-push-all-helm-hard-replace-all: build-all-images
 		--set replicasCount.budgetReplicas=0 \
 		--set replicasCount.notificationReplicas=0 \
 		--set replicasCount.docsReplicas=0
-	kubectl wait --namespace app --for=condition=complete job --all --timeout=180s
+	kubectl wait --namespace app --for=condition=complete job --all --timeout=320s
 #Final services
 	helm upgrade app ./app-chart \
 		-f ./app-chart/values.yaml \
@@ -98,7 +97,7 @@ upgrade-helm-push-all: build-all-images
 		--set versions.authUserVersion="$(VERSION_AUTH)" \
         --set versions.budgetPlannerVersion="$(VERSION_BUDGET)" \
         --set versions.notificationVersion="$(VERSION_NOTIFICATION)" \
-        --set versions.gatewayDocsVersion="$(VERSION_DOCS)" \
+        --set versions.gatewayDocsVersion="$(VERSION_DOCS)"
 	helm template app ./app-chart -f ./app-chart/values.yaml --show-only templates/ingress.yaml | kubectl apply --namespace app -f -
 minikube-start-local:
 	minikube start --cpus=4 --memory=8192 --driver=docker --mount --mount-string="$(LOCAL_PATH_VOLUMES):/mnt/data"

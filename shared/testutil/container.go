@@ -25,13 +25,12 @@ type TestContainerRedis struct {
 func NewTestContainerPostgres(ctx context.Context, pathMigrationFile string) (*TestContainerPostgres, error) {
 	postgresReq := testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
-			Name:         "postgres-test-container",
 			Image:        "postgres:18-alpine",
 			ExposedPorts: []string{"5432/tcp"},
 			Env: map[string]string{
 				"POSTGRES_USER":     "admin_test",
 				"POSTGRES_PASSWORD": "password_test",
-				"POSTGRES_DATABASE": "container_test",
+				"POSTGRES_DB":       "container_test",
 			},
 			WaitingFor: wait.ForListeningPort("5432/tcp"),
 		},
@@ -45,7 +44,7 @@ func NewTestContainerPostgres(ctx context.Context, pathMigrationFile string) (*T
 	if errGetPostgresPort != nil {
 		return nil, errors.New("failed to get port PostgresSQL: " + errGetPostgresPort.Error())
 	}
-	dsn := "host=localhost user=admin-auth password=password_test dbname=container_test port=" + postgresPort.Port() + " sslmode=disable"
+	dsn := "host=127.0.0.1 user=admin_test password=password_test dbname=container_test port=" + postgresPort.Port() + " sslmode=disable"
 	gormDB, errOpenGorm := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
@@ -69,10 +68,9 @@ func NewTestContainerPostgres(ctx context.Context, pathMigrationFile string) (*T
 func NewTestContainerRedis(ctx context.Context) (*TestContainerRedis, error) {
 	redisReq := testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
-			Image:        "redis:8.8.0",
-			Name:         "redis-team-tm-test",
+			Image:        "redis:8-alpine",
 			ExposedPorts: []string{"6379/tcp"},
-			WaitingFor:   wait.ForLog("Ready to accept connections"),
+			WaitingFor:   wait.ForLog(".*Ready to accept connections.*"),
 		},
 		Started: true,
 	}
