@@ -48,6 +48,16 @@ services:
     depends_on:
       postgres-user-test:
         condition: service_healthy
+  notification-test:
+    container_name: notification-test
+    build:
+      context: ../../
+      dockerfile: ./services/notification/Dockerfile
+    environment:
+      DSN : ${DSN_TEST_MIGRATION}
+    depends_on:
+      postgres-user-test:
+        condition: service_healthy
   mailpit:
     image: axllent/mailpit:latest
     ports:
