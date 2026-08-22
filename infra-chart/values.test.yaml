@@ -31,7 +31,7 @@ configs:
     SHARED_REDIS_ADDRESS: 'redis-shared-service:6379'
 secrets:
   redis-shared-all-secrets:
-    SHARED_REDIS_PASSWORD: "example_password"
+    SHARED_REDIS_PASSWORD: 'example_password'
   kafka-all-secrets:
     KAFKA_CLIENT_USER: "user1"
     KAFKA_CLIENT_PASSWORD: "example_password"
@@ -81,3 +81,5 @@ extraConfig: |
   group.initial.rebalance.delay.ms=15000
   group.max.session.timeout.ms=60000
   group.coordinator.min.rebalance.timeout.ms=10000
+  listeners=CLIENT://0.0.0.0:9092
+  listener.security.protocol.map=CLIENT:SASL_PLAINTEXT,CONTROLLER:PLAINTEXT,INTERBROKER:PLAINTEXT

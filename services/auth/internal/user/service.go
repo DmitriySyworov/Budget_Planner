@@ -239,7 +239,7 @@ func (s *ServiceUser) ConfirmUser(params *ConfirmUserParams) (*ResponseUser, err
 		go func() {
 			ctxTimeout, cancel := context.WithTimeout(context.Background(), shconstant.CtxTimeoutSendEventKafka)
 			defer cancel()
-			if errSendEvent := s.Producer.SendEvent(ctxTimeout, params.UserUUID, dataEvent); errSendEvent != nil {
+			if errSendEvent := s.Producer.SendInstantEvent(ctxTimeout, params.UserUUID, dataEvent); errSendEvent != nil {
 				s.Logger.Error("failed to send event deleted_user: " + errSendEvent.Error())
 			} else {
 				s.Logger.Info("event deleted_user successfully sent to Kafka in background")

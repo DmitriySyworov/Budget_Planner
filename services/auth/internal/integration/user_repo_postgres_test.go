@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 const (
@@ -47,11 +46,11 @@ func TestCreateUser_Success(t *testing.T) {
 		t.Errorf("expected email %s got %s", email, userData.Email)
 	}
 }
+
 func TestUpdateUser_BorderlineCase(t *testing.T) {
 	if errInitial != nil {
 		t.Fatal(errInitial)
 	}
-	testutil.CleanPostgres(t, suiteContainer.Postgres, []string{"users"})
 	userRepo := user.NewRepositoryUser(&storage.Postgres{
 		DB: suiteContainer.Postgres,
 	}, logger)
@@ -100,9 +99,9 @@ func TestUpdateUser_BorderlineCase(t *testing.T) {
 			ExpectedError: false,
 		},
 		{
-			Name: "Error - empty user UUID",
+			Name: "Error - incorrect user UUID",
 			UpdateUser: &model.Users{
-				UserUUID: "",
+				UserUUID: "askj@&#*^Shkj",
 				Name:     "Alice",
 			},
 			ExpectedError: true,
@@ -112,9 +111,9 @@ func TestUpdateUser_BorderlineCase(t *testing.T) {
 			UpdateUser: &model.Users{
 				UserUUID: userUUID,
 				Name: func() string {
-					tooLongName := "aa"
+					var tooLongName string
 					for i := 0; i < 50; i++ {
-						tooLongName += tooLongName
+						tooLongName += "aa"
 					}
 					return tooLongName
 				}(),
@@ -132,10 +131,10 @@ func TestUpdateUser_BorderlineCase(t *testing.T) {
 			ExpectedError: true,
 		},
 		{
-			Name: "Error - empty name string",
+			Name: "Error - to short name string",
 			UpdateUser: &model.Users{
 				UserUUID: userUUID,
-				Name:     "",
+				Name:     "a",
 				Email:    "example@gmail.com",
 			},
 			ExpectedError: true,
@@ -240,7 +239,7 @@ func TestDeleteUser_Success(t *testing.T) {
 		t.Fatal("failed to delete user: ", errDeleteUser)
 	}
 	exist, errCheckUser := userRepo.UserExistsByUserUUID(context.Background(), userUUID)
-	if errCheckUser == nil {
+	if errCheckUser != nil {
 		t.Fatal("failed to check delete user: ", errCheckUser)
 	}
 	if exist {
@@ -297,27 +296,23 @@ func TestDeleteUserByTimer_Success(t *testing.T) {
 		DB: suiteContainer.Postgres,
 	}, logger)
 	firstUserUUID := uuid.New().String()
-	if errCreateFirst := userRepo.CreateUser(context.Background(), &model.Users{
-		CreatedAt: time.Now().Add(-time.Hour * 1000),
-		UpdatedAt: time.Now().Add(-time.Hour * 1000),
-		DeletedAt: gorm.DeletedAt{Time: time.Now().Add(-time.Hour * 726)},
-		Name:      "Bob",
-		Email:     "exampleemail@gmail.com",
-		Password:  password,
-		UserUUID:  firstUserUUID,
-	}); errCreateFirst != nil {
+	if errCreateFirst := suiteContainer.Postgres.Exec(`
+INSERT INTO users (created_at, updated_at, deleted_at, name, email, password, user_uuid ) VALUES 
+        	(?, ?, ?, ?, ?, ?, ?)`,
+		time.Now().Add(-time.Hour*1000),
+		time.Now().Add(-time.Hour*1000),
+		time.Now().Add(-time.Hour*800),
+		"Bob", "exampleemail@gmail.com", password, firstUserUUID).Error; errCreateFirst != nil {
 		t.Fatal("failed to create first user: ", errCreateFirst)
 	}
 	secondUserUUID := uuid.New().String()
-	if errCreateSecond := userRepo.CreateUser(context.Background(), &model.Users{
-		CreatedAt: time.Now().Add(-time.Hour * 1000),
-		UpdatedAt: time.Now().Add(-time.Hour * 1000),
-		DeletedAt: gorm.DeletedAt{Time: time.Now().Add(-time.Hour * 725)},
-		Name:      "Jhon",
-		Email:     "exampleemailsecond@gmail.com",
-		Password:  password,
-		UserUUID:  secondUserUUID,
-	}); errCreateSecond != nil {
+	if errCreateSecond := suiteContainer.Postgres.Exec(`
+INSERT INTO users (created_at, updated_at, deleted_at, name, email, password, user_uuid ) VALUES 
+        	(?, ?, ?, ?, ?, ?, ?)`,
+		time.Now().Add(-time.Hour*1000),
+		time.Now().Add(-time.Hour*1000),
+		time.Now().Add(-time.Hour*800),
+		"Jhon", "exampleemailsecond@gmail.com", password, secondUserUUID).Error; errCreateSecond != nil {
 		t.Fatal("failed to create second user: ", errCreateSecond)
 	}
 	sliceUserUUID, errDeleteExpireUser := userRepo.DeleteUsersByTimer()

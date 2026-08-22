@@ -11,7 +11,7 @@ import (
 	"github.com/pressly/goose/v3"
 )
 
-//go:embed *.sql
+//go:embed sql/*.sql
 var embedMigrations embed.FS
 
 func main() {
@@ -40,7 +40,7 @@ func main() {
 		logger.Error("failed to set postgres dialect")
 		os.Exit(1)
 	}
-	if errMigrate := goose.Up(db, "."); errMigrate != nil {
+	if errMigrate := goose.Up(db, "sql"); errMigrate != nil {
 		logger.Error("failed to migrate tables: " + errMigrate.Error())
 		os.Exit(1)
 	}

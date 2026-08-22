@@ -15,7 +15,6 @@ import (
 	"context"
 	"shared/loggers"
 	"shared/sherrors"
-	"shared/shkafka"
 	"strconv"
 	"time"
 
@@ -24,20 +23,20 @@ import (
 )
 
 type ServiceAuth struct {
-	Repo                IRepositoryRedis
-	IRepoUser           di.IRepoUser
-	Conf                *authconfig.Config
-	ProducerEmailLetter *shkafka.KafkaProducer
-	Logger              *loggers.Logger
+	Repo      IRepositoryRedis
+	IRepoUser di.IRepoUser
+	Conf      *authconfig.Config
+	Notifer   *notifer.Notifer
+	Logger    *loggers.Logger
 }
 
-func NewServiceAuth(repo IRepositoryRedis, producerEmailLetter *shkafka.KafkaProducer, repoUser di.IRepoUser, conf *authconfig.Config, logger *loggers.Logger) *ServiceAuth {
+func NewServiceAuth(repo IRepositoryRedis, nt *notifer.Notifer, repoUser di.IRepoUser, conf *authconfig.Config, logger *loggers.Logger) *ServiceAuth {
 	return &ServiceAuth{
-		Repo:                repo,
-		IRepoUser:           repoUser,
-		Conf:                conf,
-		ProducerEmailLetter: producerEmailLetter,
-		Logger:              logger,
+		Repo:      repo,
+		IRepoUser: repoUser,
+		Conf:      conf,
+		Notifer:   nt,
+		Logger:    logger,
 	}
 }
 
@@ -138,8 +137,7 @@ func (s *ServiceAuth) HelperAuth(ctxRequest context.Context, action string, data
 	if errJwtSession != nil {
 		return nil, apperrors.ErrFailedSecurity
 	}
-	nt := notifer.NewNotifer(s.ProducerEmailLetter, s.Logger)
-	go nt.HelperSendEmailEvent(&notifer.NotificationEvent{
+	go s.Notifer.HelperSendEmailEvent(&notifer.NotificationEvent{
 		LetterAuth: &notifer.LetterAuth{
 			Code:      codeAuthStr,
 			ValidTime: time.Now().Add(common.TTLSessionJWT).Unix(),
@@ -308,13 +306,12 @@ func (s *ServiceAuth) Logout(ctxRequest context.Context, refreshToken, userAgent
 }
 func (s *ServiceAuth) HelperSecurity(ctxRequest context.Context, oldUserAgent, newUserAgent, oldIP, newIP, userUUID, refreshUUID, email string) error {
 	matchUserAgent, newDevice := appuseragent.ValidateUserAgent(oldUserAgent, newUserAgent)
-	nt := notifer.NewNotifer(s.ProducerEmailLetter, s.Logger)
 	if !matchUserAgent && !ip.CompareIP(oldIP, newIP) {
 		s.Logger.Error("SECURITY ALERT: User-Agent mismatch for user " + userUUID + "! Force logout triggered. Expected User-Agent: " + oldUserAgent + " , Got: " + newUserAgent)
 		if errDeleteRefreshes := s.Repo.DeleteUserRefreshes(ctxRequest, userUUID); errDeleteRefreshes != nil {
 			s.Logger.Error("failed to force logout user_uuid: " + userUUID + " refresh_uuid: " + refreshUUID)
 		}
-		go nt.HelperSendEmailEvent(&notifer.NotificationEvent{
+		go s.Notifer.HelperSendEmailEvent(&notifer.NotificationEvent{
 			LetterSecurity: &notifer.LetterSecurity{
 				Device: newDevice,
 				IP:     newIP,
@@ -325,7 +322,7 @@ func (s *ServiceAuth) HelperSecurity(ctxRequest context.Context, oldUserAgent, n
 		return apperrors.ErrRenewalRefresh
 	}
 	if !matchUserAgent {
-		go nt.HelperSendEmailEvent(&notifer.NotificationEvent{
+		go s.Notifer.HelperSendEmailEvent(&notifer.NotificationEvent{
 			LetterSecurity: &notifer.LetterSecurity{
 				Device: newDevice,
 				IP:     newIP,

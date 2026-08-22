@@ -41,7 +41,7 @@ func (r *RepositoryExpense) UpsertExpense(ctxRequest context.Context, descriptio
 			if errUpsertExpense := tx.Exec(`INSERT INTO expenses(health, sport, supermarket, restaurant, leisure, investments, savings, other, budget_uuid, expense_uuid) 
 				VALUES (?, 0.0, 0.0 , 0.0, 0.0, 0.0, 0.0, 0.0, ?, ?)
 				ON CONFLICT (expense_uuid)
-				DO UPDATE SET health = expenses.health + excluded.health
+				DO UPDATE SET health = health + excluded.health
 				`, descriptionExpense.Expense, budgetUUID, expenseUUID).Error; errUpsertExpense != nil {
 				r.Logger.Error("failed to upsert expense: " + errUpsertExpense.Error())
 				return errUpsertExpense
@@ -50,7 +50,7 @@ func (r *RepositoryExpense) UpsertExpense(ctxRequest context.Context, descriptio
 			if errUpsertExpense := tx.Exec(`INSERT INTO expenses(health, sport, supermarket, restaurant, leisure, investments, savings, other, budget_uuid, expense_uuid) 
 				VALUES (0.0, ?, 0.0 , 0.0, 0.0, 0.0, 0.0, 0.0, ?, ?)
 				ON CONFLICT (expense_uuid)
-				DO UPDATE SET sport = expenses.sport + excluded.sport
+				DO UPDATE SET sport = sport + excluded.sport
 				`, descriptionExpense.Expense, budgetUUID, expenseUUID).Error; errUpsertExpense != nil {
 				r.Logger.Error("failed to upsert expense: " + errUpsertExpense.Error())
 				return errUpsertExpense
@@ -59,7 +59,7 @@ func (r *RepositoryExpense) UpsertExpense(ctxRequest context.Context, descriptio
 			if errUpsertExpense := tx.Exec(`INSERT INTO expenses(health, sport, supermarket, restaurant, leisure, investments, savings, other, budget_uuid, expense_uuid) 
 				VALUES (0.0, 0.0, ? , 0.0, 0.0, 0.0, 0.0, 0.0, ?, ?)
 				ON CONFLICT (expense_uuid)
-				DO UPDATE SET supermarket = expenses.supermarket + excluded.supermarket
+				DO UPDATE SET supermarket = supermarket + excluded.supermarket
 				`, descriptionExpense.Expense, budgetUUID, expenseUUID).Error; errUpsertExpense != nil {
 				r.Logger.Error("failed to upsert expense: " + errUpsertExpense.Error())
 				return errUpsertExpense
@@ -68,7 +68,7 @@ func (r *RepositoryExpense) UpsertExpense(ctxRequest context.Context, descriptio
 			if errUpsertExpense := tx.Exec(`INSERT INTO expenses(health, sport, supermarket, restaurant, leisure, investments, savings, other, budget_uuid, expense_uuid) 
 				VALUES (0.0, 0.0, 0.0, ?, 0.0, 0.0, 0.0, 0.0, ?, ?)
 				ON CONFLICT (expense_uuid)
-				DO UPDATE SET restaurant = expenses.restaurant + excluded.restaurant
+				DO UPDATE SET restaurant = restaurant + excluded.restaurant
 				`, descriptionExpense.Expense, budgetUUID, expenseUUID).Error; errUpsertExpense != nil {
 				r.Logger.Error("failed to upsert expense: " + errUpsertExpense.Error())
 				return errUpsertExpense
@@ -77,7 +77,7 @@ func (r *RepositoryExpense) UpsertExpense(ctxRequest context.Context, descriptio
 			if errUpsertExpense := tx.Exec(`INSERT INTO expenses(health, sport, supermarket, restaurant, leisure, investments, savings, other, budget_uuid, expense_uuid) 
 				VALUES (0.0, 0.0, 0.0, 0.0, ?, 0.0, 0.0, 0.0, ?, ?)
 				ON CONFLICT (expense_uuid)
-				DO UPDATE SET leisure = expenses.leisure + excluded.leisure
+				DO UPDATE SET leisure = leisure + excluded.leisure
 				`, descriptionExpense.Expense, budgetUUID, expenseUUID).Error; errUpsertExpense != nil {
 				r.Logger.Error("failed to upsert expense: " + errUpsertExpense.Error())
 				return errUpsertExpense
@@ -86,7 +86,7 @@ func (r *RepositoryExpense) UpsertExpense(ctxRequest context.Context, descriptio
 			if errUpsertExpense := tx.Exec(`INSERT INTO expenses(health, sport, supermarket, restaurant, leisure, investments, savings, other, budget_uuid, expense_uuid) 
 				VALUES (0.0, 0.0, 0.0, 0.0, 0.0, ?, 0.0, 0.0, ?, ?)
 				ON CONFLICT (expense_uuid)
-				DO UPDATE SET investments = expenses.investments + excluded.investments
+				DO UPDATE SET investments = investments + excluded.investments
 				`, descriptionExpense.Expense, budgetUUID, expenseUUID).Error; errUpsertExpense != nil {
 				r.Logger.Error("failed to upsert expense: " + errUpsertExpense.Error())
 				return errUpsertExpense
@@ -95,7 +95,7 @@ func (r *RepositoryExpense) UpsertExpense(ctxRequest context.Context, descriptio
 			if errUpsertExpense := tx.Exec(`INSERT INTO expenses(health, sport, supermarket, restaurant, leisure, investments, savings, other, budget_uuid, expense_uuid) 
 				VALUES (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, ?, 0.0, ?, ?)
 				ON CONFLICT (expense_uuid)
-				DO UPDATE SET savings = expenses.savings + excluded.savings
+				DO UPDATE SET savings = savings + excluded.savings
 				`, descriptionExpense.Expense, budgetUUID, expenseUUID).Error; errUpsertExpense != nil {
 				r.Logger.Error("failed to upsert expense: " + errUpsertExpense.Error())
 				return errUpsertExpense
@@ -104,7 +104,7 @@ func (r *RepositoryExpense) UpsertExpense(ctxRequest context.Context, descriptio
 			if errUpsertExpense := tx.Exec(`INSERT INTO  expenses(health, sport, supermarket, restaurant, leisure, investments, savings, other, budget_uuid, expense_uuid) 
 				VALUES (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, ?, ?, ?)
 				ON CONFLICT (expense_uuid)
-				DO UPDATE SET other = expenses.other + excluded.other
+				DO UPDATE SET other = other + excluded.other
 				`, descriptionExpense.Expense, budgetUUID, expenseUUID).Error; errUpsertExpense != nil {
 				r.Logger.Error("failed to upsert expense: " + errUpsertExpense.Error())
 				return errUpsertExpense

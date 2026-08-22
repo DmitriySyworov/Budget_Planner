@@ -9,7 +9,8 @@ REPLICAS_DOCS ?= 1
 LOCAL_PATH_VOLUMES ?= /home/dmitriy/volumes/minikube-persistent-disks #!EXAMPLE!
 TAIL ?=1000
 go-e2e-test-budget:
-	docker compose --env-file services/budget/cmd/app/.env.test -f services/budget/docker-compose-test.yaml up --build
+	docker compose --env-file services/budget/cmd/app/.env.test -f services/budget/docker-compose-test.yaml up postgres-planner-test redis-shared-test --wait
+	docker compose --env-file services/budget/cmd/app/.env.test -f services/budget/docker-compose-test.yaml up migration-planner-test
 	go test -v ./services/budget/cmd/app
 build-auth:
 	docker build -t dmitriysyworov/auth-user-service:$(VERSION_AUTH) -f ./services/auth/Dockerfile . && \
@@ -74,11 +75,16 @@ rebuild-push-all-helm-hard-replace-all: build-all-images
 		--set replicasCount.notificationReplicas=0 \
 		--set replicasCount.docsReplicas=0
 	kubectl wait --namespace app --for=condition=complete job --all --timeout=320s
+	kubectl delete job --all --namespace app --force --grace-period=0
 #Final services
 	helm upgrade app ./app-chart \
 		-f ./app-chart/values.yaml \
 		--namespace app \
 		--reuse-values \
+		--set versions.authUserVersion="$(VERSION_AUTH)" \
+		--set versions.budgetPlannerVersion="$(VERSION_BUDGET)" \
+		--set versions.notificationVersion="$(VERSION_NOTIFICATION)" \
+		--set versions.gatewayDocsVersion="$(VERSION_DOCS)" \
 		--set replicasCount.authReplicas="$(REPLICAS_AUTH)" \
 		--set replicasCount.budgetReplicas="$(REPLICAS_BUDGET)" \
 		--set replicasCount.notificationReplicas="$(REPLICAS_NOTIFICATION)" \
@@ -104,13 +110,13 @@ minikube-start-local:
 get-services-port:
 	minikube service ingress-nginx-controller --namespace=ingress-nginx
 get-logs-auth-user:
-	kubectl logs -l app=app-auth-user --tail=$(TAIL) -f
+	kubectl logs -l app=app-auth-user --tail=$(TAIL) -f -n app
 get-logs-budget-planner:
-	kubectl logs -l app=app-budget-planner --tail=$(TAIL) -f
+	kubectl logs -l app=app-budget-planner --tail=$(TAIL) -f -n app
 get-logs-notification:
-	kubectl logs -l app=notification --tail=$(TAIL) -f
+	kubectl logs -l app=notification --tail=$(TAIL) -f -n app
 get-logs-docs:
-	kubectl logs -l app=gateway-docs --tail=$(TAIL) -f
+	kubectl logs -l app=gateway-docs --tail=$(TAIL) -f -n app
 proto-update-all:
 	protoc --go_out=. --go_opt=paths=source_relative ./shared/shprotos/event/user.proto
 	protoc --go_out=. --go_opt=paths=source_relative ./shared/shprotos/event/letter.proto

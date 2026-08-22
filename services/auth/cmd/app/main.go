@@ -6,6 +6,7 @@ import (
 	"app/auth-service/internal/di"
 	"app/auth-service/internal/listener"
 	"app/auth-service/internal/middleware"
+	"app/auth-service/internal/notifer"
 	"app/auth-service/internal/user"
 	"context"
 	"errors"
@@ -13,6 +14,7 @@ import (
 	"os"
 	"os/signal"
 	"shared/loggers"
+	"shared/outbox"
 	"shared/ratelimit"
 	"shared/response"
 	"shared/shkafka"
@@ -42,14 +44,9 @@ func main() {
 		Addr:    ":" + appVariable.Conf.ApiPort,
 		Handler: appVariable.HandlerApp,
 	}
+
 	ctxCancel, cancelCancel := context.WithCancel(context.Background())
-	go appVariable.KafkaConsumerExpenseEmail.WaitEvent(ctxCancel,
-		listener.NewKafkaListener(
-			appVariable.KafkaProducerEmail,
-			appVariable.Redis,
-			appVariable.IRepoUser,
-			appVariable.Logger).
-			HandleEventExpenseNotification)
+	go Run(ctxCancel, appVariable.KafkaConsumerExpenseEmail, appVariable.ExpenseListener, appVariable.Notifer)
 	serverError := make(chan error, 1)
 	stopSignal := make(chan os.Signal, 1)
 	go func() {
@@ -101,6 +98,8 @@ type AppVariable struct {
 	HandlerApp                http.Handler
 	ServiceUser               *user.ServiceUser
 	IRepoUser                 di.IRepoUser
+	Notifer                   *notifer.Notifer
+	ExpenseListener           *listener.KafkaListener
 }
 
 func App() *AppVariable {
@@ -157,7 +156,11 @@ func App() *AppVariable {
 	repoAuth := auth.NewRepositoryRedis(redis, logging)
 	repoUser := user.NewRepositoryUser(postgres, logging)
 	//
-	serviceAuth := auth.NewServiceAuth(repoAuth, producerEmailEvent, repoUser, conf, logging)
+	box := outbox.NewOutbox(sharedRedis, logging)
+	nt := notifer.NewNotifer(producerEmailEvent, box, logging)
+	listenerExpenseEvent := listener.NewKafkaListener(producerEmailEvent, sharedRedis, repoUser, logging)
+	//
+	serviceAuth := auth.NewServiceAuth(repoAuth, nt, repoUser, conf, logging)
 	serviceUser := user.NewServiceUser(repoUser, serviceAuth, repoAuth, producerDeleteEvent, conf.Signature, logging)
 	//
 	docs.SwaggerInfo.Host = conf.ServiceIP + ":" + conf.ApiPort
@@ -183,8 +186,16 @@ func App() *AppVariable {
 		SharedRedis:               sharedRedis,
 		ServiceUser:               serviceUser,
 		IRepoUser:                 repoUser,
+		Notifer:                   nt,
+		ExpenseListener:           listenerExpenseEvent,
 	}
 }
+func Run(ctxCancel context.Context, consumerExpense *shkafka.KafkaConsumer, expenseListener *listener.KafkaListener, nt *notifer.Notifer) {
+	go consumerExpense.WaitEvent(ctxCancel,
+		expenseListener.HandleEventExpenseNotification)
+	go nt.SenderSecurityLater(ctxCancel)
+}
+
 func health(logger *loggers.Logger) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		writer.WriteHeader(http.StatusOK)

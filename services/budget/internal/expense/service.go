@@ -80,7 +80,7 @@ func (s *ServiceExpense) CreateExpense(ctxRequest context.Context, body *Request
 			logger.Error("failed to marshal expense event: " + errMarshal.Error())
 			return
 		}
-		if errSendEvent := producerExpense.SendEvent(ctxTimeout, userUUID, dataEvent); errSendEvent != nil {
+		if errSendEvent := producerExpense.SendInstantEvent(ctxTimeout, userUUID, dataEvent); errSendEvent != nil {
 			logger.Error("failed to send expense event: " + errSendEvent.Error())
 			return
 		}

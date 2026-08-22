@@ -73,7 +73,8 @@ statefulServices:
     storageSize: "1Gi"
     mountPath: "/var/lib/postgresql/18/docker"
     isLocal: true
-    secretName: "auth-user-all-secrets"
+    secretName: "postgres-auth-user-all-secrets"
+    configName: "postgres-auth-user-all-configs"
   - name : redis-auth
     image: "redis:8-alpine"
     port: 6379
@@ -82,8 +83,8 @@ statefulServices:
     mountPath: "/data"
     isLocal: true
     isRedis : true
-    secretName: "auth-user-all-secrets"
-    configName: "auth-user-all-configs"
+    secretName: "redis-auth-user-all-secrets"
+    configName: "redis-auth-user-all-configs"
   - name: postgres-budget
     image: "postgres:18-alpine"
     port: 5432
@@ -91,17 +92,8 @@ statefulServices:
     storageSize: "1Gi"
     mountPath: "/var/lib/postgresql/18/docker"
     isLocal: true
-    secretName: "budget-planner-all-secrets"
-  - name : redis-shared
-    image: "redis:8-alpine"
-    port: 6379
-    replicas: 1
-    storageSize: "1Gi"
-    mountPath: "/data"
-    isSharedRedis : true
-    isLocal: true
-    secretName: "redis-shared-all-secrets"
-    configName: "redis-shared-all-configs"
+    secretName: "postgres-budget-planner-all-secrets"
+    configName: "postgres-budget-planner-all-configs"
 cronJobServices:
   - name: clean-user
     start: "0 2 * * *"
@@ -118,6 +110,7 @@ jobServices:
     dbPort: 5432
     version: "budgetPlannerVersion"
     secretName: "budget-planner-all-secrets"
+    configName: "budget-planner-all-configs"
   - name: migrations-user
     image: "dmitriysyworov/auth-user-service"
     command: [ "./migrator" ]
@@ -125,73 +118,61 @@ jobServices:
     dbPort: 5432
     version: "authUserVersion"
     secretName: "auth-user-all-secrets"
-  - name: kafka-create-topics
-    image: "soldevelo/kafka:4.3.1"
-    dbHost: "my-kafka-chart"
-    dbPort: 9092
-    isTopicCreator: true
-    bootstrapServer: "my-kafka-chart:9092"
-    secretName: "kafka-all-secrets"
-    topics:
-      - name: "deleted-users-topic"
-        partitions: 3
-      - name: "notification-topic"
-        partitions: 3
-      - name: "expense-notification-topic"
-        partitions: 3
+    configName: "auth-user-all-configs"
 configs:
   auth-user-all-configs:
     EXTERNAL_API_PORT: '8080'
     SERVICE_IP: 'app-auth-user-service'
     REDIS_ADDRESS: 'redis-auth-service:6379'
-    KAFKA_BOOTSTRAP: "my-kafka-chart:9092"
+    KAFKA_BOOTSTRAP: "my-kafka-chart.infrastructure:9092"
     EXPENSE_NOTIFICATION_TOPIC:  "expense-notification-topic"
+    POSTGRES_DB: 'user'
     EXPENSE_NOTIFICATION_GROUP_ID: "expense-notification-group-id"
     DELETED_USERS_TOPIC: "deleted-users-topic"
     NOTIFICATION_TOPIC: "notification-topic"
-    SHARED_REDIS_ADDRESS: 'redis-shared-service:6379'
+    SHARED_REDIS_ADDRESS: 'redis-shared-service.infrastructure:6379'
   gateway-docs-all-configs:
-    AUTH_USER_URL: 'http://app-auth-user-service.default.svc.cluster.local:80'
-    BUDGET_PLANNER_URL: 'http://app-budget-planner-service.default.svc.cluster.local:80'
+    AUTH_USER_URL: 'http://app-auth-user-service:80'
+    BUDGET_PLANNER_URL: 'http://app-budget-planner-service:80'
     REALM_NAME_AUTH: 'Authentication Required - Swagger UI'
     EXTERNAL_API_PORT: '8080'
   notification-all-configs:
     EXTERNAL_API_PORT: '8080'
     SMTP_ADDRESS: 'smtp.gmail.com'
     SMTP_ADDRESS_HOST: 'smtp.gmail.com:587'
-    KAFKA_BOOTSTRAP: "my-kafka-chart:9092"
+    KAFKA_BOOTSTRAP: "my-kafka-chart.infrastructure:9092"
     NOTIFICATION_TOPIC: "notification-topic"
     NOTIFICATION_GROUP_ID: "notification-group-id"
-    SHARED_REDIS_ADDRESS: 'redis-shared-service:6379'
+    SHARED_REDIS_ADDRESS: 'redis-shared-service.infrastructure:6379'
   budget-planner-all-configs:
     EXTERNAL_API_PORT: '8080'
     SERVICE_IP: 'app-budget-planner-service'
-    KAFKA_BOOTSTRAP: "my-kafka-chart:9092"
+    KAFKA_BOOTSTRAP: "my-kafka-chart.infrastructure:9092"
     EXPENSE_NOTIFICATION_TOPIC: "expense-notification-topic"
     DELETED_USERS_TOPIC: "deleted-users-topic"
     BUDGET_DELETE_GROUP_ID: "budget-delete-group-id"
-    SHARED_REDIS_ADDRESS: 'redis-shared-service:6379'
-  kafka-all-configs:
-    KAFKA_BOOTSTRAP: "my-kafka-chart:9092"
-  redis-shared-all-configs:
-    SHARED_REDIS_ADDRESS: 'redis-shared-service:6379'
+    POSTGRES_DB: 'planner'
+    SHARED_REDIS_ADDRESS: 'redis-shared-service.infrastructure:6379'
+  postgres-auth-user-all-configs:
+    POSTGRES_DB: 'user'
+  postgres-budget-planner-all-configs:
+    POSTGRES_DB: 'planner'
+  redis-auth-user-all-configs:
+    REDIS_ADDRESS: 'redis-auth-service:6379'
 secrets:
-  redis-shared-all-secrets:
-    SHARED_REDIS_PASSWORD: 'example_password'
   gateway-docs-all-secrets:
-    AUTH: 'admin-swagger:$apr1$MJCBhSdd$ebba5JUb0LLEH5JCapbpS1' #example_password
+    auth: 'admin-swagger:$apr1$bvNouVnC$WoCp45k7vmWAGp413JaOL.' #example_password
   auth-user-all-secrets:
     DSN: 'host=postgres-user-service user=admin-auth password=example_password dbname=user port=5432 sslmode=disable'
     JWT_SIGNATURE:  '*.01?Ue)p6]H=|C:o-.2z%5R^]@}:r9E_&k#4LC(bOR'
     POSTGRES_USER: 'admin-auth'
     POSTGRES_PASSWORD: 'example_password'
-    POSTGRES_DB: 'user'
-    REDIS_PASSWORD: 'example_password'
+    REDIS_PASSWORD: 'qwjaozjwn123Q@RED'
     KAFKA_CLIENT_USER: "user1"
     KAFKA_CLIENT_PASSWORD: "example_password"
     SHARED_REDIS_PASSWORD:  'example_password'
   notification-all-secrets:
-    API_EMAIL: 'examplemail@gmail.com'
+    API_EMAIL: 'example@gmail.com'
     API_PASSWORD: 'example_password'
     KAFKA_CLIENT_USER: "user1"
     KAFKA_CLIENT_PASSWORD: "example_password"
@@ -201,56 +182,14 @@ secrets:
     JWT_SIGNATURE:  '*.01?Ue)p6]H=|C:o-.2z%5R^]@}:r9E_&k#4LC(bOR'
     POSTGRES_USER: 'admin-budget'
     POSTGRES_PASSWORD: 'example_password'
-    POSTGRES_DB: 'planner'
     KAFKA_CLIENT_USER:  "user1"
     KAFKA_CLIENT_PASSWORD: "example_password"
     SHARED_REDIS_PASSWORD: 'example_password'
-  kafka-all-secrets:
-    KAFKA_CLIENT_USER: "user1"
-    KAFKA_CLIENT_PASSWORD: "example_password"
-# Kafka options
-controller:
-  replicaCount: 1
-
-resources:
-  requests:
-    memory: "768Mi"
-    cpu: "250m"
-  limits:
-    memory: "1536Mi"
-    cpu: "1"
-
-heapOpts: "-Xmx512m -Xms512m"
-
-listeners:
-  client:
-    protocol: SASL_PLAINTEXT
-  controller:
-    protocol: PLAINTEXT
-  interbroker:
-    protocol: PLAINTEXT
-sasl:
-  client:
-    users:
-      - "user1"
-    passwords:
-      - "example_password"
-
-extraEnvVars:
-  - name: KAFKA_HEALTHCHECK_PORT
-    value: "9094"
-
-extraConfig: |
-  offsets.topic.replication.factor=1
-  offsets.topic.num.partitions=1
-  default.replication.factor=1
-  auto.create.topics.enable=true
-  allow.everyone.if.no.acl.found=true
-  sasl.enabled.mechanisms=SCRAM-SHA-256
-  offsets.topic.min.insync.replicas=1
-  transaction.state.log.min.insync.replicas=1
-  transaction.state.log.replication.factor=1
-  transaction.state.log.num.partitions=1
-  group.initial.rebalance.delay.ms=15000
-  group.max.session.timeout.ms=60000
-  group.coordinator.min.rebalance.timeout.ms=10000
+  postgres-auth-user-all-secrets:
+    POSTGRES_USER: 'admin-auth'
+    POSTGRES_PASSWORD: 'example_password'
+  postgres-budget-planner-all-secrets:
+    POSTGRES_USER: 'admin-budget'
+    POSTGRES_PASSWORD: 'example_password'
+  redis-auth-user-all-secrets:
+    REDIS_PASSWORD: 'example_password'

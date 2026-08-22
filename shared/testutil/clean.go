@@ -19,7 +19,7 @@ func CleanRedis(t *testing.T, rdb *redis.Client) {
 func CleanPostgres(t *testing.T, postgres *gorm.DB, tables []string) {
 	var queryTruncate string
 	for _, table := range tables {
-		queryTruncate += "TRUNCATE TABLE" + table + "; "
+		queryTruncate += "TRUNCATE TABLE " + table + "; "
 	}
 	if errCleanPostgres := postgres.Exec(queryTruncate).Error; errCleanPostgres != nil {
 		t.Fatal("failed to clean postgres: ", errCleanPostgres)

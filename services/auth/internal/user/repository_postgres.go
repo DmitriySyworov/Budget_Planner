@@ -186,9 +186,11 @@ func (r *RepositoryUser) RecoveryUser(ctxRequest context.Context, userUUID strin
 }
 func (r *RepositoryUser) DeleteUsersByTimer() ([]string, error) {
 	var sliceDeleteUserUUID []string
-	if errDelete := r.Postgres.Raw(`DELETE FROM users
-						WHERE now()::date - deleted_at >= 30
-						RETURNING user_uuid`).Scan(sliceDeleteUserUUID).
+	if errDelete := r.Postgres.Raw(`
+			DELETE FROM users
+			WHERE deleted_at <= now() - INTERVAL '30 days'
+			RETURNING user_uuid
+			`).Scan(&sliceDeleteUserUUID).
 		Error; errDelete != nil {
 		r.Logger.Error("failed to delete users by timer: " + errDelete.Error())
 		return nil, errDelete
