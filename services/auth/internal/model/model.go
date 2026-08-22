@@ -15,3 +15,8 @@ type Users struct {
 	Password  string         `gorm:"column:password"`
 	UserUUID  string         `gorm:"column:user_uuid"`
 }
+
+type OutboxDeletedUsers struct {
+	EventUUID        string   `gorm:"column:event_uuid;type:UUID;primaryKey"`
+	UUIDDeletedUsers []string `gorm:"column:uuid_deleted_users;type:UUID[]"`
+}

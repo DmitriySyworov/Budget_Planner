@@ -12,8 +12,9 @@ RUN go mod download -C services/budget
 COPY services/budget/ ./services/budget/
 COPY shared/ ./shared/
 WORKDIR /app/services/budget
-RUN go build -o /app/services/budget/budget-app ./cmd/app/main.go
-RUN go build -o /app/services/budget/migrator ./cmd/migration/auto.go
+RUN go build -o /app/services/budget/budget-app ./cmd/app/
+WORKDIR /app/services/budget/cmd/migration/
+RUN go build -o /app/services/budget/migrator .
 FROM alpine:3.23.5
 WORKDIR /app
 COPY --from=builder /app/services/budget/budget-app .

@@ -13,8 +13,9 @@ import (
 )
 
 type KafkaProducer struct {
-	Producer *kafka.Writer
-	Logger   *loggers.Logger
+	InstantProducer *kafka.Writer
+	BatchProducer   *kafka.Writer
+	Logger          *loggers.Logger
 }
 type ConfigProducer struct {
 	Brokers       []string
@@ -43,7 +44,7 @@ func NewProducer(conf *ConfigProducer, logger *loggers.Logger) (*KafkaProducer, 
 		},
 	}
 
-	producer := &kafka.Writer{
+	instantProducer := &kafka.Writer{
 		Addr:         kafka.TCP(conf.Brokers...),
 		Topic:        conf.Topic,
 		Balancer:     &kafka.Hash{},
@@ -51,23 +52,54 @@ func NewProducer(conf *ConfigProducer, logger *loggers.Logger) (*KafkaProducer, 
 		Transport:    customTransport,
 		RequiredAcks: kafka.RequireAll,
 	}
+	batchProducer := &kafka.Writer{
+		Addr:         kafka.TCP(conf.Brokers...),
+		Topic:        conf.Topic,
+		Balancer:     &kafka.Hash{},
+		MaxAttempts:  5,
+		Transport:    customTransport,
+		RequiredAcks: kafka.RequireAll,
+		BatchSize:    1000,
+		BatchTimeout: time.Millisecond * 20,
+		BatchBytes:   5242880,
+		Async:        false,
+	}
 	return &KafkaProducer{
-		Producer: producer,
-		Logger:   logger,
+		InstantProducer: instantProducer,
+		BatchProducer:   batchProducer,
+		Logger:          logger,
 	}, nil
 }
 
-func (p *KafkaProducer) SendEvent(ctxTimeout context.Context, keyUUID string, event []byte) error {
-	if errSendMessage := p.Producer.WriteMessages(ctxTimeout, kafka.Message{
-		Key:   []byte(keyUUID),
+func (p *KafkaProducer) SendInstantEvent(ctxTimeout context.Context, keyUUID string, event []byte) error {
+	msg := kafka.Message{
 		Value: event,
-	}); errSendMessage != nil {
+	}
+	if keyUUID != "" {
+		msg.Key = []byte(keyUUID)
+	}
+	if errSendMessage := p.InstantProducer.WriteMessages(ctxTimeout, msg); errSendMessage != nil {
+		return errSendMessage
+	}
+	return nil
+}
+func (p *KafkaProducer) SendBatchEvent(ctxTimeout context.Context, batchEvent [][]byte) error {
+	sliceMessage := make([]kafka.Message, 0, len(batchEvent))
+	for _, event := range batchEvent {
+		sliceMessage = append(sliceMessage, kafka.Message{
+			Value: event,
+		})
+	}
+	if errSendMessage := p.BatchProducer.WriteMessages(ctxTimeout, sliceMessage...); errSendMessage != nil {
 		return errSendMessage
 	}
 	return nil
 }
 func (p *KafkaProducer) CloseProducer() {
-	if errClose := p.Producer.Close(); errClose != nil {
-		p.Logger.Error("failed to close producer kafka connection: " + errClose.Error())
+	if errClose := p.InstantProducer.Close(); errClose != nil {
+		p.Logger.Error("failed to close instant producer kafka connection: " + errClose.Error())
+	}
+	if errClose := p.BatchProducer.Close(); errClose != nil {
+		p.Logger.Error("failed to close batch producer kafka connection: " + errClose.Error())
 	}
 }

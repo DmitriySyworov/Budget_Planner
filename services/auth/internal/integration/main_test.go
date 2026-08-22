@@ -15,14 +15,14 @@ var (
 		*testutil.TestContainerRedis
 		*testutil.TestContainerPostgres
 	}{}
-	logger         *loggers.Logger
-	errInitial     error
+	logger     *loggers.Logger
+	errInitial error
 )
 
 func TestMain(t *testing.M) {
-	ctxTimeout, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
-	testContainerPostgres, errInitPostgres := testutil.NewTestContainerPostgres(ctxTimeout, "../../cmd/migration")
+	testContainerPostgres, errInitPostgres := testutil.NewTestContainerPostgres(ctxTimeout, "../../cmd/migration/sql")
 	if errInitPostgres != nil {
 		errInitial = errInitPostgres
 	}

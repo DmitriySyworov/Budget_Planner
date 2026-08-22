@@ -11,6 +11,7 @@ import (
 	"shared/shkafka"
 	"shared/shprotos/event"
 	"shared/storage"
+	"time"
 
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/proto"
@@ -70,10 +71,10 @@ func DeleteExpiredUsers(producer *shkafka.KafkaProducer, redisAuth *storage.Redi
 	}
 	ctxTimeoutRedis, cancelRdb := context.WithTimeout(context.Background(), shconstant.CtxTimeoutRedis)
 	defer cancelRdb()
+	eventUUID := uuid.New().String()
 	if errDelUserRefreshes := redisAuth.Del(ctxTimeoutRedis, sliceDeleteUserUUID...).Err(); errDelUserRefreshes != nil {
 		logger.Error("failed to delete user refreshes: " + errDelUserRefreshes.Error())
 	}
-	eventUUID := uuid.New().String()
 	dataEvent, errMarshalEvent := proto.Marshal(&event.DeleteUserDataEvent{
 		UserUuidList: sliceDeleteUserUUID,
 		EventUuid:    eventUUID,
@@ -82,11 +83,20 @@ func DeleteExpiredUsers(producer *shkafka.KafkaProducer, redisAuth *storage.Redi
 		logger.Error("failed to marshal proto event: " + errMarshalEvent.Error())
 		return errMarshalEvent
 	}
-	ctxTimeoutProduce, cancelProduce := context.WithTimeout(context.Background(), shconstant.CtxTimeoutSendEventKafka)
-	defer cancelProduce()
-	if errSendEvent := producer.SendEvent(ctxTimeoutProduce, eventUUID, dataEvent); errSendEvent != nil {
-		logger.Error("failed to send event deleted user: " + errSendEvent.Error())
-		return errSendEvent
+	waitKafka := time.Second * 20
+	for {
+		ctxTimeoutProduce, cancelProduce := context.WithTimeout(context.Background(), shconstant.CtxTimeoutSendEventKafka)
+		if errSendEvent := producer.SendInstantEvent(ctxTimeoutProduce, eventUUID, dataEvent); errSendEvent != nil {
+			time.Sleep(waitKafka)
+			if waitKafka < time.Minute*30 {
+				waitKafka += time.Second * 20
+			}
+			logger.Error("failed to send event deleted user: " + errSendEvent.Error())
+			cancelProduce()
+			continue
+		}
+		cancelProduce()
+		break
 	}
 	return nil
 }

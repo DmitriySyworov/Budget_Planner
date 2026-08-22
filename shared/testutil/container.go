@@ -3,6 +3,7 @@ package testutil
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/pressly/goose/v3"
 	"github.com/redis/go-redis/v9"
@@ -32,7 +33,9 @@ func NewTestContainerPostgres(ctx context.Context, pathMigrationFile string) (*T
 				"POSTGRES_PASSWORD": "password_test",
 				"POSTGRES_DB":       "container_test",
 			},
-			WaitingFor: wait.ForListeningPort("5432/tcp"),
+			WaitingFor: wait.ForLog("database system is ready to accept connections").
+				WithOccurrence(2).
+				WithStartupTimeout(30 * time.Second),
 		},
 		Started: true,
 	}
@@ -70,7 +73,7 @@ func NewTestContainerRedis(ctx context.Context) (*TestContainerRedis, error) {
 		ContainerRequest: testcontainers.ContainerRequest{
 			Image:        "redis:8-alpine",
 			ExposedPorts: []string{"6379/tcp"},
-			WaitingFor:   wait.ForLog(".*Ready to accept connections.*"),
+			WaitingFor:   wait.ForListeningPort("6379/tcp"),
 		},
 		Started: true,
 	}

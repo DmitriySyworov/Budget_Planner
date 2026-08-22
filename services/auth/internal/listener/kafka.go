@@ -66,7 +66,7 @@ func (n *KafkaListener) HandleEventExpenseNotification(dataEvent []byte) error {
 	if errMarshal != nil {
 		return errMarshal
 	}
-	if errSendEvent := n.ProducerNotification.SendEvent(context.Background(), userUUID, resDataEvent); errSendEvent != nil {
+	if errSendEvent := n.ProducerNotification.SendInstantEvent(context.Background(), userUUID, resDataEvent); errSendEvent != nil {
 		return errSendEvent
 	}
 	return nil

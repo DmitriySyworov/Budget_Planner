@@ -51,9 +51,9 @@ func TestGetUserSession_BorderlineCase(t *testing.T) {
 	dataSession := make(map[string]string)
 	var errGetSession error
 	lastTry := 5
-	for i := 0; i <= lastTry; i++ {
+	for i := 1; i <= lastTry+1; i++ {
+		dataSession, errGetSession = authRepo.GetUserSession(context.Background(), sessionUUID, auth.ActionRegister)
 		if i < lastTry {
-			dataSession, errGetSession = authRepo.GetUserSession(context.Background(), sessionUUID, auth.ActionRegister)
 			if errGetSession != nil {
 				t.Fatalf("failed to get session: %v iteration: %d", errGetSession, i)
 			}
@@ -61,9 +61,9 @@ func TestGetUserSession_BorderlineCase(t *testing.T) {
 				t.Fatalf("expected email %s got %s iteration: %d", email, dataSession["email"], i)
 			}
 		}
-		if i == lastTry {
+		if i > lastTry {
 			if !errors.Is(errGetSession, apperrors.ErrSessionExpired) {
-				t.Fatal("expected error: ", apperrors.ErrSessionExpired)
+				t.Fatalf("expected error: %v got %v", apperrors.ErrSessionExpired, errGetSession)
 			}
 		}
 	}
@@ -138,7 +138,11 @@ func TestLogoutRefresh_Success(t *testing.T) {
 	}); errCreateRefresh != nil {
 		t.Fatal("failed to create second refresh: ", errCreateRefresh)
 	}
-	if errLogout := authRepo.LogoutRefresh(context.Background(), userUUID, firstRefreshUUID); errLogout != nil {
+	_, firstRefreshKey, errGetKey := authRepo.GetRefreshData(context.Background(), userUUID, firstRefreshUUID)
+	if errGetKey != nil {
+		t.Fatal("failed to get key: ", errGetKey)
+	}
+	if errLogout := authRepo.LogoutRefresh(context.Background(), userUUID, firstRefreshKey); errLogout != nil {
 		t.Fatal("failed to logout: ", errLogout)
 	}
 	if firstDataRefresh, _, errGetFirst := authRepo.GetRefreshData(context.Background(), userUUID, firstRefreshUUID); errGetFirst == nil {
@@ -192,7 +196,11 @@ func TestRotationRefresh_Success(t *testing.T) {
 		t.Fatal("failed to create second refresh: ", errCreateRefresh)
 	}
 	newKeyRefresh := newRefreshUUID + auth.NullByte + secondUserAgent + auth.NullByte + ip + auth.NullByte + email
-	if errRotation := authRepo.RotationRefresh(context.Background(), userUUID, newKeyRefresh, oldRefreshUUID); errRotation != nil {
+	_, oldRefreshKey, errGetKey := authRepo.GetRefreshData(context.Background(), userUUID, oldRefreshUUID)
+	if errGetKey != nil {
+		t.Fatal("failed to get key: ", errGetKey)
+	}
+	if errRotation := authRepo.RotationRefresh(context.Background(), userUUID, newKeyRefresh, oldRefreshKey); errRotation != nil {
 		t.Fatal("failed to rotation refresh: ", errRotation)
 	}
 	if oldDataRefresh, _, errGetFirst := authRepo.GetRefreshData(context.Background(), userUUID, oldRefreshUUID); errGetFirst == nil {
